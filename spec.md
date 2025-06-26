@@ -1,192 +1,498 @@
-### **Literate Programming Tool: Developer-Ready Specification**  
+# ZAMM MVP: Spec-to-Commit Linking
+## Developer-Ready Implementation Specification
+
+### 1. Executive Summary
+
+This MVP implements the core functionality of linking specification nodes to Git commits in the ZAMM system. The focus is on creating, storing, and querying relationships between human-authored requirements (specs) and their corresponding code implementations (commits).
+
+**Primary Goal**: Enable developers to track which commits implement specific requirements and vice versa.
+
+**Scope Limitations**: This MVP excludes the full hierarchical system, LLM integration, and advanced validation features described in the full ZAMM specification.
 
 ---
 
-#### **1. System Overview**  
-A desktop application that treats natural language specifications as the source of truth. It enables:  
-- Hierarchical organization of specs with versioning.  
-- Multi-implementation support via scopes (reference implementations).  
-- LLM-driven code generation with automated testing.  
-- Traceability between specs, implementations, and code samples.  
+### 2. Core Requirements
 
-**Target Users**: Developers, Technical Writers.  
+#### 2.1 Functional Requirements
 
----
+**FR-001**: Create and store specification nodes with unique identifiers
+**FR-002**: Link specification nodes to Git commit hashes  
+**FR-003**: Query specifications by commit hash
+**FR-004**: Query commits by specification ID
+**FR-005**: Support multiple commits per specification
+**FR-006**: Support multiple specifications per commit
+**FR-007**: Persist all data to disk for durability
+**FR-008**: Provide CLI interface for all operations
 
-#### **2. Core Requirements**  
-##### **2.1. Structural Hierarchy**  
-| **Component**       | **Requirements**                                                                 |  
-|----------------------|----------------------------------------------------------------------------------|  
-| **Spec Nodes**       | - Arbitrary nesting (root → children) with stable UUIDs<br>- `is_test` flag for test-related specs<br>- `scope_id` (universal or implementation-specific) |  
-| **Spec Versions**    | - Immutable, manually committed<br>- Pinned `context_links` to specific versions<br>- Markdown content + metadata |  
-| **Scopes**           | - Tree structure (e.g., `Python` → `Python/Django`)<br>- Attributes: `name`, `parent_id`, `llm_directives`, `environment`, `dependencies`<br>- Child attributes override parents |  
-| **Code Samples**     | - 1:1 link to a Spec Version + Scope<br>- Metadata: `review_status`, `test_status`, `examples_used` (lineage)<br>- Code snippet storage |  
+#### 2.2 Non-Functional Requirements
 
-##### **2.2. Workflows**  
-| **Workflow**         | **Steps**                                                                        |  
-|----------------------|----------------------------------------------------------------------------------|  
-| **Spec Authoring**   | 1. Create/edit nodes in desktop editor<br>2. Commit versions manually<br>3. Define `context_links` (pinned versions) |  
-| **Scope Setup**      | 1. Create scope with parent<br>2. Inherit/override attributes (e.g., `llm_directives`)<br>3. Define `environment`/`dependencies` |  
-| **Reimplementation** | 1. User selects target scope<br>2. System gathers: Universal specs + ancestor scopes<br>3. User reviews input<br>4. LLM generates code<br>5. CLI-based testing (3 retries)<br>6. Create `Code Sample` with status |  
-
-##### **2.3. LLM Integration**  
-- **Partial Prompt Structure**:  
-  ```markdown
-  ## PROJECT ARCHITECTURE:
-  {{Ancestor Scope + Ancestor Directives}}
-  ## REQUIREMENT:
-  {{Spec Content}}
-  ## ADDITIONAL CONTEXT:
-  {{Pinned Context Links}}
-  ## REFERENCE EXAMPLES:  
-  ```<Code Language>  
-  {{Code Snippet}}
-  {{Diff between the context during reference and now}}
-  ```
-
-- **Output Handling**:  
-  - Auto-create `Code Sample` with `review_status="generated"`  
+**NFR-001**: Response time < 100ms for single record queries
+**NFR-002**: Support up to 10,000 specifications and 50,000 commits
+**NFR-003**: Data must survive application restarts
+**NFR-004**: CLI commands must provide clear success/error feedback
 
 ---
 
-#### **3. Architecture**  
-##### **3.1. Data Model**  
-```mermaid  
-erDiagram  
-  SpecNode ||--o{ SpecVersion : has  
-  SpecNode {  
-    uuid id  
-    uuid parent_id  
-    uuid scope_id  
-    bool is_test  
-  }  
-  SpecVersion {  
-    uuid version_id  
-    uuid spec_node_id  
-    text content  
-    uuid[] context_links  
-    timestamp created_at  
-  }  
-  Scope ||--o{ CodeSample : defines  
-  Scope {  
-    uuid id  
-    uuid parent_id  
-    text llm_directives  
-    text environment  
-    text dependencies  
-  }  
-  CodeSample {  
-    uuid id  
-    uuid spec_version_id  
-    uuid scope_id  
-    text code_snippet  
-    uuid[] examples_used  
-    enum review_status  
-    enum test_status  
-  }  
-```  
+### 3. Data Models
 
-##### **3.2. System Components**  
-| **Component**       | **Responsibilities**                                                                 |  
-|----------------------|--------------------------------------------------------------------------------------|  
-| **Editor Core**      | Node/version CRUD, tree visualization, scope management                              |  
-| **LLM Gateway**      | Prompt assembly, streaming API calls (optional), secrets redaction (string search-based)                |  
-| **Local Test Runner**      | CLI execution for dependency install (`pip/npm`), compilation, test execution        |  
-| **Lineage Tracker**  | Manages `examples_used` and version diffing                                          |  
+#### 3.1 Specification Node
+```go
+type SpecNode struct {
+    ID          string    `json:"id" db:"id"`
+    StableID    string    `json:"stable_id" db:"stable_id"`
+    Version     int       `json:"version" db:"version"`
+    Title       string    `json:"title" db:"title"`
+    Content     string    `json:"content" db:"content"`
+    NodeType    string    `json:"node_type" db:"node_type"` // Always "spec" for MVP
+    CreatedAt   time.Time `json:"created_at" db:"created_at"`
+    UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+}
+```
 
----
+**Field Specifications**:
+- `ID`: UUID v4, unique per version (Primary Key)
+- `StableID`: UUID v4, constant across all versions of the same logical spec
+- `Version`: Integer starting at 1, auto-incremented per StableID
+- `Title`: Human-readable title (max 200 characters)
+- `Content`: Markdown content (max 50KB)
+- `NodeType`: Fixed value "spec" for MVP
 
-#### **4. Error Handling & Edge Cases**  
-| **Scenario**                          | **Handling Strategy**                                                                 |  
-|---------------------------------------|---------------------------------------------------------------------------------------|  
-| **LLM Generation Failure**            | - Retry ×2<br>- Return error: "LLM_TIMEOUT" or "LLM_INVALID_OUTPUT"                   |  
-| **Test Failure**                      | - Retry ×3 with error logs<br>- Final status: `test_status="failed"`                  |  
-| **Outdated Code Sample Reference**    | - Warn in UI: "Reference sample older than current spec"<br>- Include diff in header  |  
-| **Circular Spec Links**               | - Detect during version commit<br>- Reject: "CIRCULAR_DEPENDENCY"                     |  
-| **Missing Scope Attributes**          | - Fallback to nearest parent’s attributes                                             |  
+#### 3.2 Spec-Commit Link  
+```go
+type SpecCommitLink struct {
+    ID       string    `json:"id" db:"id"`
+    SpecID   string    `json:"spec_id" db:"spec_id"`
+    CommitID string    `json:"commit_id" db:"commit_id"`
+    RepoPath string    `json:"repo_path" db:"repo_path"`
+    LinkType string    `json:"link_type" db:"link_type"`
+    CreatedAt time.Time `json:"created_at" db:"created_at"`
+}
+```
+
+**Field Specifications**:
+- `ID`: UUID v4 (Primary Key)
+- `SpecID`: Foreign key to SpecNode.ID
+- `CommitID`: Git commit hash (40-character hex string)
+- `RepoPath`: Absolute path to Git repository
+- `LinkType`: Either "implements" or "references" for MVP
+- Foreign key constraints ensure referential integrity
 
 ---
 
-#### **5. Testing Plan**  
-##### **5.1. Unit Tests**  
-| **Module**           | **Test Cases**                                                                        |  
-|----------------------|---------------------------------------------------------------------------------------|  
-| **Spec Versioning**  | - Pinned `context_links` resolve correctly<br>- Immutability after commit             |  
-| **Scope Inheritance**| - Child overrides parent directives<br>- Empty attributes inherit from parent          |  
-| **Prompt Builder**   | - Secrets redaction (e.g., API keys)<br>- Correct ancestor scope inclusion            |  
+### 4. Architecture Design
 
-##### **5.2. Integration Tests**  
-| **Workflow**         | **Validation**                                                                        |  
-|----------------------|---------------------------------------------------------------------------------------|  
-| **Reimplementation** | - End-to-end: Spec → LLM → Test<br>- CLI commands execute in correct order            |  
-| **Code Sample Lineage** | - `examples_used` traceable to source<br>- Header includes accurate diff summary  |  
+#### 4.1 Project Structure
+```
+zamm-mvp/
+├── cmd/
+│   └── zamm/
+│       └── main.go           # CLI entry point
+├── internal/
+│   ├── config/
+│   │   └── config.go         # Configuration management
+│   ├── storage/
+│   │   ├── sqlite.go         # SQLite implementation
+│   │   └── interfaces.go     # Storage interfaces
+│   ├── models/
+│   │   └── models.go         # Data structures
+│   ├── services/
+│   │   ├── spec.go           # Spec management
+│   │   └── link.go           # Link management
+│   └── cli/
+│       └── commands.go       # CLI command handlers
+├── migrations/
+│   └── 001_initial.sql       # Database schema
+├── testdata/
+│   └── fixtures/             # Test data
+├── go.mod
+├── go.sum
+├── Makefile
+└── README.md
+```
 
-##### **5.3. End-to-End Tests**  
-1. **Setup**:  
-   - Create scope tree: `Python` → `Python/FastAPI`  
-   - Define universal spec: "User authentication"  
-2. **Generate**:  
-   - Trigger reimplementation for `Python/FastAPI`  
-   - Verify:  
-     - Generated code includes ancestor directives  
-     - Tests run via CLI (`pytest`)  
-     - `Code Sample` created with `test_status="passed"`  
-3. **Failure Case**:  
-   - Introduce breaking spec change  
-   - Verify outdated code samples flagged in diff  
+#### 4.2 Technology Stack
+- **Language**: Go 1.21+
+- **Database**: SQLite 3 (embedded, file-based)
+- **CLI Framework**: cobra/cli
+- **Database Driver**: mattn/go-sqlite3
+- **UUID Generation**: google/uuid
+- **Git Integration**: go-git/go-git
 
----
-
-#### **6. API Specifications**  
-##### **6.1. REST Endpoints**  
-**`POST /generate`**  
-```json  
-Request:  
-{  
-  "target_scope_id": "uuid",  
-  "spec_version_ids": ["uuid1", "uuid2"]  
-}  
-
-Response (Streaming):  
-{  
-  "status": "generating|testing|done",  
-  "output": "code_snippet || error_logs",  
-  "test_status": "passed|failed"  
-}  
-```  
-
-##### **6.2. Data Contracts**  
-**Code Sample Object**:  
-```typescript  
-interface CodeSample {  
-  id: string;  
-  spec_version_id: string;  
-  scope_id: string;  
-  code_snippet: string;  // todo: make structured data type
-  commit_hash: string;
-  examples_used: string[];  // ids to other Code Samples
-  review_status: "generated" | "human_reviewed";  
-  checks: "unchecked" | "passed" | "failed";  
-}  
-```  
+#### 4.3 Data Storage Strategy
+- Single SQLite database file: `~/.zamm/zamm.db`
+- Configuration file: `~/.zamm/config.yaml`
+- Atomic transactions for all multi-table operations
+- Write-ahead logging (WAL) mode for better concurrency
 
 ---
 
-#### **7. Security & Compliance**  
-- **Secrets Handling**: String search redaction (e.g., for API keys and passwords).  
-- **LLM Security**: Optional user confirmation before sending data to external APIs.  
+### 5. Database Schema
+
+```sql
+-- migrations/001_initial.sql
+CREATE TABLE spec_nodes (
+    id TEXT PRIMARY KEY,
+    stable_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    node_type TEXT NOT NULL DEFAULT 'spec',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(stable_id, version)
+);
+
+CREATE INDEX idx_spec_nodes_stable_id ON spec_nodes(stable_id);
+CREATE INDEX idx_spec_nodes_created_at ON spec_nodes(created_at);
+
+CREATE TABLE spec_commit_links (
+    id TEXT PRIMARY KEY,
+    spec_id TEXT NOT NULL,
+    commit_id TEXT NOT NULL,
+    repo_path TEXT NOT NULL,
+    link_type TEXT NOT NULL DEFAULT 'implements',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (spec_id) REFERENCES spec_nodes(id) ON DELETE CASCADE,
+    UNIQUE(spec_id, commit_id, repo_path)
+);
+
+CREATE INDEX idx_links_spec_id ON spec_commit_links(spec_id);
+CREATE INDEX idx_links_commit_id ON spec_commit_links(commit_id);
+CREATE INDEX idx_links_repo_path ON spec_commit_links(repo_path);
+```
 
 ---
 
-#### **8. Deliverables**  
-**Desktop Editor**:  
-   - Golang frontend
-   - Tree-based navigation, scope/version management  
+### 6. API Design
+
+#### 6.1 Storage Interface
+```go
+type Storage interface {
+    // Spec operations
+    CreateSpec(spec *SpecNode) error
+    GetSpec(id string) (*SpecNode, error)
+    GetSpecByStableID(stableID string, version int) (*SpecNode, error)
+    GetLatestSpecByStableID(stableID string) (*SpecNode, error)
+    ListSpecs() ([]*SpecNode, error)
+    UpdateSpec(spec *SpecNode) error
+    DeleteSpec(id string) error
+    
+    // Link operations  
+    CreateLink(link *SpecCommitLink) error
+    GetLink(id string) (*SpecCommitLink, error)
+    GetLinksBySpec(specID string) ([]*SpecCommitLink, error)
+    GetLinksByCommit(commitID, repoPath string) ([]*SpecCommitLink, error)
+    DeleteLink(id string) error
+    
+    // Utility
+    Close() error
+}
+```
+
+#### 6.2 Service Layer Interfaces
+```go
+type SpecService interface {
+    CreateSpec(title, content string) (*SpecNode, error)
+    GetSpec(id string) (*SpecNode, error)
+    UpdateSpec(id, title, content string) (*SpecNode, error)
+    ListSpecs() ([]*SpecNode, error)
+    DeleteSpec(id string) error
+}
+
+type LinkService interface {
+    LinkSpecToCommit(specID, commitID, repoPath, linkType string) (*SpecCommitLink, error)
+    GetSpecsForCommit(commitID, repoPath string) ([]*SpecNode, error)
+    GetCommitsForSpec(specID string) ([]*SpecCommitLink, error)
+    UnlinkSpecFromCommit(specID, commitID, repoPath string) error
+}
+```
 
 ---
 
-**Next Steps for Developer**:  
-1. Implement data models (SQLite/local JSON).
-2. Build editor UI.
-3. Integrate LLM API gateway (e.g., OpenAI).
-4. Develop CLI compile/test runner with retry logic.  
+### 7. CLI Interface
+
+#### 7.1 Command Structure
+```bash
+# Spec management
+zamm spec create --title "User Authentication" --content "Users must be able to log in"
+zamm spec list
+zamm spec show <spec-id>
+zamm spec update <spec-id> --title "New Title" --content "New content"
+zamm spec delete <spec-id>
+
+# Link management  
+zamm link create --spec <spec-id> --commit <commit-hash> [--repo <repo-path>] [--type implements|references]
+zamm link list-by-spec <spec-id>
+zamm link list-by-commit <commit-hash> [--repo <repo-path>]
+zamm link delete --spec <spec-id> --commit <commit-hash> [--repo <repo-path>]
+
+# Utility commands
+zamm init                    # Initialize zamm in current directory
+zamm status                 # Show system status and statistics
+zamm version               # Show version information
+```
+
+#### 7.2 Output Formats
+- Default: Human-readable table format
+- JSON flag: `--json` for machine-readable output
+- Quiet flag: `--quiet` for minimal output
+
+---
+
+### 8. Error Handling Strategy
+
+#### 8.1 Error Categories
+```go
+type ErrorType string
+
+const (
+    ErrTypeValidation    ErrorType = "validation"
+    ErrTypeNotFound     ErrorType = "not_found" 
+    ErrTypeConflict     ErrorType = "conflict"
+    ErrTypeStorage      ErrorType = "storage"
+    ErrTypeGit          ErrorType = "git"
+    ErrTypeSystem       ErrorType = "system"
+)
+
+type ZammError struct {
+    Type    ErrorType `json:"type"`
+    Message string    `json:"message"`
+    Details string    `json:"details,omitempty"`
+    Cause   error     `json:"-"`
+}
+```
+
+#### 8.2 Error Handling Rules
+1. **Validation Errors**: Input validation failures (400-level)
+2. **Not Found Errors**: Resource doesn't exist (404-level)  
+3. **Conflict Errors**: Duplicate keys, constraint violations (409-level)
+4. **Storage Errors**: Database/filesystem issues (500-level)
+5. **Git Errors**: Git repository or commit issues (422-level)
+6. **System Errors**: Unexpected system failures (500-level)
+
+#### 8.3 CLI Error Display
+- Exit codes: 0 (success), 1 (user error), 2 (system error)
+- Error messages include suggested actions when possible
+- Stack traces only in debug mode (`--debug` flag)
+
+---
+
+### 9. Configuration Management
+
+#### 9.1 Configuration File (~/.zamm/config.yaml)
+```yaml
+database:
+  path: ~/.zamm/zamm.db
+  timeout: 30s
+  
+git:
+  default_repo: .
+  
+logging:
+  level: info
+  file: ~/.zamm/logs/zamm.log
+  
+cli:
+  output_format: table
+  color: auto
+```
+
+#### 9.2 Environment Variables
+- `ZAMM_CONFIG_PATH`: Override config file location
+- `ZAMM_DB_PATH`: Override database path
+- `ZAMM_LOG_LEVEL`: Override log level
+- `ZAMM_NO_COLOR`: Disable colored output
+
+---
+
+### 10. Testing Strategy
+
+#### 10.1 Test Coverage Requirements
+- **Unit Tests**: 90% coverage for business logic
+- **Integration Tests**: All CLI commands with real database  
+- **Performance Tests**: Query performance under load
+- **Error Tests**: All error conditions and edge cases
+
+#### 10.2 Test Structure
+```
+internal/
+├── storage/
+│   ├── sqlite_test.go
+│   └── testdata/
+├── services/
+│   ├── spec_test.go
+│   ├── link_test.go
+│   └── testdata/
+└── cli/
+    ├── commands_test.go
+    └── testdata/
+```
+
+#### 10.3 Test Categories
+
+**Unit Tests**:
+- Model validation
+- Service layer logic
+- Storage interface compliance
+- Error handling paths
+
+**Integration Tests**:
+- CLI command execution
+- Database transactions
+- File system operations
+- Git repository integration
+
+**Performance Tests**:
+- Query response times
+- Bulk operation performance
+- Memory usage patterns
+- Concurrent access scenarios
+
+#### 10.4 Test Data Management
+- Use separate test database: `:memory:` for unit tests
+- Temporary directories for integration tests
+- Fixtures in `testdata/` directories
+- Cleanup after each test
+
+---
+
+### 11. Build and Deployment
+
+#### 11.1 Makefile
+```makefile
+.PHONY: build test clean install dev-setup
+
+build:
+	go build -o bin/zamm ./cmd/zamm
+
+test:
+	go test -v -race -coverprofile=coverage.out ./...
+
+test-coverage:
+	go tool cover -html=coverage.out -o coverage.html
+
+clean:
+	rm -rf bin/ coverage.out coverage.html
+
+install:
+	go install ./cmd/zamm
+
+dev-setup:
+	go mod download
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+lint:
+	golangci-lint run
+
+fmt:
+	go fmt ./...
+
+migrations-up:
+	sqlite3 ~/.zamm/zamm.db < migrations/001_initial.sql
+```
+
+#### 11.2 Dependencies
+```go
+// go.mod
+module github.com/yourorg/zamm-mvp
+
+go 1.21
+
+require (
+    github.com/google/uuid v1.3.0
+    github.com/mattn/go-sqlite3 v1.14.17
+    github.com/spf13/cobra v1.7.0
+    github.com/spf13/viper v1.16.0
+    gopkg.in/yaml.v3 v3.0.1
+)
+```
+
+---
+
+### 12. Implementation Phases
+
+#### 12.1 Phase 1: Core Data Layer (Week 1)
+- [ ] Set up project structure
+- [ ] Implement data models
+- [ ] Create SQLite storage implementation
+- [ ] Write storage layer tests
+- [ ] Database migrations
+
+#### 12.2 Phase 2: Service Layer (Week 2)  
+- [ ] Implement SpecService
+- [ ] Implement LinkService
+- [ ] Add business logic validation
+- [ ] Write service layer tests
+- [ ] Error handling implementation
+
+#### 12.3 Phase 3: CLI Interface (Week 3)
+- [ ] CLI framework setup
+- [ ] Implement all commands
+- [ ] Configuration management
+- [ ] CLI integration tests
+- [ ] Documentation
+
+#### 12.4 Phase 4: Polish & Performance (Week 4)
+- [ ] Performance optimization
+- [ ] Error message improvement
+- [ ] Code review and refactoring
+- [ ] Final testing and validation
+- [ ] Release preparation
+
+---
+
+### 13. Success Criteria
+
+#### 13.1 Functional Success
+- [ ] All CLI commands work as specified
+- [ ] Data persists across application restarts
+- [ ] Spec-commit relationships are correctly maintained
+- [ ] Git commit validation works properly
+
+#### 13.2 Quality Success  
+- [ ] 90%+ test coverage achieved
+- [ ] All tests pass consistently
+- [ ] Performance requirements met
+- [ ] Code passes linting standards
+
+#### 13.3 Usability Success
+- [ ] Clear error messages with actionable guidance
+- [ ] Intuitive command structure
+- [ ] Comprehensive help documentation
+- [ ] Easy installation and setup
+
+---
+
+### 14. Future Extension Points
+
+This MVP is designed to easily extend into the full ZAMM system:
+
+1. **Hierarchical Specs**: The `StableID` and versioning system supports spec evolution
+2. **Implementation Scopes**: The link system can be extended to support scope nodes
+3. **LLM Integration**: Services can be extended with LLM workflow methods
+4. **Advanced Querying**: Storage interface can support complex relationship queries
+5. **Web Interface**: Services are designed to support both CLI and web frontends
+
+---
+
+### 15. Getting Started
+
+#### 15.1 Initial Setup
+```bash
+# Clone and build
+git clone <repo-url>
+cd zamm-mvp
+make dev-setup
+make build
+
+# Initialize zamm
+./bin/zamm init
+
+# Create your first spec
+./bin/zamm spec create --title "MVP Feature" --content "Link specs to commits"
+
+# Link it to a commit
+./bin/zamm link create --spec <spec-id> --commit $(git rev-parse HEAD)
+```
+
+This specification provides everything needed to begin immediate implementation of the ZAMM MVP feature for tying specs to commits.
