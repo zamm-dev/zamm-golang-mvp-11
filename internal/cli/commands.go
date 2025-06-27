@@ -382,18 +382,17 @@ func (a *App) createVersionCommand() *cobra.Command {
 func (a *App) runMigrations() error {
 	// Read migration file
 	migrationPath := "migrations/001_initial.sql"
-	_, err := os.ReadFile(migrationPath)
+	migrationSQL, err := os.ReadFile(migrationPath)
 	if err != nil {
 		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to read migration file", err)
 	}
 
-	// Execute migration (this is a simple approach; in production you'd want proper migration management)
-	// We need to access the underlying database connection - this would require exposing it in the storage interface
-	// For now, we'll assume the tables are created when needed
+	// Execute migration using the storage interface
+	if err := a.storage.RunMigration(string(migrationSQL)); err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to execute migration", err)
+	}
 
-	fmt.Printf("Migration file found: %s\n", migrationPath)
-	fmt.Printf("Note: Run 'sqlite3 %s < %s' to apply migrations manually\n", a.config.Database.Path, migrationPath)
-
+	fmt.Printf("Migration executed successfully: %s\n", migrationPath)
 	return nil
 }
 

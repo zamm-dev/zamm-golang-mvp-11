@@ -345,6 +345,16 @@ func (s *SQLiteStorage) DeleteLink(id string) error {
 	return nil
 }
 
+// RunMigration executes a migration SQL script
+func (s *SQLiteStorage) RunMigration(migrationSQL string) error {
+	// Execute the migration SQL
+	_, err := s.db.Exec(migrationSQL)
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to execute migration", err)
+	}
+	return nil
+}
+
 // Close closes the database connection
 func (s *SQLiteStorage) Close() error {
 	if s.db != nil {

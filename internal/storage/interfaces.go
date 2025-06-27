@@ -21,5 +21,6 @@ type Storage interface {
 	DeleteLink(id string) error
 
 	// Utility
+	RunMigration(migrationSQL string) error
 	Close() error
 }
