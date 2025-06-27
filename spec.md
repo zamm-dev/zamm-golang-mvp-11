@@ -415,7 +415,7 @@ require (
 - [x] Set up project structure
 - [x] Implement data models
 - [x] Create SQLite storage implementation
-- [ ] Write storage layer tests
+- [x] Write storage layer tests
 - [x] Database migrations
 
 #### 12.2 Phase 2: Service Layer (Week 2)  
