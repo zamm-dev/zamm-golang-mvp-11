@@ -419,8 +419,8 @@ func (a *App) outputSpecTable(specs []*models.SpecNode) error {
 			title = title[:47] + "..."
 		}
 		fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n",
-			spec.ID[:8]+"...",
-			spec.StableID[:8]+"...",
+			spec.ID,
+			spec.StableID,
 			spec.Version,
 			title,
 			spec.CreatedAt.Format("2006-01-02 15:04"),
