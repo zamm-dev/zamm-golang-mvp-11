@@ -18,6 +18,14 @@ const (
 	MainMenu MenuState = iota
 	SpecSelection
 	LinkSelection
+	CreateSpecTitle
+	CreateSpecContent
+	EditSpecTitle
+	EditSpecContent
+	LinkSpecCommit
+	LinkSpecRepo
+	LinkSpecType
+	ConfirmDelete
 )
 
 // MenuAction represents an action that can be performed
@@ -46,6 +54,20 @@ type Model struct {
 	selectedSpecID string
 	message        string
 	showMessage    bool
+
+	// Input fields for forms
+	inputTitle   string
+	inputContent string
+	inputCommit  string
+	inputRepo    string
+	inputType    string
+	inputBuffer  string
+	promptText   string
+
+	// State tracking
+	editingSpecID string
+	contentLines  []string
+	confirmAction string
 }
 
 type specItem struct {
@@ -139,6 +161,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateSpecSelection(msg)
 		case LinkSelection:
 			return m.updateLinkSelection(msg)
+		case CreateSpecTitle, CreateSpecContent:
+			return m.updateCreateSpec(msg)
+		case EditSpecTitle, EditSpecContent:
+			return m.updateEditSpec(msg)
+		case LinkSpecCommit, LinkSpecRepo, LinkSpecType:
+			return m.updateLinkSpec(msg)
+		case ConfirmDelete:
+			return m.updateConfirmDelete(msg)
 		}
 
 	case specsLoadedMsg:
@@ -268,6 +298,188 @@ func (m *Model) updateLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// updateCreateSpec handles updates for creating new specifications
+func (m *Model) updateCreateSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "esc":
+		m.state = MainMenu
+		m.cursor = 0
+		m.resetInputs()
+		return m, nil
+	case "enter":
+		if m.state == CreateSpecTitle {
+			if strings.TrimSpace(m.inputBuffer) == "" {
+				return m, nil // Don't proceed with empty title
+			}
+			m.inputTitle = strings.TrimSpace(m.inputBuffer)
+			m.inputBuffer = ""
+			m.state = CreateSpecContent
+			m.promptText = "Enter content (press Ctrl+S to finish):"
+			return m, nil
+		} else if m.state == CreateSpecContent {
+			// Add line to content
+			m.contentLines = append(m.contentLines, m.inputBuffer)
+			m.inputBuffer = ""
+			return m, nil
+		}
+	case "ctrl+s":
+		if m.state == CreateSpecContent {
+			content := strings.Join(m.contentLines, "\n")
+			return m, m.createSpecCmd(m.inputTitle, content)
+		}
+	case "backspace":
+		if len(m.inputBuffer) > 0 {
+			m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
+		}
+	default:
+		if len(msg.String()) == 1 {
+			m.inputBuffer += msg.String()
+		}
+	}
+	return m, nil
+}
+
+// updateEditSpec handles updates for editing specifications
+func (m *Model) updateEditSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "esc":
+		m.state = MainMenu
+		m.cursor = 0
+		m.resetInputs()
+		return m, nil
+	case "enter":
+		if m.state == EditSpecTitle {
+			if strings.TrimSpace(m.inputBuffer) != "" {
+				m.inputTitle = strings.TrimSpace(m.inputBuffer)
+			}
+			m.inputBuffer = ""
+			m.state = EditSpecContent
+			m.promptText = "Enter new content (press Ctrl+S to finish, or Ctrl+K to keep existing):"
+			return m, nil
+		} else if m.state == EditSpecContent {
+			// Add line to content
+			m.contentLines = append(m.contentLines, m.inputBuffer)
+			m.inputBuffer = ""
+			return m, nil
+		}
+	case "ctrl+s":
+		if m.state == EditSpecContent {
+			content := strings.Join(m.contentLines, "\n")
+			if strings.TrimSpace(content) == "" {
+				// Keep existing content
+				for _, spec := range m.specs {
+					if spec.ID == m.editingSpecID {
+						content = spec.Content
+						break
+					}
+				}
+			}
+			return m, m.updateSpecCmd(m.editingSpecID, m.inputTitle, content)
+		}
+	case "ctrl+k":
+		if m.state == EditSpecContent {
+			// Keep existing content
+			var existingContent string
+			for _, spec := range m.specs {
+				if spec.ID == m.editingSpecID {
+					existingContent = spec.Content
+					break
+				}
+			}
+			return m, m.updateSpecCmd(m.editingSpecID, m.inputTitle, existingContent)
+		}
+	case "backspace":
+		if len(m.inputBuffer) > 0 {
+			m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
+		}
+	default:
+		if len(msg.String()) == 1 {
+			m.inputBuffer += msg.String()
+		}
+	}
+	return m, nil
+}
+
+// updateLinkSpec handles updates for linking specifications
+func (m *Model) updateLinkSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "esc":
+		m.state = MainMenu
+		m.cursor = 0
+		m.resetInputs()
+		return m, nil
+	case "enter":
+		switch m.state {
+		case LinkSpecCommit:
+			if strings.TrimSpace(m.inputBuffer) == "" {
+				return m, nil
+			}
+			m.inputCommit = strings.TrimSpace(m.inputBuffer)
+			m.inputBuffer = ""
+			m.state = LinkSpecRepo
+			m.promptText = "Enter repository path (or press Enter for default):"
+			return m, nil
+		case LinkSpecRepo:
+			m.inputRepo = strings.TrimSpace(m.inputBuffer)
+			if m.inputRepo == "" {
+				m.inputRepo = m.app.config.Git.DefaultRepo
+			}
+			m.inputBuffer = ""
+			m.state = LinkSpecType
+			m.promptText = "Enter link type (or press Enter for 'implements'):"
+			return m, nil
+		case LinkSpecType:
+			m.inputType = strings.TrimSpace(m.inputBuffer)
+			if m.inputType == "" {
+				m.inputType = "implements"
+			}
+			return m, m.createLinkCmd(m.selectedSpecID, m.inputCommit, m.inputRepo, m.inputType)
+		}
+	case "backspace":
+		if len(m.inputBuffer) > 0 {
+			m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
+		}
+	default:
+		if len(msg.String()) == 1 {
+			m.inputBuffer += msg.String()
+		}
+	}
+	return m, nil
+}
+
+// updateConfirmDelete handles updates for delete confirmation
+func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "esc", "n":
+		m.state = MainMenu
+		m.cursor = 0
+		m.resetInputs()
+		return m, nil
+	case "y":
+		if m.action == ActionDeleteSpec {
+			return m, m.deleteSpecCmd(m.selectedSpecID)
+		} else if m.action == ActionDeleteLink {
+			if m.cursor < len(m.links) {
+				selectedLink := m.links[m.cursor]
+				return m, m.deleteLinkCmd(m.selectedSpecID, selectedLink.CommitID, selectedLink.RepoPath)
+			}
+		}
+		m.state = MainMenu
+		m.cursor = 0
+		m.resetInputs()
+		return m, nil
+	}
+	return m, nil
+}
+
 // executeAction executes the selected main menu action
 func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 	m.action = MenuAction(m.cursor)
@@ -276,10 +488,10 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 	case ActionListSpecs:
 		return m, m.loadSpecsCmd()
 	case ActionCreateSpec:
-		return m, tea.Sequence(tea.ExitAltScreen, func() tea.Msg {
-			m.interactiveCreateSpec()
-			return operationCompleteMsg{message: "Spec creation completed. Press Enter to continue..."}
-		}, tea.EnterAltScreen)
+		m.resetInputs()
+		m.state = CreateSpecTitle
+		m.promptText = "Enter title:"
+		return m, nil
 	case ActionEditSpec, ActionDeleteSpec, ActionLinkSpec, ActionViewLinks, ActionDeleteLink:
 		return m, m.loadSpecsCmd()
 	case ActionExit:
@@ -293,20 +505,28 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 func (m *Model) executeSpecAction() (tea.Model, tea.Cmd) {
 	switch m.action {
 	case ActionEditSpec:
-		return m, tea.Sequence(tea.ExitAltScreen, func() tea.Msg {
-			msg := m.editSelectedSpec()
-			return operationCompleteMsg{message: msg}
-		}, tea.EnterAltScreen)
+		m.resetInputs()
+		m.editingSpecID = m.selectedSpecID
+		// Find current title for pre-filling
+		for _, spec := range m.specs {
+			if spec.ID == m.selectedSpecID {
+				m.inputTitle = spec.Title
+				break
+			}
+		}
+		m.state = EditSpecTitle
+		m.promptText = "Enter new title (or press Enter to keep current):"
+		return m, nil
 	case ActionDeleteSpec:
-		return m, tea.Sequence(tea.ExitAltScreen, func() tea.Msg {
-			msg := m.deleteSelectedSpec()
-			return operationCompleteMsg{message: msg}
-		}, tea.EnterAltScreen)
+		m.resetInputs()
+		m.state = ConfirmDelete
+		m.confirmAction = "delete_spec"
+		return m, nil
 	case ActionLinkSpec:
-		return m, tea.Sequence(tea.ExitAltScreen, func() tea.Msg {
-			msg := m.linkSelectedSpec()
-			return operationCompleteMsg{message: msg}
-		}, tea.EnterAltScreen)
+		m.resetInputs()
+		m.state = LinkSpecCommit
+		m.promptText = "Enter commit hash:"
+		return m, nil
 	case ActionViewLinks:
 		return m, m.loadLinksForSpecCmd()
 	case ActionDeleteLink:
@@ -317,10 +537,10 @@ func (m *Model) executeSpecAction() (tea.Model, tea.Cmd) {
 
 // executeLinkAction executes the action on the selected link
 func (m *Model) executeLinkAction() (tea.Model, tea.Cmd) {
-	return m, tea.Sequence(tea.ExitAltScreen, func() tea.Msg {
-		msg := m.deleteSelectedLink()
-		return operationCompleteMsg{message: msg}
-	}, tea.EnterAltScreen)
+	m.resetInputs()
+	m.state = ConfirmDelete
+	m.confirmAction = "delete_link"
+	return m, nil
 }
 
 // loadSpecsCmd returns a command to load specs
@@ -365,6 +585,93 @@ func (m *Model) loadLinksForSpecCmd() tea.Cmd {
 		}
 
 		return linksLoadedMsg{links: linkItems}
+	}
+}
+
+// resetInputs clears all input fields
+func (m *Model) resetInputs() {
+	m.inputTitle = ""
+	m.inputContent = ""
+	m.inputCommit = ""
+	m.inputRepo = ""
+	m.inputType = ""
+	m.inputBuffer = ""
+	m.promptText = ""
+	m.editingSpecID = ""
+	m.contentLines = []string{}
+	m.confirmAction = ""
+}
+
+// createSpecCmd returns a command to create a new spec
+func (m *Model) createSpecCmd(title, content string) tea.Cmd {
+	return func() tea.Msg {
+		spec, err := m.app.specService.CreateSpec(title, content)
+		if err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
+		}
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Created specification: %s. Press Enter to continue...", spec.Title)}
+	}
+}
+
+// updateSpecCmd returns a command to update an existing spec
+func (m *Model) updateSpecCmd(specID, title, content string) tea.Cmd {
+	return func() tea.Msg {
+		spec, err := m.app.specService.UpdateSpec(specID, title, content)
+		if err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
+		}
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Updated specification: %s. Press Enter to continue...", spec.Title)}
+	}
+}
+
+// createLinkCmd returns a command to create a new link
+func (m *Model) createLinkCmd(specID, commitID, repoPath, linkType string) tea.Cmd {
+	return func() tea.Msg {
+		link, err := m.app.linkService.LinkSpecToCommit(specID, commitID, repoPath, linkType)
+		if err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
+		}
+
+		// Find spec title for display
+		var specTitle string
+		for _, spec := range m.specs {
+			if spec.ID == specID {
+				specTitle = spec.Title
+				break
+			}
+		}
+
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Created link between '%s' and commit %s (ID: %s). Press Enter to continue...",
+			specTitle, commitID[:12]+"...", link.ID)}
+	}
+}
+
+// deleteSpecCmd returns a command to delete a spec
+func (m *Model) deleteSpecCmd(specID string) tea.Cmd {
+	return func() tea.Msg {
+		// Find spec title for display
+		var specTitle string
+		for _, spec := range m.specs {
+			if spec.ID == specID {
+				specTitle = spec.Title
+				break
+			}
+		}
+
+		if err := m.app.specService.DeleteSpec(specID); err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
+		}
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Deleted specification: %s. Press Enter to continue...", specTitle)}
+	}
+}
+
+// deleteLinkCmd returns a command to delete a link
+func (m *Model) deleteLinkCmd(specID, commitID, repoPath string) tea.Cmd {
+	return func() tea.Msg {
+		if err := m.app.linkService.UnlinkSpecFromCommit(specID, commitID, repoPath); err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
+		}
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Deleted link to commit %s. Press Enter to continue...", commitID[:12]+"...")}
 	}
 }
 
@@ -445,6 +752,14 @@ func (m *Model) View() string {
 		return m.renderSpecSelection()
 	case LinkSelection:
 		return m.renderLinkSelection()
+	case CreateSpecTitle, CreateSpecContent:
+		return m.renderCreateSpec()
+	case EditSpecTitle, EditSpecContent:
+		return m.renderEditSpec()
+	case LinkSpecCommit, LinkSpecRepo, LinkSpecType:
+		return m.renderLinkSpec()
+	case ConfirmDelete:
+		return m.renderConfirmDelete()
 	default:
 		return "Loading..."
 	}
@@ -537,6 +852,124 @@ func (m *Model) renderLinkSelection() string {
 	}
 
 	s += "\nUse ↑/↓ arrows to navigate, Enter to delete, Esc to go back"
+	return s
+}
+
+// renderCreateSpec renders the create specification form
+func (m *Model) renderCreateSpec() string {
+	s := "📝 Create New Specification\n"
+	s += "===========================\n\n"
+
+	if m.state == CreateSpecTitle {
+		s += m.promptText + "\n"
+		s += "> " + m.inputBuffer + "█\n\n"
+		s += "Press Enter to continue, Esc to cancel"
+	} else if m.state == CreateSpecContent {
+		s += fmt.Sprintf("Title: %s\n\n", m.inputTitle)
+		s += m.promptText + "\n\n"
+
+		// Show entered content lines
+		for _, line := range m.contentLines {
+			s += "  " + line + "\n"
+		}
+		s += "> " + m.inputBuffer + "█\n\n"
+		s += "Press Enter to add line, Ctrl+S to finish, Esc to cancel"
+	}
+
+	return s
+}
+
+// renderEditSpec renders the edit specification form
+func (m *Model) renderEditSpec() string {
+	s := "✏️  Edit Specification\n"
+	s += "======================\n\n"
+
+	if m.state == EditSpecTitle {
+		// Show current title
+		var currentTitle string
+		for _, spec := range m.specs {
+			if spec.ID == m.editingSpecID {
+				currentTitle = spec.Title
+				break
+			}
+		}
+		s += fmt.Sprintf("Current title: %s\n\n", currentTitle)
+		s += m.promptText + "\n"
+		s += "> " + m.inputBuffer + "█\n\n"
+		s += "Press Enter to continue, Esc to cancel"
+	} else if m.state == EditSpecContent {
+		s += fmt.Sprintf("Title: %s\n\n", m.inputTitle)
+		s += m.promptText + "\n\n"
+
+		// Show entered content lines
+		for _, line := range m.contentLines {
+			s += "  " + line + "\n"
+		}
+		s += "> " + m.inputBuffer + "█\n\n"
+		s += "Press Enter to add line, Ctrl+S to finish, Ctrl+K to keep existing, Esc to cancel"
+	}
+
+	return s
+}
+
+// renderLinkSpec renders the link specification form
+func (m *Model) renderLinkSpec() string {
+	s := "🔗 Link Specification to Commit\n"
+	s += "===============================\n\n"
+
+	// Show selected spec
+	var specTitle string
+	for _, spec := range m.specs {
+		if spec.ID == m.selectedSpecID {
+			specTitle = spec.Title
+			break
+		}
+	}
+	s += fmt.Sprintf("Linking: %s\n\n", specTitle)
+
+	switch m.state {
+	case LinkSpecCommit:
+		s += m.promptText + "\n"
+		s += "> " + m.inputBuffer + "█\n\n"
+		s += "Press Enter to continue, Esc to cancel"
+	case LinkSpecRepo:
+		s += fmt.Sprintf("Commit: %s\n\n", m.inputCommit)
+		s += m.promptText + "\n"
+		s += "> " + m.inputBuffer + "█\n\n"
+		s += "Press Enter to continue, Esc to cancel"
+	case LinkSpecType:
+		s += fmt.Sprintf("Commit: %s\n", m.inputCommit)
+		s += fmt.Sprintf("Repository: %s\n\n", m.inputRepo)
+		s += m.promptText + "\n"
+		s += "> " + m.inputBuffer + "█\n\n"
+		s += "Press Enter to finish, Esc to cancel"
+	}
+
+	return s
+}
+
+// renderConfirmDelete renders the delete confirmation dialog
+func (m *Model) renderConfirmDelete() string {
+	s := "⚠️  Confirm Deletion\n"
+	s += "===================\n\n"
+
+	if m.confirmAction == "delete_spec" {
+		var specTitle string
+		for _, spec := range m.specs {
+			if spec.ID == m.selectedSpecID {
+				specTitle = spec.Title
+				break
+			}
+		}
+		s += fmt.Sprintf("Are you sure you want to delete the specification '%s'?\n\n", specTitle)
+	} else if m.confirmAction == "delete_link" {
+		if m.cursor < len(m.links) {
+			selectedLink := m.links[m.cursor]
+			s += fmt.Sprintf("Are you sure you want to delete the link to commit %s?\n\n", selectedLink.CommitID[:12]+"...")
+		}
+	}
+
+	s += "Press 'y' to confirm, 'n' or Esc to cancel"
 	return s
 }
 
