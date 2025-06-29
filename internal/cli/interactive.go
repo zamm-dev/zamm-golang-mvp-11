@@ -35,7 +35,6 @@ type MenuAction int
 
 const (
 	ActionListSpecs MenuAction = iota
-	ActionDeleteSpec
 	ActionDeleteLink
 	ActionExit
 )
@@ -119,7 +118,6 @@ func (a *App) runInteractiveMode() error {
 		specListView: speclistview.New(a.linkService),
 		choices: []string{
 			"📋 List specifications",
-			"🗑️  Delete specification",
 			"🗑️  Delete spec-commit link",
 			"🚪 Exit",
 		},
@@ -273,6 +271,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = LinkSpecCommit
 			m.promptText = "Enter commit hash:"
 			m.textInput.Focus()
+			return m, nil
+		}
+
+	case speclistview.DeleteSpecMsg:
+		if m.state == SpecListView {
+			m.resetInputs()
+			m.selectedSpecID = msg.SpecID
+			m.state = ConfirmDelete
+			m.confirmAction = "delete_spec"
 			return m, nil
 		}
 	}
@@ -488,7 +495,7 @@ func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.resetInputs()
 		return m, nil
 	case "y":
-		if m.action == ActionDeleteSpec {
+		if m.confirmAction == "delete_spec" {
 			return m, m.deleteSpecCmd(m.selectedSpecID)
 		} else if m.action == ActionDeleteLink {
 			if m.cursor < len(m.links) {
@@ -511,7 +518,7 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 	switch m.action {
 	case ActionListSpecs:
 		return m, m.loadSpecsCmd()
-	case ActionDeleteSpec, ActionDeleteLink:
+	case ActionDeleteLink:
 		return m, m.loadSpecsCmd()
 	case ActionExit:
 		return m, tea.Quit
@@ -523,11 +530,6 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 // executeSpecAction executes the action on the selected spec
 func (m *Model) executeSpecAction() (tea.Model, tea.Cmd) {
 	switch m.action {
-	case ActionDeleteSpec:
-		m.resetInputs()
-		m.state = ConfirmDelete
-		m.confirmAction = "delete_spec"
-		return m, nil
 	case ActionDeleteLink:
 		return m, m.loadLinksForSpecCmd()
 	}
@@ -759,7 +761,6 @@ func (m *Model) renderMainMenu() string {
 // renderSpecSelection renders the spec selection screen
 func (m *Model) renderSpecSelection() string {
 	actionTitle := map[MenuAction]string{
-		ActionDeleteSpec: "🗑️  Delete Specification",
 		ActionDeleteLink: "🗑️  Delete Specification Link",
 	}
 

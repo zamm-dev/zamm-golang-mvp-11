@@ -22,6 +22,9 @@ type LinkCommitSpecMsg struct {
 type EditSpecMsg struct {
 	SpecID string
 }
+type DeleteSpecMsg struct {
+	SpecID string
+}
 
 // Model represents the state of the spec list view screen
 type LinkService interface {
@@ -33,6 +36,7 @@ type keyMap struct {
 	Down   key.Binding
 	Create key.Binding
 	Edit   key.Binding
+	Delete key.Binding
 	Link   key.Binding
 	Help   key.Binding
 	Return key.Binding
@@ -55,6 +59,10 @@ var keys = keyMap{
 		key.WithKeys("e", "E"),
 		key.WithHelp("e", "edit"),
 	),
+	Delete: key.NewBinding(
+		key.WithKeys("d", "D"),
+		key.WithHelp("d", "delete"),
+	),
 	Link: key.NewBinding(
 		key.WithKeys("l", "L"),
 		key.WithHelp("l", "link commit"),
@@ -70,13 +78,14 @@ var keys = keyMap{
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Create, k.Edit, k.Link, k.Help, k.Return}
+	return []key.Binding{k.Create, k.Edit, k.Delete, k.Link, k.Help, k.Return}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down},
-		{k.Create, k.Edit, k.Link},
+		{k.Create, k.Delete},
+		{k.Edit, k.Link},
 		{k.Help, k.Return},
 	}
 }
@@ -137,7 +146,7 @@ func New(linkService LinkService) Model {
 func (m *Model) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.list.SetSize((width-1)/2, height-2)
+	m.list.SetSize((width-1)/2, height-3)
 	m.help.Width = width
 }
 
@@ -188,6 +197,12 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				return *m, nil // No valid spec selected
 			}
 			return *m, func() tea.Msg { return EditSpecMsg{SpecID: spec.ID} }
+		case key.Matches(msg, m.keys.Delete):
+			spec, ok := m.list.SelectedItem().(interactive.Spec)
+			if !ok {
+				return *m, nil // No valid spec selected
+			}
+			return *m, func() tea.Msg { return DeleteSpecMsg{SpecID: spec.ID} }
 		case key.Matches(msg, m.keys.Link):
 			spec, ok := m.list.SelectedItem().(interactive.Spec)
 			if !ok {
