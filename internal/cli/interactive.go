@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
@@ -59,7 +60,7 @@ type Model struct {
 	inputCommit  string
 	inputRepo    string
 	inputType    string
-	inputBuffer  string
+	textInput    textinput.Model
 	promptText   string
 
 	// State tracking
@@ -112,9 +113,13 @@ func (a *App) createInteractiveCommand() *cobra.Command {
 
 // runInteractiveMode starts the interactive mode with TUI
 func (a *App) runInteractiveMode() error {
+	ti := textinput.New()
+	ti.Focus()
+
 	model := Model{
-		app:   a,
-		state: MainMenu,
+		app:       a,
+		state:     MainMenu,
+		textInput: ti,
 		choices: []string{
 			"📋 List specifications",
 			"📝 Create new specification",
@@ -134,7 +139,7 @@ func (a *App) runInteractiveMode() error {
 
 // Init is the first function that will be called
 func (m *Model) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 // Update handles messages and updates the model
@@ -159,12 +164,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateSpecSelection(msg)
 		case LinkSelection:
 			return m.updateLinkSelection(msg)
-		case CreateSpecTitle, CreateSpecContent:
-			return m.updateCreateSpec(msg)
-		case EditSpecTitle, EditSpecContent:
-			return m.updateEditSpec(msg)
-		case LinkSpecCommit, LinkSpecRepo, LinkSpecType:
-			return m.updateLinkSpec(msg)
+		case CreateSpecTitle, CreateSpecContent,
+			EditSpecTitle, EditSpecContent,
+			LinkSpecCommit, LinkSpecRepo, LinkSpecType:
+			var cmd tea.Cmd
+			m.textInput, cmd = m.textInput.Update(msg)
+
+			switch m.state {
+			case CreateSpecTitle, CreateSpecContent:
+				return m.updateCreateSpec(msg)
+			case EditSpecTitle, EditSpecContent:
+				return m.updateEditSpec(msg)
+			case LinkSpecCommit, LinkSpecRepo, LinkSpecType:
+				return m.updateLinkSpec(msg)
+			}
+			return m, cmd
 		case ConfirmDelete:
 			return m.updateConfirmDelete(msg)
 		}
@@ -223,7 +237,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, nil
+	var cmd tea.Cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
 }
 
 // updateMainMenu handles updates for the main menu
@@ -298,42 +314,32 @@ func (m *Model) updateLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // updateCreateSpec handles updates for creating new specifications
 func (m *Model) updateCreateSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc":
+	switch msg.Type {
+	case tea.KeyCtrlC, tea.KeyEsc:
 		m.state = MainMenu
 		m.cursor = 0
 		m.resetInputs()
 		return m, nil
-	case "enter":
+	case tea.KeyEnter:
 		if m.state == CreateSpecTitle {
-			if strings.TrimSpace(m.inputBuffer) == "" {
+			if strings.TrimSpace(m.textInput.Value()) == "" {
 				return m, nil // Don't proceed with empty title
 			}
-			m.inputTitle = strings.TrimSpace(m.inputBuffer)
-			m.inputBuffer = ""
+			m.inputTitle = strings.TrimSpace(m.textInput.Value())
+			m.textInput.Reset()
 			m.state = CreateSpecContent
 			m.promptText = "Enter content (press Ctrl+S to finish):"
 			return m, nil
 		} else if m.state == CreateSpecContent {
 			// Add line to content
-			m.contentLines = append(m.contentLines, m.inputBuffer)
-			m.inputBuffer = ""
+			m.contentLines = append(m.contentLines, m.textInput.Value())
+			m.textInput.Reset()
 			return m, nil
 		}
-	case "ctrl+s":
+	case tea.KeyCtrlS:
 		if m.state == CreateSpecContent {
 			content := strings.Join(m.contentLines, "\n")
 			return m, m.createSpecCmd(m.inputTitle, content)
-		}
-	case "backspace":
-		if len(m.inputBuffer) > 0 {
-			m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
-		}
-	default:
-		if len(msg.String()) == 1 {
-			m.inputBuffer += msg.String()
 		}
 	}
 	return m, nil
@@ -341,30 +347,28 @@ func (m *Model) updateCreateSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // updateEditSpec handles updates for editing specifications
 func (m *Model) updateEditSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc":
+	switch msg.Type {
+	case tea.KeyCtrlC, tea.KeyEsc:
 		m.state = MainMenu
 		m.cursor = 0
 		m.resetInputs()
 		return m, nil
-	case "enter":
+	case tea.KeyEnter:
 		if m.state == EditSpecTitle {
-			if strings.TrimSpace(m.inputBuffer) != "" {
-				m.inputTitle = strings.TrimSpace(m.inputBuffer)
+			if strings.TrimSpace(m.textInput.Value()) != "" {
+				m.inputTitle = strings.TrimSpace(m.textInput.Value())
 			}
-			m.inputBuffer = ""
+			m.textInput.Reset()
 			m.state = EditSpecContent
 			m.promptText = "Enter new content (press Ctrl+S to finish, or Ctrl+K to keep existing):"
 			return m, nil
 		} else if m.state == EditSpecContent {
 			// Add line to content
-			m.contentLines = append(m.contentLines, m.inputBuffer)
-			m.inputBuffer = ""
+			m.contentLines = append(m.contentLines, m.textInput.Value())
+			m.textInput.Reset()
 			return m, nil
 		}
-	case "ctrl+s":
+	case tea.KeyCtrlS:
 		if m.state == EditSpecContent {
 			content := strings.Join(m.contentLines, "\n")
 			if strings.TrimSpace(content) == "" {
@@ -378,7 +382,7 @@ func (m *Model) updateEditSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.updateSpecCmd(m.editingSpecID, m.inputTitle, content)
 		}
-	case "ctrl+k":
+	case tea.KeyCtrlK:
 		if m.state == EditSpecContent {
 			// Keep existing content
 			var existingContent string
@@ -390,62 +394,44 @@ func (m *Model) updateEditSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.updateSpecCmd(m.editingSpecID, m.inputTitle, existingContent)
 		}
-	case "backspace":
-		if len(m.inputBuffer) > 0 {
-			m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
-		}
-	default:
-		if len(msg.String()) == 1 {
-			m.inputBuffer += msg.String()
-		}
 	}
 	return m, nil
 }
 
 // updateLinkSpec handles updates for linking specifications
 func (m *Model) updateLinkSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc":
+	switch msg.Type {
+	case tea.KeyCtrlC, tea.KeyEsc:
 		m.state = MainMenu
 		m.cursor = 0
 		m.resetInputs()
 		return m, nil
-	case "enter":
+	case tea.KeyEnter:
 		switch m.state {
 		case LinkSpecCommit:
-			if strings.TrimSpace(m.inputBuffer) == "" {
+			if strings.TrimSpace(m.textInput.Value()) == "" {
 				return m, nil
 			}
-			m.inputCommit = strings.TrimSpace(m.inputBuffer)
-			m.inputBuffer = ""
+			m.inputCommit = strings.TrimSpace(m.textInput.Value())
+			m.textInput.Reset()
 			m.state = LinkSpecRepo
 			m.promptText = "Enter repository path (or press Enter for default):"
 			return m, nil
 		case LinkSpecRepo:
-			m.inputRepo = strings.TrimSpace(m.inputBuffer)
+			m.inputRepo = strings.TrimSpace(m.textInput.Value())
 			if m.inputRepo == "" {
 				m.inputRepo = m.app.config.Git.DefaultRepo
 			}
-			m.inputBuffer = ""
+			m.textInput.Reset()
 			m.state = LinkSpecType
 			m.promptText = "Enter link type (or press Enter for 'implements'):"
 			return m, nil
 		case LinkSpecType:
-			m.inputType = strings.TrimSpace(m.inputBuffer)
+			m.inputType = strings.TrimSpace(m.textInput.Value())
 			if m.inputType == "" {
 				m.inputType = "implements"
 			}
 			return m, m.createLinkCmd(m.selectedSpecID, m.inputCommit, m.inputRepo, m.inputType)
-		}
-	case "backspace":
-		if len(m.inputBuffer) > 0 {
-			m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
-		}
-	default:
-		if len(msg.String()) == 1 {
-			m.inputBuffer += msg.String()
 		}
 	}
 	return m, nil
@@ -489,6 +475,7 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 		m.resetInputs()
 		m.state = CreateSpecTitle
 		m.promptText = "Enter title:"
+		m.textInput.Focus()
 		return m, nil
 	case ActionEditSpec, ActionDeleteSpec, ActionLinkSpec, ActionViewLinks, ActionDeleteLink:
 		return m, m.loadSpecsCmd()
@@ -509,11 +496,13 @@ func (m *Model) executeSpecAction() (tea.Model, tea.Cmd) {
 		for _, spec := range m.specs {
 			if spec.ID == m.selectedSpecID {
 				m.inputTitle = spec.Title
+				m.textInput.SetValue(spec.Title)
 				break
 			}
 		}
 		m.state = EditSpecTitle
 		m.promptText = "Enter new title (or press Enter to keep current):"
+		m.textInput.Focus()
 		return m, nil
 	case ActionDeleteSpec:
 		m.resetInputs()
@@ -524,6 +513,7 @@ func (m *Model) executeSpecAction() (tea.Model, tea.Cmd) {
 		m.resetInputs()
 		m.state = LinkSpecCommit
 		m.promptText = "Enter commit hash:"
+		m.textInput.Focus()
 		return m, nil
 	case ActionViewLinks:
 		return m, m.loadLinksForSpecCmd()
@@ -593,11 +583,12 @@ func (m *Model) resetInputs() {
 	m.inputCommit = ""
 	m.inputRepo = ""
 	m.inputType = ""
-	m.inputBuffer = ""
 	m.promptText = ""
 	m.editingSpecID = ""
 	m.contentLines = []string{}
 	m.confirmAction = ""
+	m.textInput.Reset()
+	m.textInput.Blur()
 }
 
 // createSpecCmd returns a command to create a new spec
@@ -860,7 +851,7 @@ func (m *Model) renderCreateSpec() string {
 
 	if m.state == CreateSpecTitle {
 		s += m.promptText + "\n"
-		s += "> " + m.inputBuffer + "█\n\n"
+		s += m.textInput.View() + "\n\n"
 		s += "Press Enter to continue, Esc to cancel"
 	} else if m.state == CreateSpecContent {
 		s += fmt.Sprintf("Title: %s\n\n", m.inputTitle)
@@ -870,7 +861,7 @@ func (m *Model) renderCreateSpec() string {
 		for _, line := range m.contentLines {
 			s += "  " + line + "\n"
 		}
-		s += "> " + m.inputBuffer + "█\n\n"
+		s += m.textInput.View() + "\n\n"
 		s += "Press Enter to add line, Ctrl+S to finish, Esc to cancel"
 	}
 
@@ -893,7 +884,7 @@ func (m *Model) renderEditSpec() string {
 		}
 		s += fmt.Sprintf("Current title: %s\n\n", currentTitle)
 		s += m.promptText + "\n"
-		s += "> " + m.inputBuffer + "█\n\n"
+		s += m.textInput.View() + "\n\n"
 		s += "Press Enter to continue, Esc to cancel"
 	} else if m.state == EditSpecContent {
 		s += fmt.Sprintf("Title: %s\n\n", m.inputTitle)
@@ -903,7 +894,7 @@ func (m *Model) renderEditSpec() string {
 		for _, line := range m.contentLines {
 			s += "  " + line + "\n"
 		}
-		s += "> " + m.inputBuffer + "█\n\n"
+		s += m.textInput.View() + "\n\n"
 		s += "Press Enter to add line, Ctrl+S to finish, Ctrl+K to keep existing, Esc to cancel"
 	}
 
@@ -928,18 +919,18 @@ func (m *Model) renderLinkSpec() string {
 	switch m.state {
 	case LinkSpecCommit:
 		s += m.promptText + "\n"
-		s += "> " + m.inputBuffer + "█\n\n"
+		s += m.textInput.View() + "\n\n"
 		s += "Press Enter to continue, Esc to cancel"
 	case LinkSpecRepo:
 		s += fmt.Sprintf("Commit: %s\n\n", m.inputCommit)
 		s += m.promptText + "\n"
-		s += "> " + m.inputBuffer + "█\n\n"
+		s += m.textInput.View() + "\n\n"
 		s += "Press Enter to continue, Esc to cancel"
 	case LinkSpecType:
 		s += fmt.Sprintf("Commit: %s\n", m.inputCommit)
 		s += fmt.Sprintf("Repository: %s\n\n", m.inputRepo)
 		s += m.promptText + "\n"
-		s += "> " + m.inputBuffer + "█\n\n"
+		s += m.textInput.View() + "\n\n"
 		s += "Press Enter to finish, Esc to cancel"
 	}
 
