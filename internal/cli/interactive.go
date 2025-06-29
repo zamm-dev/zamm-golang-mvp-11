@@ -35,7 +35,6 @@ type MenuAction int
 
 const (
 	ActionListSpecs MenuAction = iota
-	ActionCreateSpec
 	ActionEditSpec
 	ActionDeleteSpec
 	ActionLinkSpec
@@ -120,7 +119,6 @@ func (a *App) runInteractiveMode() error {
 		specListView: speclistview.New(),
 		choices: []string{
 			"📋 List specifications",
-			"📝 Create new specification",
 			"✏️  Edit specification",
 			"🗑️  Delete specification",
 			"🔗 Link specification to commit",
@@ -488,12 +486,6 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 	switch m.action {
 	case ActionListSpecs:
 		return m, m.loadSpecsCmd()
-	case ActionCreateSpec:
-		m.resetInputs()
-		m.state = CreateSpecTitle
-		m.promptText = "Enter title:"
-		m.textInput.Focus()
-		return m, nil
 	case ActionEditSpec, ActionDeleteSpec, ActionLinkSpec, ActionViewLinks, ActionDeleteLink:
 		return m, m.loadSpecsCmd()
 	case ActionExit:
