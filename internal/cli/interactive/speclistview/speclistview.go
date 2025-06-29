@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
 	"github.com/yourorg/zamm-mvp/internal/models"
 )
@@ -136,23 +137,5 @@ func (m *Model) View() string {
 		}
 	}
 
-	// Combine columns line by line
-	leftLines := strings.Split(left.String(), "\n")
-	rightLines := strings.Split(right.String(), "\n")
-	maxLines := len(leftLines)
-	if len(rightLines) > maxLines {
-		maxLines = len(rightLines)
-	}
-	var out strings.Builder
-	for i := 0; i < maxLines; i++ {
-		var l, r string
-		if i < len(leftLines) {
-			l = leftLines[i]
-		}
-		if i < len(rightLines) {
-			r = rightLines[i]
-		}
-		out.WriteString(fmt.Sprintf("%-*s │ %s\n", leftWidth, l, r))
-	}
-	return out.String()
+	return lipgloss.JoinHorizontal(lipgloss.Left, left.String(), right.String())
 }
