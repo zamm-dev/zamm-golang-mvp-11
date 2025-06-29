@@ -57,6 +57,9 @@ type Model struct {
 	showMessage    bool
 	specListView   speclistview.Model
 
+	terminalWidth  int
+	terminalHeight int
+
 	// Input fields for forms
 	inputTitle   string
 	inputContent string
@@ -126,6 +129,8 @@ func (a *App) runInteractiveMode() error {
 			"🗑️  Delete spec-commit link",
 			"🚪 Exit",
 		},
+		terminalWidth:  80, // Default terminal width
+		terminalHeight: 24, // Default terminal height
 	}
 
 	p := tea.NewProgram(&model, tea.WithAltScreen())
@@ -141,6 +146,9 @@ func (m *Model) Init() tea.Cmd {
 // Update handles messages and updates the model
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.terminalWidth = msg.Width
+		m.terminalHeight = msg.Height
 	case tea.KeyMsg:
 		if m.showMessage {
 			if msg.String() == "enter" || msg.String() == " " || msg.String() == "esc" {
@@ -720,7 +728,7 @@ func (m *Model) View() string {
 	case SpecSelection:
 		return m.renderSpecSelection()
 	case SpecListView:
-		return m.specListView.View()
+		return m.specListView.View(m.terminalWidth, m.terminalHeight)
 	case LinkSelection:
 		return m.renderLinkSelection()
 	case CreateSpecTitle, CreateSpecContent:

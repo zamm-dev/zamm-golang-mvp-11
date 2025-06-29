@@ -79,10 +79,12 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 // View renders the spec list view screen
-func (m *Model) View() string {
+func (m *Model) View(w int, h int) string {
 	if len(m.specs) == 0 {
 		return "No specifications found.\n\nPress Esc to return to main menu"
 	}
+
+	paneWidth := (w - 1) / 2 // width of each half pane, minus 1 for padding
 
 	// Layout: left (list), right (details)
 	var left strings.Builder
@@ -107,12 +109,8 @@ func (m *Model) View() string {
 	var right strings.Builder
 	if m.cursor >= 0 && m.cursor < len(m.specs) {
 		spec := m.specs[m.cursor]
-		right.WriteString("📝 Spec Details\n")
-		right.WriteString("=====================\n\n")
-		right.WriteString(fmt.Sprintf("ID: %s\n", spec.ID))
-		right.WriteString(fmt.Sprintf("Title: %s\n", spec.Title))
-		right.WriteString(fmt.Sprintf("Created: %s\n", spec.CreatedAt))
-		right.WriteString("\nContent:\n")
+		titleText := lipgloss.NewStyle().Width(paneWidth).Render(spec.Title)
+		right.WriteString(fmt.Sprintf("%s\n%s\n\n", titleText, strings.Repeat("=", len(spec.Title))))
 		right.WriteString(spec.Content)
 		right.WriteString("\n\nLinked Commits:\n")
 		if len(m.links) == 0 {
