@@ -37,8 +37,6 @@ const (
 	ActionListSpecs MenuAction = iota
 	ActionEditSpec
 	ActionDeleteSpec
-	ActionLinkSpec
-	ActionViewLinks
 	ActionDeleteLink
 	ActionExit
 )
@@ -124,8 +122,6 @@ func (a *App) runInteractiveMode() error {
 			"📋 List specifications",
 			"✏️  Edit specification",
 			"🗑️  Delete specification",
-			"🔗 Link specification to commit",
-			"👀 View spec-commit links",
 			"🗑️  Delete spec-commit link",
 			"🚪 Exit",
 		},
@@ -232,12 +228,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if len(m.links) == 0 {
 			m.message = "No links found for this specification."
-			m.showMessage = true
-			return m, nil
-		}
-
-		if m.action == ActionViewLinks {
-			m.message = m.formatLinksList()
 			m.showMessage = true
 			return m, nil
 		}
@@ -505,7 +495,7 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 	switch m.action {
 	case ActionListSpecs:
 		return m, m.loadSpecsCmd()
-	case ActionEditSpec, ActionDeleteSpec, ActionLinkSpec, ActionViewLinks, ActionDeleteLink:
+	case ActionEditSpec, ActionDeleteSpec, ActionDeleteLink:
 		return m, m.loadSpecsCmd()
 	case ActionExit:
 		return m, tea.Quit
@@ -537,14 +527,6 @@ func (m *Model) executeSpecAction() (tea.Model, tea.Cmd) {
 		m.state = ConfirmDelete
 		m.confirmAction = "delete_spec"
 		return m, nil
-	case ActionLinkSpec:
-		m.resetInputs()
-		m.state = LinkSpecCommit
-		m.promptText = "Enter commit hash:"
-		m.textInput.Focus()
-		return m, nil
-	case ActionViewLinks:
-		return m, m.loadLinksForSpecCmd()
 	case ActionDeleteLink:
 		return m, m.loadLinksForSpecCmd()
 	}
@@ -778,8 +760,6 @@ func (m *Model) renderSpecSelection() string {
 	actionTitle := map[MenuAction]string{
 		ActionEditSpec:   "📝 Edit Specification",
 		ActionDeleteSpec: "🗑️  Delete Specification",
-		ActionLinkSpec:   "🔗 Link Specification to Commit",
-		ActionViewLinks:  "👀 View Specification Links",
 		ActionDeleteLink: "🗑️  Delete Specification Link",
 	}
 
