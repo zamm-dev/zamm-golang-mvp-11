@@ -35,7 +35,6 @@ type MenuAction int
 
 const (
 	ActionListSpecs MenuAction = iota
-	ActionEditSpec
 	ActionDeleteSpec
 	ActionDeleteLink
 	ActionExit
@@ -120,7 +119,6 @@ func (a *App) runInteractiveMode() error {
 		specListView: speclistview.New(a.linkService),
 		choices: []string{
 			"📋 List specifications",
-			"✏️  Edit specification",
 			"🗑️  Delete specification",
 			"🗑️  Delete spec-commit link",
 			"🚪 Exit",
@@ -246,6 +244,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resetInputs()
 			m.state = CreateSpecTitle
 			m.promptText = "Enter title:"
+			m.textInput.Focus()
+			return m, nil
+		}
+
+	case speclistview.EditSpecMsg:
+		if m.state == SpecListView {
+			m.resetInputs()
+			m.editingSpecID = msg.SpecID
+			// Find current title for pre-filling
+			for _, spec := range m.specs {
+				if spec.ID == msg.SpecID {
+					m.inputTitle = spec.Title
+					m.textInput.SetValue(spec.Title)
+					break
+				}
+			}
+			m.state = EditSpecTitle
+			m.promptText = "Enter new title (or press Enter to keep current):"
 			m.textInput.Focus()
 			return m, nil
 		}
@@ -495,7 +511,7 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 	switch m.action {
 	case ActionListSpecs:
 		return m, m.loadSpecsCmd()
-	case ActionEditSpec, ActionDeleteSpec, ActionDeleteLink:
+	case ActionDeleteSpec, ActionDeleteLink:
 		return m, m.loadSpecsCmd()
 	case ActionExit:
 		return m, tea.Quit
@@ -507,21 +523,6 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 // executeSpecAction executes the action on the selected spec
 func (m *Model) executeSpecAction() (tea.Model, tea.Cmd) {
 	switch m.action {
-	case ActionEditSpec:
-		m.resetInputs()
-		m.editingSpecID = m.selectedSpecID
-		// Find current title for pre-filling
-		for _, spec := range m.specs {
-			if spec.ID == m.selectedSpecID {
-				m.inputTitle = spec.Title
-				m.textInput.SetValue(spec.Title)
-				break
-			}
-		}
-		m.state = EditSpecTitle
-		m.promptText = "Enter new title (or press Enter to keep current):"
-		m.textInput.Focus()
-		return m, nil
 	case ActionDeleteSpec:
 		m.resetInputs()
 		m.state = ConfirmDelete
@@ -758,7 +759,6 @@ func (m *Model) renderMainMenu() string {
 // renderSpecSelection renders the spec selection screen
 func (m *Model) renderSpecSelection() string {
 	actionTitle := map[MenuAction]string{
-		ActionEditSpec:   "📝 Edit Specification",
 		ActionDeleteSpec: "🗑️  Delete Specification",
 		ActionDeleteLink: "🗑️  Delete Specification Link",
 	}
