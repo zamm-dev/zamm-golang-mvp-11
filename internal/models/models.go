@@ -26,6 +26,15 @@ type SpecCommitLink struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
+// SpecSpecLink represents a hierarchical link between two specifications (forms a DAG)
+type SpecSpecLink struct {
+	ID         string    `json:"id" db:"id"`
+	FromSpecID string    `json:"from_spec_id" db:"from_spec_id"`
+	ToSpecID   string    `json:"to_spec_id" db:"to_spec_id"`
+	LinkType   string    `json:"link_type" db:"link_type"` // "child", "references", "implements", etc.
+	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+}
+
 // ErrorType represents different categories of errors in the system
 type ErrorType string
 

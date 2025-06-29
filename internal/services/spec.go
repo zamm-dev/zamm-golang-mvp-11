@@ -15,6 +15,20 @@ type SpecService interface {
 	UpdateSpec(id, title, content string) (*models.SpecNode, error)
 	ListSpecs() ([]*models.SpecNode, error)
 	DeleteSpec(id string) error
+
+	// Hierarchical operations
+	LinkSpecs(parentSpecID, childSpecID, linkType string) (*models.SpecSpecLink, error)
+	UnlinkSpecs(parentSpecID, childSpecID string) error
+	GetParentSpecs(specID string) ([]*models.SpecSpecLink, error)
+	GetChildSpecs(specID string) ([]*models.SpecSpecLink, error)
+	GetSpecsWithHierarchy() ([]*SpecWithHierarchy, error)
+}
+
+// SpecWithHierarchy represents a spec with its hierarchical relationships
+type SpecWithHierarchy struct {
+	*models.SpecNode
+	Parents  []*models.SpecSpecLink `json:"parents"`
+	Children []*models.SpecSpecLink `json:"children"`
 }
 
 // specService implements the SpecService interface
@@ -102,6 +116,104 @@ func (s *specService) DeleteSpec(id string) error {
 	}
 
 	return s.storage.DeleteSpec(id)
+}
+
+// LinkSpecs creates a hierarchical link between two specifications
+func (s *specService) LinkSpecs(parentSpecID, childSpecID, linkType string) (*models.SpecSpecLink, error) {
+	// Validate input
+	if parentSpecID == "" {
+		return nil, models.NewZammError(models.ErrTypeValidation, "parent spec ID cannot be empty")
+	}
+	if childSpecID == "" {
+		return nil, models.NewZammError(models.ErrTypeValidation, "child spec ID cannot be empty")
+	}
+	if parentSpecID == childSpecID {
+		return nil, models.NewZammError(models.ErrTypeValidation, "cannot link a spec to itself")
+	}
+	if linkType == "" {
+		linkType = "child"
+	}
+
+	// Verify both specs exist
+	_, err := s.storage.GetSpec(parentSpecID)
+	if err != nil {
+		return nil, models.NewZammError(models.ErrTypeValidation, "parent spec not found")
+	}
+	_, err = s.storage.GetSpec(childSpecID)
+	if err != nil {
+		return nil, models.NewZammError(models.ErrTypeValidation, "child spec not found")
+	}
+
+	link := &models.SpecSpecLink{
+		FromSpecID: parentSpecID,
+		ToSpecID:   childSpecID,
+		LinkType:   linkType,
+	}
+
+	if err := s.storage.CreateSpecLink(link); err != nil {
+		return nil, err
+	}
+
+	return link, nil
+}
+
+// UnlinkSpecs removes a hierarchical link between two specifications
+func (s *specService) UnlinkSpecs(parentSpecID, childSpecID string) error {
+	if parentSpecID == "" {
+		return models.NewZammError(models.ErrTypeValidation, "parent spec ID cannot be empty")
+	}
+	if childSpecID == "" {
+		return models.NewZammError(models.ErrTypeValidation, "child spec ID cannot be empty")
+	}
+
+	return s.storage.DeleteSpecLinkBySpecs(parentSpecID, childSpecID)
+}
+
+// GetParentSpecs retrieves all parent specs for a given spec
+func (s *specService) GetParentSpecs(specID string) ([]*models.SpecSpecLink, error) {
+	if specID == "" {
+		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
+	}
+
+	return s.storage.GetParentSpecs(specID)
+}
+
+// GetChildSpecs retrieves all child specs for a given spec
+func (s *specService) GetChildSpecs(specID string) ([]*models.SpecSpecLink, error) {
+	if specID == "" {
+		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
+	}
+
+	return s.storage.GetChildSpecs(specID)
+}
+
+// GetSpecsWithHierarchy retrieves all specs with their hierarchical relationships
+func (s *specService) GetSpecsWithHierarchy() ([]*SpecWithHierarchy, error) {
+	specs, err := s.storage.ListSpecs()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*SpecWithHierarchy, len(specs))
+	for i, spec := range specs {
+		parents, err := s.storage.GetParentSpecs(spec.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		children, err := s.storage.GetChildSpecs(spec.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		result[i] = &SpecWithHierarchy{
+			SpecNode: spec,
+			Parents:  parents,
+			Children: children,
+		}
+	}
+
+	return result, nil
 }
 
 // validateSpecInput validates specification input data
