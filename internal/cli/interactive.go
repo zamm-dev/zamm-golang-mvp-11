@@ -243,6 +243,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.message = msg.message
 		m.showMessage = true
 		return m, nil
+
+	case speclistview.CreateNewSpecMsg:
+		if m.state == SpecListView {
+			m.resetInputs()
+			m.state = CreateSpecTitle
+			m.promptText = "Enter title:"
+			m.textInput.Focus()
+			return m, nil
+		}
 	}
 
 	var cmd tea.Cmd

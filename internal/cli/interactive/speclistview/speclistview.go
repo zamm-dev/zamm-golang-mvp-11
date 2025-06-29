@@ -8,6 +8,9 @@ import (
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
 )
 
+// CreateNewSpecMsg signals that the user wants to create a new specification
+type CreateNewSpecMsg struct{}
+
 // Model represents the state of the spec list view screen
 type Model struct {
 	specs  []interactive.Spec
@@ -38,6 +41,8 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if m.cursor < len(m.specs)-1 {
 				m.cursor++
 			}
+		case "c":
+			return *m, func() tea.Msg { return CreateNewSpecMsg{} }
 		}
 	}
 	return *m, nil
@@ -65,6 +70,6 @@ func (m *Model) View() string {
 		s.WriteString(fmt.Sprintf("%s %s (%s)\n", cursor, title, spec.CreatedAt))
 	}
 
-	s.WriteString("\nUse ↑/↓ arrows to navigate, Esc to go back")
+	s.WriteString("\nUse ↑/↓ arrows to navigate, 'c' to create new specification, Esc to go back")
 	return s.String()
 }
