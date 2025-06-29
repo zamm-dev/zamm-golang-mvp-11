@@ -8,3 +8,7 @@ type Spec struct {
 	Content   string
 	CreatedAt string
 }
+
+func (s Spec) FilterValue() string {
+	return s.Title
+}

@@ -2,10 +2,12 @@ package speclistview
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
@@ -71,11 +73,38 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	}
 }
 
+type specDelegate struct{}
+
+var specStyle = lipgloss.NewStyle()
+
+func (d specDelegate) Height() int                             { return 1 }
+func (d specDelegate) Spacing() int                            { return 0 }
+func (d specDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d specDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	spec, ok := listItem.(interactive.Spec)
+	if !ok {
+		return
+	}
+
+	str := spec.Title
+	maxWidth := m.Width() - 2 // account for padding
+	if len(str) > maxWidth {
+		str = str[:maxWidth-3] + "..."
+	}
+
+	fn := specStyle.Render
+	if index == m.Index() {
+		fmt.Fprint(w, specStyle.Foreground(lipgloss.Color("2")).Render("> "+str))
+	} else {
+		fmt.Fprint(w, fn("  "+str))
+	}
+}
+
 type Model struct {
+	list        list.Model
 	keys        keyMap
 	help        help.Model
 	specs       []interactive.Spec
-	cursor      int
 	links       []*models.SpecCommitLink
 	linkService LinkService
 
@@ -85,7 +114,12 @@ type Model struct {
 
 // New creates a new model for the spec list view screen
 func New(linkService LinkService) Model {
+	list := list.New([]list.Item{}, specDelegate{}, 0, 0)
+	list.Title = "Specifications"
+	list.SetShowHelp(false)
+	list.Styles.Title = lipgloss.NewStyle().Bold(true)
 	return Model{
+		list:        list,
 		keys:        keys,
 		help:        help.New(),
 		linkService: linkService,
@@ -95,13 +129,20 @@ func New(linkService LinkService) Model {
 func (m *Model) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.list.SetSize((width-1)/2, height-2)
 	m.help.Width = width
 }
 
 // SetSpecs sets the specifications to be displayed
 func (m *Model) SetSpecs(specs []interactive.Spec) {
 	m.specs = specs
-	m.cursor = 0
+
+	items := make([]list.Item, len(specs))
+	for i, s := range specs {
+		items[i] = s
+	}
+	m.list.SetItems(items)
+
 	// Fetch links for the first spec if available
 	if m.linkService != nil && len(specs) > 0 {
 		links, err := m.linkService.GetCommitsForSpec(specs[0].ID)
@@ -115,38 +156,33 @@ func (m *Model) SetSpecs(specs []interactive.Spec) {
 
 // Update handles messages and updates the model
 func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	oldCursor := m.cursor
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, m.keys.Up):
-			if m.cursor > 0 {
-				m.cursor--
+		case key.Matches(msg, m.keys.Up) || key.Matches(msg, m.keys.Down):
+			var cmd tea.Cmd
+			m.list, cmd = m.list.Update(msg)
+			spec, ok := m.list.SelectedItem().(interactive.Spec)
+			if ok {
+				links, err := m.linkService.GetCommitsForSpec(spec.ID)
+				if err == nil {
+					m.links = links
+				} else {
+					m.links = nil
+				}
 			}
-		case key.Matches(msg, m.keys.Down):
-			if m.cursor < len(m.specs)-1 {
-				m.cursor++
-			}
+			return *m, cmd
 		case key.Matches(msg, m.keys.Create):
 			return *m, func() tea.Msg { return CreateNewSpecMsg{} }
 		case key.Matches(msg, m.keys.Link):
-			if m.cursor >= 0 && m.cursor < len(m.specs) {
-				specID := m.specs[m.cursor].ID
-				return *m, func() tea.Msg { return LinkCommitSpecMsg{SpecID: specID} }
+			spec, ok := m.list.SelectedItem().(interactive.Spec)
+			if !ok {
+				return *m, nil // No valid spec selected
 			}
+			return *m, func() tea.Msg { return LinkCommitSpecMsg{SpecID: spec.ID} }
 		case key.Matches(msg, m.keys.Help):
 			m.help.ShowAll = !m.help.ShowAll
 			return *m, nil
-		}
-	}
-	// If cursor changed, fetch links for the new selected spec
-	if m.linkService != nil && m.cursor != oldCursor && m.cursor >= 0 && m.cursor < len(m.specs) {
-		specID := m.specs[m.cursor].ID
-		links, err := m.linkService.GetCommitsForSpec(specID)
-		if err == nil {
-			m.links = links
-		} else {
-			m.links = nil
 		}
 	}
 	return *m, nil
@@ -162,28 +198,14 @@ func (m *Model) View() string {
 
 	// Layout: left (list), right (details)
 	var left strings.Builder
-	left.WriteString("📋 Specifications List\n")
-	left.WriteString("=====================\n\n")
-
-	for i, spec := range m.specs {
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
-		}
-		title := spec.Title
-		if len(title) > 30 {
-			title = title[:27] + "..."
-		}
-		left.WriteString(fmt.Sprintf("%s %s\n", cursor, title))
-	}
-
+	left.WriteString(m.list.View())
 	left.WriteString(m.help.View(m.keys))
 	finalLeft := lipgloss.NewStyle().Width(paneWidth).Render(left.String())
 
 	// Right: details for selected spec
 	var right strings.Builder
-	if m.cursor >= 0 && m.cursor < len(m.specs) {
-		spec := m.specs[m.cursor]
+	spec, ok := m.list.SelectedItem().(interactive.Spec)
+	if ok {
 		right.WriteString(fmt.Sprintf("%s\n%s\n\n", spec.Title, strings.Repeat("=", paneWidth)))
 		right.WriteString(spec.Content)
 		right.WriteString("\n\nLinked Commits:\n")
@@ -203,6 +225,8 @@ func (m *Model) View() string {
 				right.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
 			}
 		}
+	} else {
+		right.WriteString("No specification selected. Create or select one to view details.\n")
 	}
 	finalRight := lipgloss.NewStyle().Width(paneWidth + 1).PaddingLeft(1).Render(right.String())
 
