@@ -104,13 +104,13 @@ func (m *Model) View(w int, h int) string {
 	}
 
 	left.WriteString("\nUse ↑/↓ arrows to navigate, 'c' to create new specification, Esc to go back")
+	finalLeft := lipgloss.NewStyle().Width(paneWidth).Render(left.String())
 
 	// Right: details for selected spec
 	var right strings.Builder
 	if m.cursor >= 0 && m.cursor < len(m.specs) {
 		spec := m.specs[m.cursor]
-		titleText := lipgloss.NewStyle().Width(paneWidth).Render(spec.Title)
-		right.WriteString(fmt.Sprintf("%s\n%s\n\n", titleText, strings.Repeat("=", len(spec.Title))))
+		right.WriteString(fmt.Sprintf("%s\n%s\n\n", spec.Title, strings.Repeat("=", paneWidth)))
 		right.WriteString(spec.Content)
 		right.WriteString("\n\nLinked Commits:\n")
 		if len(m.links) == 0 {
@@ -130,6 +130,7 @@ func (m *Model) View(w int, h int) string {
 			}
 		}
 	}
+	finalRight := lipgloss.NewStyle().Width(paneWidth + 1).PaddingLeft(1).Render(right.String())
 
-	return lipgloss.JoinHorizontal(lipgloss.Left, left.String(), right.String())
+	return lipgloss.JoinHorizontal(lipgloss.Left, finalLeft, finalRight)
 }
