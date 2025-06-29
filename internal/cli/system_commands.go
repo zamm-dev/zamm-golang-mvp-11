@@ -125,6 +125,77 @@ func (a *App) createBackupCommand() *cobra.Command {
 	}
 }
 
+// createMigrationCommand creates the migration management command
+func (a *App) createMigrationCommand() *cobra.Command {
+	migrationCmd := &cobra.Command{
+		Use:   "migration",
+		Short: "Manage database migrations",
+		Long:  "Commands to manage database migrations including status and force operations",
+	}
+
+	// Migration status subcommand
+	statusCmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show current migration status",
+		Long:  "Display the current migration version and whether the database is in a dirty state",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			version, dirty, err := a.storage.GetMigrationVersion()
+			if err != nil {
+				return err
+			}
+
+			if version == 0 {
+				fmt.Println("No migrations have been applied")
+			} else {
+				fmt.Printf("Current migration version: %d\n", version)
+			}
+
+			if dirty {
+				fmt.Println("Database is in dirty state - manual intervention may be required")
+			} else {
+				fmt.Println("Database is clean")
+			}
+
+			return nil
+		},
+	}
+
+	// Migration force subcommand
+	forceCmd := &cobra.Command{
+		Use:   "force <version>",
+		Short: "Force migration version (for recovery)",
+		Long:  "Force the migration version to a specific value. Use with caution - this is for recovery purposes only.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			version := uint(0)
+			if _, err := fmt.Sscanf(args[0], "%d", &version); err != nil {
+				return fmt.Errorf("invalid version number: %s", args[0])
+			}
+
+			fmt.Printf("Forcing migration version to %d...\n", version)
+			if err := a.storage.ForceMigrationVersion(version); err != nil {
+				return err
+			}
+
+			fmt.Println("Migration version forced successfully")
+			return nil
+		},
+	}
+
+	// Migration up subcommand
+	upCmd := &cobra.Command{
+		Use:   "up",
+		Short: "Run pending migrations",
+		Long:  "Check for and run any pending database migrations",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return a.storage.RunMigrationsIfNeeded()
+		},
+	}
+
+	migrationCmd.AddCommand(statusCmd, forceCmd, upCmd)
+	return migrationCmd
+}
+
 // formatBytes formats byte count as human readable string
 func formatBytes(bytes int64) string {
 	const unit = 1024
@@ -141,18 +212,10 @@ func formatBytes(bytes int64) string {
 
 // runMigrations runs database migrations
 func (a *App) runMigrations() error {
-	// Read migration file
-	migrationPath := "migrations/001_initial.sql"
-	migrationSQL, err := os.ReadFile(migrationPath)
-	if err != nil {
-		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to read migration file", err)
+	// Use the new migration system
+	if err := a.storage.RunMigrationsIfNeeded(); err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to run migrations", err)
 	}
 
-	// Execute migration using the storage interface
-	if err := a.storage.RunMigration(string(migrationSQL)); err != nil {
-		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to execute migration", err)
-	}
-
-	fmt.Printf("Migration executed successfully: %s\n", migrationPath)
 	return nil
 }

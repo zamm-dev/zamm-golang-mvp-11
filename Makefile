@@ -26,4 +26,4 @@ fmt:
 	go fmt ./...
 
 migrations-up:
-	sqlite3 ~/.zamm/zamm.db < migrations/001_initial.sql
+	./bin/zamm migration up

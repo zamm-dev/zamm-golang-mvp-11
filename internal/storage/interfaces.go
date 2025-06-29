@@ -31,7 +31,11 @@ type Storage interface {
 	WouldCreateCycle(parentSpecID, childSpecID string) (bool, error)
 
 	// Utility
-	RunMigration(migrationSQL string) error
 	BackupDatabase(backupPath string) error
 	Close() error
+	
+	// Migration operations
+	RunMigrationsIfNeeded() error
+	GetMigrationVersion() (uint, bool, error)
+	ForceMigrationVersion(version uint) error
 }

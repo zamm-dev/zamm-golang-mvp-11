@@ -12,7 +12,8 @@ import (
 
 // SQLiteStorage implements the Storage interface using SQLite
 type SQLiteStorage struct {
-	db *sql.DB
+	db               *sql.DB
+	migrationService *MigrationService
 }
 
 // NewSQLiteStorage creates a new SQLite storage instance
@@ -22,7 +23,16 @@ func NewSQLiteStorage(dbPath string) (*SQLiteStorage, error) {
 		return nil, models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to open database", err)
 	}
 
-	storage := &SQLiteStorage{db: db}
+	// Find the migrations directory relative to the current working directory
+	migrationDir := "migrations"
+	
+	// Create migration service
+	migrationService := NewMigrationService(db, migrationDir)
+
+	storage := &SQLiteStorage{
+		db:               db,
+		migrationService: migrationService,
+	}
 
 	// Test connection
 	if err := db.Ping(); err != nil {
@@ -523,14 +533,19 @@ func (s *SQLiteStorage) WouldCreateCycle(parentSpecID, childSpecID string) (bool
 	return true, nil // A cycle would be created
 }
 
-// RunMigration executes a migration SQL script
-func (s *SQLiteStorage) RunMigration(migrationSQL string) error {
-	// Execute the migration SQL
-	_, err := s.db.Exec(migrationSQL)
-	if err != nil {
-		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to execute migration", err)
-	}
-	return nil
+// RunMigrationsIfNeeded runs any pending migrations
+func (s *SQLiteStorage) RunMigrationsIfNeeded() error {
+	return s.migrationService.RunMigrationsIfNeeded()
+}
+
+// GetMigrationVersion returns the current migration version
+func (s *SQLiteStorage) GetMigrationVersion() (uint, bool, error) {
+	return s.migrationService.GetCurrentVersion()
+}
+
+// ForceMigrationVersion forces the migration version (for recovery)
+func (s *SQLiteStorage) ForceMigrationVersion(version uint) error {
+	return s.migrationService.ForceMigrationVersion(version)
 }
 
 // BackupDatabase creates a backup of the database to the specified path

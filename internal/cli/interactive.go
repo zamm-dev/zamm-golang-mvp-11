@@ -121,6 +121,12 @@ func (a *App) createInteractiveCommand() *cobra.Command {
 
 // runInteractiveMode starts the interactive mode with TUI
 func (a *App) runInteractiveMode() error {
+	// Check for and run migrations if needed
+	fmt.Println("Checking for database migrations...")
+	if err := a.storage.RunMigrationsIfNeeded(); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
 	ti := textinput.New()
 	ti.Focus()
 
