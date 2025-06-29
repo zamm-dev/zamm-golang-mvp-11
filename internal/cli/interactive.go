@@ -131,7 +131,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.message = ""
 				m.state = SpecListView
 				m.cursor = 0
-				return m, nil
+				return m, m.loadSpecsCmd()
 			}
 			return m, nil
 		}
@@ -267,7 +267,7 @@ func (m *Model) updateLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		m.state = SpecListView
 		m.cursor = 0
-		return m, nil
+		return m, m.loadSpecsCmd()
 	case "up", "k":
 		if m.cursor > 0 {
 			m.cursor--
@@ -291,7 +291,7 @@ func (m *Model) updateCreateSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state = SpecListView
 		m.cursor = 0
 		m.resetInputs()
-		return m, nil
+		return m, m.loadSpecsCmd()
 	case tea.KeyEnter:
 		if m.state == CreateSpecTitle {
 			if strings.TrimSpace(m.textInput.Value()) == "" {
@@ -324,7 +324,7 @@ func (m *Model) updateEditSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state = SpecListView
 		m.cursor = 0
 		m.resetInputs()
-		return m, nil
+		return m, m.loadSpecsCmd()
 	case tea.KeyEnter:
 		if m.state == EditSpecTitle {
 			if strings.TrimSpace(m.textInput.Value()) != "" {
@@ -377,7 +377,7 @@ func (m *Model) updateLinkSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state = SpecListView
 		m.cursor = 0
 		m.resetInputs()
-		return m, nil
+		return m, m.loadSpecsCmd()
 	case tea.KeyEnter:
 		switch m.state {
 		case LinkSpecCommit:
@@ -418,7 +418,7 @@ func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state = SpecListView
 		m.cursor = 0
 		m.resetInputs()
-		return m, nil
+		return m, m.loadSpecsCmd()
 	case "y":
 		if m.confirmAction == "delete_spec" {
 			return m, m.deleteSpecCmd(m.selectedSpecID)
@@ -435,7 +435,7 @@ func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.cursor = 0
 		m.resetInputs()
-		return m, nil
+		return m, m.loadSpecsCmd()
 	}
 	return m, nil
 }
