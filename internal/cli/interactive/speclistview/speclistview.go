@@ -26,8 +26,10 @@ type Model struct {
 }
 
 // New creates a new model for the spec list view screen
-func New() Model {
-	return Model{}
+func New(linkService LinkService) Model {
+	return Model{
+		linkService: linkService,
+	}
 }
 
 // SetSpecs sets the specifications to be displayed
@@ -43,11 +45,6 @@ func (m *Model) SetSpecs(specs []interactive.Spec) {
 			m.links = nil
 		}
 	}
-}
-
-// SetLinkService injects the link service for DB access
-func (m *Model) SetLinkService(svc LinkService) {
-	m.linkService = svc
 }
 
 // Update handles messages and updates the model
@@ -88,7 +85,6 @@ func (m *Model) View() string {
 	}
 
 	// Layout: left (list), right (details)
-	const leftWidth = 40
 	var left strings.Builder
 	left.WriteString("📋 Specifications List\n")
 	left.WriteString("=====================\n\n")

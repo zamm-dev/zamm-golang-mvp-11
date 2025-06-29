@@ -116,7 +116,7 @@ func (a *App) runInteractiveMode() error {
 		app:          a,
 		state:        MainMenu,
 		textInput:    ti,
-		specListView: speclistview.New(),
+		specListView: speclistview.New(a.linkService),
 		choices: []string{
 			"📋 List specifications",
 			"✏️  Edit specification",
