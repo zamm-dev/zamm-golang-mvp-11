@@ -35,7 +35,6 @@ type MenuAction int
 
 const (
 	ActionListSpecs MenuAction = iota
-	ActionDeleteLink
 	ActionExit
 )
 
@@ -118,8 +117,7 @@ func (a *App) runInteractiveMode() error {
 		specListView: speclistview.New(a.linkService),
 		choices: []string{
 			"📋 List specifications",
-			"🗑️  Delete spec-commit link",
-			"🚪 Exit",
+			" Exit",
 		},
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
@@ -497,7 +495,7 @@ func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "y":
 		if m.confirmAction == "delete_spec" {
 			return m, m.deleteSpecCmd(m.selectedSpecID)
-		} else if m.action == ActionDeleteLink {
+		} else if m.confirmAction == "delete_link" {
 			if m.cursor < len(m.links) {
 				selectedLink := m.links[m.cursor]
 				return m, m.deleteLinkCmd(m.selectedSpecID, selectedLink.CommitID, selectedLink.RepoPath)
@@ -518,8 +516,6 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 	switch m.action {
 	case ActionListSpecs:
 		return m, m.loadSpecsCmd()
-	case ActionDeleteLink:
-		return m, m.loadSpecsCmd()
 	case ActionExit:
 		return m, tea.Quit
 	}
@@ -529,10 +525,6 @@ func (m *Model) executeAction() (tea.Model, tea.Cmd) {
 
 // executeSpecAction executes the action on the selected spec
 func (m *Model) executeSpecAction() (tea.Model, tea.Cmd) {
-	switch m.action {
-	case ActionDeleteLink:
-		return m, m.loadLinksForSpecCmd()
-	}
 	return m, nil
 }
 
@@ -760,12 +752,8 @@ func (m *Model) renderMainMenu() string {
 
 // renderSpecSelection renders the spec selection screen
 func (m *Model) renderSpecSelection() string {
-	actionTitle := map[MenuAction]string{
-		ActionDeleteLink: "🗑️  Delete Specification Link",
-	}
-
-	s := actionTitle[m.action] + "\n"
-	s += strings.Repeat("=", len(actionTitle[m.action])-3) + "\n\n" // -3 for emoji
+	s := "🗑️  Delete Specification Link\n"
+	s += "=============================\n\n"
 
 	if len(m.specs) == 0 {
 		s += "No specifications found.\n\n"

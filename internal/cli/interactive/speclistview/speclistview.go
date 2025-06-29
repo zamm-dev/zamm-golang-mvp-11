@@ -25,6 +25,9 @@ type EditSpecMsg struct {
 type DeleteSpecMsg struct {
 	SpecID string
 }
+type RemoveLinkSpecMsg struct {
+	SpecID string
+}
 
 // Model represents the state of the spec list view screen
 type LinkService interface {
@@ -38,6 +41,7 @@ type keyMap struct {
 	Edit   key.Binding
 	Delete key.Binding
 	Link   key.Binding
+	Remove key.Binding
 	Help   key.Binding
 	Return key.Binding
 }
@@ -67,6 +71,10 @@ var keys = keyMap{
 		key.WithKeys("l", "L"),
 		key.WithHelp("l", "link commit"),
 	),
+	Remove: key.NewBinding(
+		key.WithKeys("r", "R"),
+		key.WithHelp("r", "remove commit"),
+	),
 	Return: key.NewBinding(
 		key.WithKeys("esc"),
 		key.WithHelp("Esc", "back"),
@@ -78,14 +86,14 @@ var keys = keyMap{
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Create, k.Edit, k.Delete, k.Link, k.Help, k.Return}
+	return []key.Binding{k.Create, k.Edit, k.Delete, k.Link, k.Remove, k.Help, k.Return}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down},
-		{k.Create, k.Delete},
-		{k.Edit, k.Link},
+		{k.Create, k.Edit, k.Delete},
+		{k.Link, k.Remove},
 		{k.Help, k.Return},
 	}
 }
@@ -146,8 +154,20 @@ func New(linkService LinkService) Model {
 func (m *Model) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	m.list.SetSize((width-1)/2, height-3)
 	m.help.Width = width
+	m.setListSize()
+}
+
+func (m *Model) paneWidth() int {
+	return (m.width - 1) / 2 // width of each half pane, minus 1 for padding
+}
+
+func (m *Model) setListSize() {
+	if m.help.ShowAll {
+		m.list.SetSize(m.paneWidth(), m.height-4)
+	} else {
+		m.list.SetSize(m.paneWidth(), m.height-3)
+	}
 }
 
 // SetSpecs sets the specifications to be displayed
@@ -209,8 +229,15 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				return *m, nil // No valid spec selected
 			}
 			return *m, func() tea.Msg { return LinkCommitSpecMsg{SpecID: spec.ID} }
+		case key.Matches(msg, m.keys.Remove):
+			spec, ok := m.list.SelectedItem().(interactive.Spec)
+			if !ok {
+				return *m, nil // No valid spec selected
+			}
+			return *m, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: spec.ID} }
 		case key.Matches(msg, m.keys.Help):
 			m.help.ShowAll = !m.help.ShowAll
+			m.setListSize() // Adjust list size based on help visibility
 			return *m, nil
 		}
 	}
@@ -223,13 +250,13 @@ func (m *Model) View() string {
 		return "No specifications found.\n\nPress Esc to return to main menu"
 	}
 
-	paneWidth := (m.width - 1) / 2 // width of each half pane, minus 1 for padding
+	paneWidth := m.paneWidth()
 
 	// Layout: left (list), right (details)
 	var left strings.Builder
 	left.WriteString(m.list.View())
 	left.WriteString(m.help.View(m.keys))
-	finalLeft := lipgloss.NewStyle().Width(paneWidth).Render(left.String())
+	finalLeft := lipgloss.JoinVertical(lipgloss.Top, m.list.View(), m.help.View(m.keys))
 
 	// Right: details for selected spec
 	var right strings.Builder
