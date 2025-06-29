@@ -8,6 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
+	interactive "github.com/yourorg/zamm-mvp/internal/cli/interactive"
+	"github.com/yourorg/zamm-mvp/internal/cli/interactive/speclistview"
 )
 
 // MenuState represents the current state of the interactive menu
@@ -16,6 +18,7 @@ type MenuState int
 const (
 	MainMenu MenuState = iota
 	SpecSelection
+	SpecListView
 	LinkSelection
 	CreateSpecTitle
 	CreateSpecContent
@@ -46,13 +49,14 @@ type Model struct {
 	app            *App
 	state          MenuState
 	cursor         int
-	specs          []specItem
+	specs          []interactive.Spec
 	links          []linkItem
 	choices        []string
 	action         MenuAction
 	selectedSpecID string
 	message        string
 	showMessage    bool
+	specListView   speclistview.Model
 
 	// Input fields for forms
 	inputTitle   string
@@ -69,13 +73,6 @@ type Model struct {
 	confirmAction string
 }
 
-type specItem struct {
-	ID        string
-	Title     string
-	Content   string
-	CreatedAt string
-}
-
 type linkItem struct {
 	ID        string
 	CommitID  string
@@ -86,7 +83,7 @@ type linkItem struct {
 
 // Custom messages
 type specsLoadedMsg struct {
-	specs []specItem
+	specs []interactive.Spec
 	err   error
 }
 
@@ -117,9 +114,10 @@ func (a *App) runInteractiveMode() error {
 	ti.Focus()
 
 	model := Model{
-		app:       a,
-		state:     MainMenu,
-		textInput: ti,
+		app:          a,
+		state:        MainMenu,
+		textInput:    ti,
+		specListView: speclistview.New(),
 		choices: []string{
 			"📋 List specifications",
 			"📝 Create new specification",
@@ -162,6 +160,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateMainMenu(msg)
 		case SpecSelection:
 			return m.updateSpecSelection(msg)
+		case SpecListView:
+			// Delegate to the spec list view, but handle exit condition here
+			if msg.String() == "esc" {
+				m.state = MainMenu
+				m.cursor = 0
+				return m, nil
+			}
+			var cmd tea.Cmd
+			m.specListView, cmd = m.specListView.Update(msg)
+			return m, cmd
 		case LinkSelection:
 			return m.updateLinkSelection(msg)
 		case CreateSpecTitle, CreateSpecContent,
@@ -198,8 +206,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.action == ActionListSpecs {
-			m.message = m.formatSpecsList()
-			m.showMessage = true
+			m.state = SpecListView
+			m.specListView.SetSpecs(m.specs)
 			return m, nil
 		}
 
@@ -539,9 +547,9 @@ func (m *Model) loadSpecsCmd() tea.Cmd {
 			return specsLoadedMsg{err: err}
 		}
 
-		specItems := make([]specItem, len(specs))
+		specItems := make([]interactive.Spec, len(specs))
 		for i, spec := range specs {
-			specItems[i] = specItem{
+			specItems[i] = interactive.Spec{
 				ID:        spec.ID,
 				Title:     spec.Title,
 				Content:   spec.Content,
@@ -664,35 +672,6 @@ func (m *Model) deleteLinkCmd(specID, commitID, repoPath string) tea.Cmd {
 	}
 }
 
-// formatSpecsList formats the specs list for display
-func (m *Model) formatSpecsList() string {
-	if len(m.specs) == 0 {
-		return "No specifications found. Press Enter to continue..."
-	}
-
-	var s strings.Builder
-	s.WriteString(fmt.Sprintf("Found %d specifications:\n\n", len(m.specs)))
-
-	// Simple text formatting instead of tabwriter for message display
-	s.WriteString("TITLE                                              CREATED          ID\n")
-	s.WriteString("─────                                              ───────          ──\n")
-
-	for _, spec := range m.specs {
-		title := spec.Title
-		if len(title) > 50 {
-			title = title[:47] + "..."
-		}
-		s.WriteString(fmt.Sprintf("%-50s %-16s %s\n",
-			title,
-			spec.CreatedAt,
-			spec.ID[:8]+"...",
-		))
-	}
-
-	s.WriteString("\nPress Enter to continue...")
-	return s.String()
-}
-
 // formatLinksList formats the links list for display
 func (m *Model) formatLinksList() string {
 	// Find selected spec title
@@ -739,6 +718,8 @@ func (m *Model) View() string {
 		return m.renderMainMenu()
 	case SpecSelection:
 		return m.renderSpecSelection()
+	case SpecListView:
+		return m.specListView.View()
 	case LinkSelection:
 		return m.renderLinkSelection()
 	case CreateSpecTitle, CreateSpecContent:
