@@ -6,15 +6,22 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
+	"github.com/yourorg/zamm-mvp/internal/models"
 )
 
 // CreateNewSpecMsg signals that the user wants to create a new specification
 type CreateNewSpecMsg struct{}
 
 // Model represents the state of the spec list view screen
+type LinkService interface {
+	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
+}
+
 type Model struct {
-	specs  []interactive.Spec
-	cursor int
+	specs       []interactive.Spec
+	cursor      int
+	links       []*models.SpecCommitLink
+	linkService LinkService
 }
 
 // New creates a new model for the spec list view screen
@@ -26,10 +33,25 @@ func New() Model {
 func (m *Model) SetSpecs(specs []interactive.Spec) {
 	m.specs = specs
 	m.cursor = 0
+	// Fetch links for the first spec if available
+	if m.linkService != nil && len(specs) > 0 {
+		links, err := m.linkService.GetCommitsForSpec(specs[0].ID)
+		if err == nil {
+			m.links = links
+		} else {
+			m.links = nil
+		}
+	}
+}
+
+// SetLinkService injects the link service for DB access
+func (m *Model) SetLinkService(svc LinkService) {
+	m.linkService = svc
 }
 
 // Update handles messages and updates the model
 func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+	oldCursor := m.cursor
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -45,6 +67,16 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return *m, func() tea.Msg { return CreateNewSpecMsg{} }
 		}
 	}
+	// If cursor changed, fetch links for the new selected spec
+	if m.linkService != nil && m.cursor != oldCursor && m.cursor >= 0 && m.cursor < len(m.specs) {
+		specID := m.specs[m.cursor].ID
+		links, err := m.linkService.GetCommitsForSpec(specID)
+		if err == nil {
+			m.links = links
+		} else {
+			m.links = nil
+		}
+	}
 	return *m, nil
 }
 
@@ -54,9 +86,11 @@ func (m *Model) View() string {
 		return "No specifications found.\n\nPress Esc to return to main menu"
 	}
 
-	var s strings.Builder
-	s.WriteString("📋 Specifications List\n")
-	s.WriteString("=====================\n\n")
+	// Layout: left (list), right (details)
+	const leftWidth = 40
+	var left strings.Builder
+	left.WriteString("📋 Specifications List\n")
+	left.WriteString("=====================\n\n")
 
 	for i, spec := range m.specs {
 		cursor := " "
@@ -64,12 +98,61 @@ func (m *Model) View() string {
 			cursor = ">"
 		}
 		title := spec.Title
-		if len(title) > 50 {
-			title = title[:47] + "..."
+		if len(title) > 30 {
+			title = title[:27] + "..."
 		}
-		s.WriteString(fmt.Sprintf("%s %s (%s)\n", cursor, title, spec.CreatedAt))
+		left.WriteString(fmt.Sprintf("%s %s\n", cursor, title))
 	}
 
-	s.WriteString("\nUse ↑/↓ arrows to navigate, 'c' to create new specification, Esc to go back")
-	return s.String()
+	left.WriteString("\nUse ↑/↓ arrows to navigate, 'c' to create new specification, Esc to go back")
+
+	// Right: details for selected spec
+	var right strings.Builder
+	if m.cursor >= 0 && m.cursor < len(m.specs) {
+		spec := m.specs[m.cursor]
+		right.WriteString("📝 Spec Details\n")
+		right.WriteString("=====================\n\n")
+		right.WriteString(fmt.Sprintf("ID: %s\n", spec.ID))
+		right.WriteString(fmt.Sprintf("Title: %s\n", spec.Title))
+		right.WriteString(fmt.Sprintf("Created: %s\n", spec.CreatedAt))
+		right.WriteString("\nContent:\n")
+		right.WriteString(spec.Content)
+		right.WriteString("\n\nLinked Commits:\n")
+		if len(m.links) == 0 {
+			right.WriteString("  (none)\n")
+		} else {
+			right.WriteString("  COMMIT           REPO             TYPE         CREATED\n")
+			right.WriteString("  ──────           ────             ────         ───────\n")
+			for _, l := range m.links {
+				commitID := l.CommitID
+				if len(commitID) > 12 {
+					commitID = commitID[:12] + "..."
+				}
+				repo := l.RepoPath
+				linkType := l.LinkType
+				created := l.CreatedAt.Format("2006-01-02 15:04")
+				right.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
+			}
+		}
+	}
+
+	// Combine columns line by line
+	leftLines := strings.Split(left.String(), "\n")
+	rightLines := strings.Split(right.String(), "\n")
+	maxLines := len(leftLines)
+	if len(rightLines) > maxLines {
+		maxLines = len(rightLines)
+	}
+	var out strings.Builder
+	for i := 0; i < maxLines; i++ {
+		var l, r string
+		if i < len(leftLines) {
+			l = leftLines[i]
+		}
+		if i < len(rightLines) {
+			r = rightLines[i]
+		}
+		out.WriteString(fmt.Sprintf("%-*s │ %s\n", leftWidth, l, r))
+	}
+	return out.String()
 }
