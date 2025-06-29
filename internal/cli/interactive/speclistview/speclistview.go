@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
@@ -18,18 +20,74 @@ type LinkService interface {
 	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
 }
 
+type keyMap struct {
+	Up     key.Binding
+	Down   key.Binding
+	Create key.Binding
+	Help   key.Binding
+	Return key.Binding
+}
+
+var keys = keyMap{
+	Up: key.NewBinding(
+		key.WithKeys("up", "k"),
+		key.WithHelp("↑", "next"),
+	),
+	Down: key.NewBinding(
+		key.WithKeys("down", "j"),
+		key.WithHelp("↓", "prev"),
+	),
+	Create: key.NewBinding(
+		key.WithKeys("c", "C"),
+		key.WithHelp("c", "create"),
+	),
+	Return: key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("Esc", "back"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("h", "?"),
+		key.WithHelp("h", "help"),
+	),
+}
+
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Create, k.Help, k.Return}
+}
+
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down},
+		{k.Create},
+		{k.Help, k.Return},
+	}
+}
+
 type Model struct {
+	keys        keyMap
+	help        help.Model
 	specs       []interactive.Spec
 	cursor      int
 	links       []*models.SpecCommitLink
 	linkService LinkService
+
+	width  int
+	height int
 }
 
 // New creates a new model for the spec list view screen
 func New(linkService LinkService) Model {
 	return Model{
+		keys:        keys,
+		help:        help.New(),
 		linkService: linkService,
 	}
+}
+
+func (m *Model) SetSize(width, height int) {
+	m.width = width
+	m.height = height
+	m.help.Width = width
 }
 
 // SetSpecs sets the specifications to be displayed
@@ -52,17 +110,20 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	oldCursor := m.cursor
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "up", "k":
+		switch {
+		case key.Matches(msg, m.keys.Up):
 			if m.cursor > 0 {
 				m.cursor--
 			}
-		case "down", "j":
+		case key.Matches(msg, m.keys.Down):
 			if m.cursor < len(m.specs)-1 {
 				m.cursor++
 			}
-		case "c":
+		case key.Matches(msg, m.keys.Create):
 			return *m, func() tea.Msg { return CreateNewSpecMsg{} }
+		case key.Matches(msg, m.keys.Help):
+			m.help.ShowAll = !m.help.ShowAll
+			return *m, nil
 		}
 	}
 	// If cursor changed, fetch links for the new selected spec
@@ -79,12 +140,12 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 // View renders the spec list view screen
-func (m *Model) View(w int, h int) string {
+func (m *Model) View() string {
 	if len(m.specs) == 0 {
 		return "No specifications found.\n\nPress Esc to return to main menu"
 	}
 
-	paneWidth := (w - 1) / 2 // width of each half pane, minus 1 for padding
+	paneWidth := (m.width - 1) / 2 // width of each half pane, minus 1 for padding
 
 	// Layout: left (list), right (details)
 	var left strings.Builder
@@ -103,7 +164,7 @@ func (m *Model) View(w int, h int) string {
 		left.WriteString(fmt.Sprintf("%s %s\n", cursor, title))
 	}
 
-	left.WriteString("\nUse ↑/↓ arrows to navigate, 'c' to create new specification, Esc to go back")
+	left.WriteString(m.help.View(m.keys))
 	finalLeft := lipgloss.NewStyle().Width(paneWidth).Render(left.String())
 
 	// Right: details for selected spec

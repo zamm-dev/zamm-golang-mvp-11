@@ -149,6 +149,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
+		m.specListView.SetSize(msg.Width, msg.Height)
 	case tea.KeyMsg:
 		if m.showMessage {
 			if msg.String() == "enter" || msg.String() == " " || msg.String() == "esc" {
@@ -728,7 +729,7 @@ func (m *Model) View() string {
 	case SpecSelection:
 		return m.renderSpecSelection()
 	case SpecListView:
-		return m.specListView.View(m.terminalWidth, m.terminalHeight)
+		return m.specListView.View()
 	case LinkSelection:
 		return m.renderLinkSelection()
 	case CreateSpecTitle, CreateSpecContent:
