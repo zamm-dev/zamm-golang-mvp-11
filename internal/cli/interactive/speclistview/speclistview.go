@@ -14,6 +14,9 @@ import (
 
 // CreateNewSpecMsg signals that the user wants to create a new specification
 type CreateNewSpecMsg struct{}
+type LinkCommitSpecMsg struct {
+	SpecID string
+}
 
 // Model represents the state of the spec list view screen
 type LinkService interface {
@@ -24,6 +27,7 @@ type keyMap struct {
 	Up     key.Binding
 	Down   key.Binding
 	Create key.Binding
+	Link   key.Binding
 	Help   key.Binding
 	Return key.Binding
 }
@@ -41,6 +45,10 @@ var keys = keyMap{
 		key.WithKeys("c", "C"),
 		key.WithHelp("c", "create"),
 	),
+	Link: key.NewBinding(
+		key.WithKeys("l", "L"),
+		key.WithHelp("l", "link commit"),
+	),
 	Return: key.NewBinding(
 		key.WithKeys("esc"),
 		key.WithHelp("Esc", "back"),
@@ -52,13 +60,13 @@ var keys = keyMap{
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Create, k.Help, k.Return}
+	return []key.Binding{k.Create, k.Link, k.Help, k.Return}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down},
-		{k.Create},
+		{k.Create, k.Link},
 		{k.Help, k.Return},
 	}
 }
@@ -121,6 +129,11 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keys.Create):
 			return *m, func() tea.Msg { return CreateNewSpecMsg{} }
+		case key.Matches(msg, m.keys.Link):
+			if m.cursor >= 0 && m.cursor < len(m.specs) {
+				specID := m.specs[m.cursor].ID
+				return *m, func() tea.Msg { return LinkCommitSpecMsg{SpecID: specID} }
+			}
 		case key.Matches(msg, m.keys.Help):
 			m.help.ShowAll = !m.help.ShowAll
 			return *m, nil

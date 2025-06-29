@@ -259,6 +259,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textInput.Focus()
 			return m, nil
 		}
+
+	case speclistview.LinkCommitSpecMsg:
+		if m.state == SpecListView {
+			m.resetInputs()
+			m.selectedSpecID = msg.SpecID
+			m.state = LinkSpecCommit
+			m.promptText = "Enter commit hash:"
+			m.textInput.Focus()
+			return m, nil
+		}
 	}
 
 	var cmd tea.Cmd
