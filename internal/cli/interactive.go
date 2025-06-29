@@ -1203,8 +1203,8 @@ func (m *Model) updateLinkSpecToSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cm
 			if selectedSpec.ID == m.selectedSpecID {
 				return m, nil
 			}
-			m.selectedChildSpecID = selectedSpec.ID
 			m.resetInputs()
+			m.selectedChildSpecID = selectedSpec.ID
 			m.state = LinkSpecToSpecType
 			m.promptText = "Enter link type (or press Enter for 'child'):"
 			m.textInput.Focus()
