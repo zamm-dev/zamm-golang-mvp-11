@@ -73,7 +73,7 @@ var keys = keyMap{
 	),
 	Remove: key.NewBinding(
 		key.WithKeys("r", "R"),
-		key.WithHelp("r", "remove commit"),
+		key.WithHelp("r", "remove link"),
 	),
 	Return: key.NewBinding(
 		key.WithKeys("esc"),

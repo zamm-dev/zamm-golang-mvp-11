@@ -280,6 +280,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.confirmAction = "delete_spec"
 			return m, nil
 		}
+
+	case speclistview.RemoveLinkSpecMsg:
+		if m.state == SpecListView {
+			m.resetInputs()
+			m.selectedSpecID = msg.SpecID
+			return m, m.loadLinksForSpecCmd()
+		}
 	}
 
 	var cmd tea.Cmd
@@ -338,7 +345,7 @@ func (m *Model) updateLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "q":
 		return m, tea.Quit
 	case "esc":
-		m.state = MainMenu
+		m.state = SpecListView
 		m.cursor = 0
 		return m, nil
 	case "up", "k":
@@ -488,7 +495,11 @@ func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "q":
 		return m, tea.Quit
 	case "esc", "n":
-		m.state = MainMenu
+		if m.confirmAction == "delete_link" {
+			m.state = SpecListView
+		} else {
+			m.state = MainMenu
+		}
 		m.cursor = 0
 		m.resetInputs()
 		return m, nil
@@ -501,7 +512,11 @@ func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, m.deleteLinkCmd(m.selectedSpecID, selectedLink.CommitID, selectedLink.RepoPath)
 			}
 		}
-		m.state = MainMenu
+		if m.confirmAction == "delete_link" {
+			m.state = SpecListView
+		} else {
+			m.state = MainMenu
+		}
 		m.cursor = 0
 		m.resetInputs()
 		return m, nil
