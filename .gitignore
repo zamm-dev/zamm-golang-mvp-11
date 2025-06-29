@@ -1,3 +1,4 @@
 .aider*
 bin/
 coverage.out
+*.sqlite3

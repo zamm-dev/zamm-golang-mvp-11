@@ -22,5 +22,6 @@ type Storage interface {
 
 	// Utility
 	RunMigration(migrationSQL string) error
+	BackupDatabase(backupPath string) error
 	Close() error
 }

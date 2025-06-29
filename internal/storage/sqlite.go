@@ -355,6 +355,17 @@ func (s *SQLiteStorage) RunMigration(migrationSQL string) error {
 	return nil
 }
 
+// BackupDatabase creates a backup of the database to the specified path
+func (s *SQLiteStorage) BackupDatabase(backupPath string) error {
+	// Use SQLite's backup API via SQL commands
+	query := fmt.Sprintf("VACUUM INTO '%s'", backupPath)
+	_, err := s.db.Exec(query)
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to backup database", err)
+	}
+	return nil
+}
+
 // Close closes the database connection
 func (s *SQLiteStorage) Close() error {
 	if s.db != nil {
