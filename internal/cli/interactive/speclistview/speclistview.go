@@ -28,6 +28,7 @@ type DeleteSpecMsg struct {
 type RemoveLinkSpecMsg struct {
 	SpecID string
 }
+type ExitMsg struct{}
 
 // Model represents the state of the spec list view screen
 type LinkService interface {
@@ -76,7 +77,7 @@ var keys = keyMap{
 		key.WithHelp("r", "remove link"),
 	),
 	Return: key.NewBinding(
-		key.WithKeys("esc"),
+		key.WithKeys("esc", "q", "Q"),
 		key.WithHelp("Esc", "back"),
 	),
 	Help: key.NewBinding(
@@ -239,6 +240,8 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.help.ShowAll = !m.help.ShowAll
 			m.setListSize() // Adjust list size based on help visibility
 			return *m, nil
+		case key.Matches(msg, m.keys.Return):
+			return *m, func() tea.Msg { return ExitMsg{} }
 		}
 	}
 	return *m, nil

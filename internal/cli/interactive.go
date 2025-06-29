@@ -16,9 +16,7 @@ import (
 type MenuState int
 
 const (
-	MainMenu MenuState = iota
-	SpecSelection
-	SpecListView
+	SpecListView MenuState = iota
 	LinkSelection
 	CreateSpecTitle
 	CreateSpecContent
@@ -30,14 +28,6 @@ const (
 	ConfirmDelete
 )
 
-// MenuAction represents an action that can be performed
-type MenuAction int
-
-const (
-	ActionListSpecs MenuAction = iota
-	ActionExit
-)
-
 // Model represents the state of our TUI application
 type Model struct {
 	app            *App
@@ -45,8 +35,6 @@ type Model struct {
 	cursor         int
 	specs          []interactive.Spec
 	links          []linkItem
-	choices        []string
-	action         MenuAction
 	selectedSpecID string
 	message        string
 	showMessage    bool
@@ -111,14 +99,10 @@ func (a *App) runInteractiveMode() error {
 	ti.Focus()
 
 	model := Model{
-		app:          a,
-		state:        MainMenu,
-		textInput:    ti,
-		specListView: speclistview.New(a.linkService),
-		choices: []string{
-			"📋 List specifications",
-			" Exit",
-		},
+		app:            a,
+		state:          SpecListView,
+		textInput:      ti,
+		specListView:   speclistview.New(a.linkService),
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
 	}
@@ -130,7 +114,7 @@ func (a *App) runInteractiveMode() error {
 
 // Init is the first function that will be called
 func (m *Model) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.Batch(textinput.Blink, m.loadSpecsCmd())
 }
 
 // Update handles messages and updates the model
@@ -145,7 +129,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.String() == "enter" || msg.String() == " " || msg.String() == "esc" {
 				m.showMessage = false
 				m.message = ""
-				m.state = MainMenu
+				m.state = SpecListView
 				m.cursor = 0
 				return m, nil
 			}
@@ -153,17 +137,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch m.state {
-		case MainMenu:
-			return m.updateMainMenu(msg)
-		case SpecSelection:
-			return m.updateSpecSelection(msg)
 		case SpecListView:
-			// Delegate to the spec list view, but handle exit condition here
-			if msg.String() == "esc" {
-				m.state = MainMenu
-				m.cursor = 0
-				return m, nil
-			}
+			// Delegate to the spec list view
 			var cmd tea.Cmd
 			m.specListView, cmd = m.specListView.Update(msg)
 			return m, cmd
@@ -195,21 +170,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.specs = msg.specs
-
-		if len(m.specs) == 0 {
-			m.message = "No specifications found."
-			m.showMessage = true
-			return m, nil
-		}
-
-		if m.action == ActionListSpecs {
-			m.state = SpecListView
-			m.specListView.SetSpecs(m.specs)
-			return m, nil
-		}
-
-		m.state = SpecSelection
-		m.cursor = 0
+		m.specListView.SetSpecs(m.specs)
 		return m, nil
 
 	case linksLoadedMsg:
@@ -287,6 +248,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectedSpecID = msg.SpecID
 			return m, m.loadLinksForSpecCmd()
 		}
+
+	case speclistview.ExitMsg:
+		return m, tea.Quit
 	}
 
 	var cmd tea.Cmd
@@ -295,50 +259,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateMainMenu handles updates for the main menu
-func (m *Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "up", "k":
-		if m.cursor > 0 {
-			m.cursor--
-		}
-	case "down", "j":
-		if m.cursor < len(m.choices)-1 {
-			m.cursor++
-		}
-	case "enter", " ":
-		return m.executeAction()
-	}
-	return m, nil
-}
-
-// updateSpecSelection handles updates for spec selection
-func (m *Model) updateSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc":
-		m.state = MainMenu
-		m.cursor = 0
-		return m, nil
-	case "up", "k":
-		if m.cursor > 0 {
-			m.cursor--
-		}
-	case "down", "j":
-		if m.cursor < len(m.specs)-1 {
-			m.cursor++
-		}
-	case "enter", " ":
-		if len(m.specs) > 0 {
-			m.selectedSpecID = m.specs[m.cursor].ID
-			return m.executeSpecAction()
-		}
-	}
-	return m, nil
-}
-
 // updateLinkSelection handles updates for link selection
 func (m *Model) updateLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -368,7 +288,7 @@ func (m *Model) updateLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) updateCreateSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC, tea.KeyEsc:
-		m.state = MainMenu
+		m.state = SpecListView
 		m.cursor = 0
 		m.resetInputs()
 		return m, nil
@@ -401,7 +321,7 @@ func (m *Model) updateCreateSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) updateEditSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC, tea.KeyEsc:
-		m.state = MainMenu
+		m.state = SpecListView
 		m.cursor = 0
 		m.resetInputs()
 		return m, nil
@@ -454,7 +374,7 @@ func (m *Model) updateEditSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) updateLinkSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC, tea.KeyEsc:
-		m.state = MainMenu
+		m.state = SpecListView
 		m.cursor = 0
 		m.resetInputs()
 		return m, nil
@@ -495,11 +415,7 @@ func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "q":
 		return m, tea.Quit
 	case "esc", "n":
-		if m.confirmAction == "delete_link" {
-			m.state = SpecListView
-		} else {
-			m.state = MainMenu
-		}
+		m.state = SpecListView
 		m.cursor = 0
 		m.resetInputs()
 		return m, nil
@@ -515,7 +431,7 @@ func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.confirmAction == "delete_link" {
 			m.state = SpecListView
 		} else {
-			m.state = MainMenu
+			m.state = SpecListView
 		}
 		m.cursor = 0
 		m.resetInputs()
@@ -525,24 +441,6 @@ func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // executeAction executes the selected main menu action
-func (m *Model) executeAction() (tea.Model, tea.Cmd) {
-	m.action = MenuAction(m.cursor)
-
-	switch m.action {
-	case ActionListSpecs:
-		return m, m.loadSpecsCmd()
-	case ActionExit:
-		return m, tea.Quit
-	}
-
-	return m, nil
-}
-
-// executeSpecAction executes the action on the selected spec
-func (m *Model) executeSpecAction() (tea.Model, tea.Cmd) {
-	return m, nil
-}
-
 // executeLinkAction executes the action on the selected link
 func (m *Model) executeLinkAction() (tea.Model, tea.Cmd) {
 	m.resetInputs()
@@ -684,41 +582,6 @@ func (m *Model) deleteLinkCmd(specID, commitID, repoPath string) tea.Cmd {
 	}
 }
 
-// formatLinksList formats the links list for display
-func (m *Model) formatLinksList() string {
-	// Find selected spec title
-	selectedSpecTitle := ""
-	for _, spec := range m.specs {
-		if spec.ID == m.selectedSpecID {
-			selectedSpecTitle = spec.Title
-			break
-		}
-	}
-
-	var s strings.Builder
-	s.WriteString(fmt.Sprintf("Links for '%s':\n\n", selectedSpecTitle))
-
-	if len(m.links) == 0 {
-		s.WriteString("No links found.")
-	} else {
-		s.WriteString("COMMIT           REPO             TYPE         CREATED\n")
-		s.WriteString("──────           ────             ────         ───────\n")
-
-		for _, link := range m.links {
-			repoName := filepath.Base(link.RepoPath)
-			s.WriteString(fmt.Sprintf("%-16s %-16s %-12s %s\n",
-				link.CommitID[:12]+"...",
-				repoName,
-				link.LinkType,
-				link.CreatedAt,
-			))
-		}
-	}
-
-	s.WriteString("\nPress Enter to continue...")
-	return s.String()
-}
-
 // View renders the UI
 func (m *Model) View() string {
 	if m.showMessage {
@@ -726,10 +589,6 @@ func (m *Model) View() string {
 	}
 
 	switch m.state {
-	case MainMenu:
-		return m.renderMainMenu()
-	case SpecSelection:
-		return m.renderSpecSelection()
 	case SpecListView:
 		return m.specListView.View()
 	case LinkSelection:
@@ -745,53 +604,6 @@ func (m *Model) View() string {
 	default:
 		return "Loading..."
 	}
-}
-
-// renderMainMenu renders the main menu
-func (m *Model) renderMainMenu() string {
-	s := "🚀 ZAMM Interactive Mode\n"
-	s += "========================\n\n"
-	s += "What would you like to do?\n\n"
-
-	for i, choice := range m.choices {
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
-		}
-		s += fmt.Sprintf("%s %s\n", cursor, choice)
-	}
-
-	s += "\nUse ↑/↓ arrows to navigate, Enter to select, q to quit"
-	return s
-}
-
-// renderSpecSelection renders the spec selection screen
-func (m *Model) renderSpecSelection() string {
-	s := "🗑️  Delete Specification Link\n"
-	s += "=============================\n\n"
-
-	if len(m.specs) == 0 {
-		s += "No specifications found.\n\n"
-		s += "Press Esc to return to main menu"
-		return s
-	}
-
-	s += "Select a specification:\n\n"
-
-	for i, spec := range m.specs {
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
-		}
-		title := spec.Title
-		if len(title) > 50 {
-			title = title[:47] + "..."
-		}
-		s += fmt.Sprintf("%s %s (%s)\n", cursor, title, spec.CreatedAt)
-	}
-
-	s += "\nUse ↑/↓ arrows to navigate, Enter to select, Esc to go back"
-	return s
 }
 
 // renderLinkSelection renders the link selection screen
