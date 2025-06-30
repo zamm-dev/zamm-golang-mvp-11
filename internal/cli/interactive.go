@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	interactive "github.com/yourorg/zamm-mvp/internal/cli/interactive"
+	"github.com/yourorg/zamm-mvp/internal/cli/interactive/common"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive/speclistview"
 	"github.com/yourorg/zamm-mvp/internal/models"
 	"github.com/yourorg/zamm-mvp/internal/services"
@@ -69,6 +70,9 @@ type Model struct {
 	specLinks           []specLinkItem
 	selectedChildSpecID string
 	inputLinkType       string
+
+	// Spec selector component
+	specSelector common.SpecSelector
 }
 
 type linkItem struct {
@@ -142,6 +146,7 @@ func (a *App) runInteractiveMode() error {
 		state:          SpecListView,
 		textInput:      ti,
 		specListView:   speclistview.New(combinedSvc),
+		specSelector:   common.NewSpecSelector(common.DefaultSpecSelectorConfig()),
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
 	}
@@ -163,6 +168,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
 		m.specListView.SetSize(msg.Width, msg.Height)
+		m.specSelector.SetSize(msg.Width, msg.Height)
 	case tea.KeyMsg:
 		if m.showMessage {
 			if msg.String() == "enter" || msg.String() == " " || msg.String() == "esc" {
@@ -188,7 +194,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case UnlinkTypeSelection:
 			return m.updateUnlinkTypeSelection(msg)
 		case LinkSpecToSpecSelection:
-			return m.updateLinkSpecToSpecSelection(msg)
+			// Use spec selector for spec selection
+			var cmd tea.Cmd
+			selector, selectorCmd := m.specSelector.Update(msg)
+			m.specSelector = *selector
+			cmd = selectorCmd
+
+			// Handle escape key to go back
+			if msg.String() == "esc" {
+				m.state = LinkTypeSelection
+				m.cursor = 0
+				return m, nil
+			}
+
+			return m, cmd
 		case UnlinkSpecFromSpecSelection:
 			return m.updateUnlinkSpecFromSpecSelection(msg)
 		case CreateSpecTitle, CreateSpecContent,
@@ -316,6 +335,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = UnlinkTypeSelection
 			m.cursor = 0
 			return m, nil
+		}
+
+	case common.SpecSelectedMsg:
+		if m.state == LinkSpecToSpecSelection {
+			// Handle spec selection for linking
+			if msg.Spec.ID != "" && msg.Spec.ID != m.selectedSpecID {
+				m.resetInputs()
+				m.selectedChildSpecID = msg.Spec.ID
+				m.state = LinkSpecToSpecType
+				m.promptText = "Enter link type (or press Enter for 'child'):"
+				m.textInput.Focus()
+				return m, nil
+			}
 		}
 
 	case speclistview.ExitMsg:
@@ -777,7 +809,7 @@ func (m *Model) View() string {
 	case UnlinkTypeSelection:
 		return m.renderUnlinkTypeSelection()
 	case LinkSpecToSpecSelection:
-		return m.renderLinkSpecToSpecSelection()
+		return m.specSelector.View()
 	case UnlinkSpecFromSpecSelection:
 		return m.renderUnlinkSpecFromSpecSelection()
 	case CreateSpecTitle, CreateSpecContent:
@@ -1015,44 +1047,6 @@ func (m *Model) renderUnlinkTypeSelection() string {
 }
 
 // renderLinkSpecToSpecSelection renders the spec-to-spec selection menu
-func (m *Model) renderLinkSpecToSpecSelection() string {
-	s := "🔗 Link to Specification\n"
-	s += "========================\n\n"
-
-	// Find selected spec title
-	var currentSpecTitle string
-	for _, spec := range m.specs {
-		if spec.ID == m.selectedSpecID {
-			currentSpecTitle = spec.Title
-			break
-		}
-	}
-
-	s += fmt.Sprintf("Link '%s' to which specification?\n\n", currentSpecTitle)
-
-	if len(m.specs) == 0 {
-		s += "No specifications available.\n\n"
-		s += "Press Esc to go back"
-		return s
-	}
-
-	for i, spec := range m.specs {
-		// Skip the current spec
-		if spec.ID == m.selectedSpecID {
-			continue
-		}
-
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
-		}
-		s += fmt.Sprintf("%s %s\n", cursor, spec.Title)
-	}
-
-	s += "\nUse ↑/↓ arrows to navigate, Enter to select, Esc to go back"
-	return s
-}
-
 // renderUnlinkSpecFromSpecSelection renders the spec unlink selection menu
 func (m *Model) renderUnlinkSpecFromSpecSelection() string {
 	s := "🗑️  Remove Specification Link\n"
@@ -1148,6 +1142,18 @@ func (m *Model) updateLinkTypeSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.resetInputs()
 			m.state = LinkSpecToSpecSelection
 			m.cursor = 0
+
+			// Configure spec selector with filter to exclude current spec
+			config := common.SpecSelectorConfig{
+				Title: "🔗 Link to Specification",
+				FilterPredicate: func(spec interactive.Spec) bool {
+					return spec.ID != m.selectedSpecID
+				},
+			}
+			m.specSelector = common.NewSpecSelector(config)
+			m.specSelector.SetSpecs(m.specs)
+			m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
+
 			return m, nil
 		}
 	}
@@ -1186,41 +1192,6 @@ func (m *Model) updateUnlinkTypeSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateLinkSpecToSpecSelection handles spec-to-spec linking selection
-func (m *Model) updateLinkSpecToSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc":
-		m.state = LinkTypeSelection
-		m.cursor = 0
-		return m, nil
-	case "up", "k":
-		if m.cursor > 0 {
-			m.cursor--
-		}
-	case "down", "j":
-		if m.cursor < len(m.specs)-1 {
-			m.cursor++
-		}
-	case "enter", " ":
-		if m.cursor < len(m.specs) {
-			// Skip if trying to link to itself
-			selectedSpec := m.specs[m.cursor]
-			if selectedSpec.ID == m.selectedSpecID {
-				return m, nil
-			}
-			m.resetInputs()
-			m.selectedChildSpecID = selectedSpec.ID
-			m.state = LinkSpecToSpecType
-			m.promptText = "Enter link type (or press Enter for 'child'):"
-			m.textInput.Focus()
-			return m, nil
-		}
-	}
-	return m, nil
-}
-
 // updateUnlinkSpecFromSpecSelection handles spec-to-spec unlinking selection
 func (m *Model) updateUnlinkSpecFromSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -1254,6 +1225,18 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state = LinkSpecToSpecSelection
 		m.cursor = 0
 		m.resetInputs()
+
+		// Reconfigure spec selector
+		config := common.SpecSelectorConfig{
+			Title: "🔗 Link to Specification",
+			FilterPredicate: func(spec interactive.Spec) bool {
+				return spec.ID != m.selectedSpecID
+			},
+		}
+		m.specSelector = common.NewSpecSelector(config)
+		m.specSelector.SetSpecs(m.specs)
+		m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
+
 		return m, nil
 	case tea.KeyEnter:
 		linkType := strings.TrimSpace(m.textInput.Value())

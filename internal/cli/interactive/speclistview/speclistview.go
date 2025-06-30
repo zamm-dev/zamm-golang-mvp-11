@@ -2,15 +2,14 @@ package speclistview
 
 import (
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
+	"github.com/yourorg/zamm-mvp/internal/cli/interactive/common"
 	"github.com/yourorg/zamm-mvp/internal/models"
 )
 
@@ -114,41 +113,14 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	}
 }
 
-type specDelegate struct{}
-
-var specStyle = lipgloss.NewStyle()
-
-func (d specDelegate) Height() int                             { return 1 }
-func (d specDelegate) Spacing() int                            { return 0 }
-func (d specDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d specDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	spec, ok := listItem.(interactive.Spec)
-	if !ok {
-		return
-	}
-
-	str := spec.Title
-	maxWidth := m.Width() - 2 // account for padding
-	if len(str) > maxWidth {
-		str = str[:maxWidth-3] + "..."
-	}
-
-	fn := specStyle.Render
-	if index == m.Index() {
-		fmt.Fprint(w, specStyle.Foreground(lipgloss.Color("2")).Render("> "+str))
-	} else {
-		fmt.Fprint(w, fn("  "+str))
-	}
-}
-
 type Model struct {
-	list        list.Model
-	keys        keyMap
-	help        help.Model
-	specs       []interactive.Spec
-	links       []*models.SpecCommitLink
-	childSpecs  []*models.SpecSpecLink
-	linkService LinkService
+	specSelector common.SpecSelector
+	keys         keyMap
+	help         help.Model
+	specs        []interactive.Spec
+	links        []*models.SpecCommitLink
+	childSpecs   []*models.SpecSpecLink
+	linkService  LinkService
 
 	// Navigation state
 	currentSpec *interactive.Spec // nil for top level
@@ -159,16 +131,17 @@ type Model struct {
 
 // New creates a new model for the spec list view screen
 func New(linkService LinkService) Model {
-	list := list.New([]list.Item{}, specDelegate{}, 0, 0)
-	list.Title = "Specifications"
-	list.SetShowHelp(false)
-	list.Styles.Title = lipgloss.NewStyle().Bold(true)
+	config := common.SpecSelectorConfig{
+		Title: "Specifications",
+	}
+	specSelector := common.NewSpecSelector(config)
+
 	return Model{
-		list:        list,
-		keys:        keys,
-		help:        help.New(),
-		linkService: linkService,
-		currentSpec: nil, // Start at top level
+		specSelector: specSelector,
+		keys:         keys,
+		help:         help.New(),
+		linkService:  linkService,
+		currentSpec:  nil, // Start at top level
 	}
 }
 
@@ -176,31 +149,17 @@ func (m *Model) SetSize(width, height int) {
 	m.width = width
 	m.height = height
 	m.help.Width = width
-	m.setListSize()
+	m.specSelector.SetSize(m.paneWidth(), m.height-3)
 }
 
 func (m *Model) paneWidth() int {
 	return (m.width - 1) / 2 // width of each half pane, minus 1 for padding
 }
 
-func (m *Model) setListSize() {
-	if m.help.ShowAll {
-		m.list.SetSize(m.paneWidth(), m.height-4)
-	} else {
-		m.list.SetSize(m.paneWidth(), m.height-3)
-	}
-}
-
 // SetSpecs sets the specifications to be displayed
 func (m *Model) SetSpecs(specs []interactive.Spec) {
 	m.specs = specs
-
-	items := make([]list.Item, len(specs))
-	for i, s := range specs {
-		items[i] = s
-	}
-	m.list.SetItems(items)
-	m.list.Title = "Specifications"
+	m.specSelector.SetSpecs(specs)
 
 	// Fetch links and child specs for the first spec if available
 	if m.linkService != nil && len(specs) > 0 {
@@ -227,9 +186,12 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keys.Up) || key.Matches(msg, m.keys.Down):
 			var cmd tea.Cmd
-			m.list, cmd = m.list.Update(msg)
-			spec, ok := m.list.SelectedItem().(interactive.Spec)
-			if ok {
+			selector, selectorCmd := m.specSelector.Update(msg)
+			m.specSelector = *selector
+			cmd = selectorCmd
+
+			spec := m.specSelector.GetSelectedSpec()
+			if spec != nil {
 				links, err := m.linkService.GetCommitsForSpec(spec.ID)
 				if err == nil {
 					m.links = links
@@ -251,32 +213,37 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Create):
 			return *m, func() tea.Msg { return CreateNewSpecMsg{} }
 		case key.Matches(msg, m.keys.Edit):
-			spec, ok := m.list.SelectedItem().(interactive.Spec)
-			if !ok {
+			spec := m.specSelector.GetSelectedSpec()
+			if spec == nil {
 				return *m, nil // No valid spec selected
 			}
 			return *m, func() tea.Msg { return EditSpecMsg{SpecID: spec.ID} }
 		case key.Matches(msg, m.keys.Delete):
-			spec, ok := m.list.SelectedItem().(interactive.Spec)
-			if !ok {
+			spec := m.specSelector.GetSelectedSpec()
+			if spec == nil {
 				return *m, nil // No valid spec selected
 			}
 			return *m, func() tea.Msg { return DeleteSpecMsg{SpecID: spec.ID} }
 		case key.Matches(msg, m.keys.Link):
-			spec, ok := m.list.SelectedItem().(interactive.Spec)
-			if !ok {
+			spec := m.specSelector.GetSelectedSpec()
+			if spec == nil {
 				return *m, nil // No valid spec selected
 			}
 			return *m, func() tea.Msg { return LinkCommitSpecMsg{SpecID: spec.ID} }
 		case key.Matches(msg, m.keys.Remove):
-			spec, ok := m.list.SelectedItem().(interactive.Spec)
-			if !ok {
+			spec := m.specSelector.GetSelectedSpec()
+			if spec == nil {
 				return *m, nil // No valid spec selected
 			}
 			return *m, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: spec.ID} }
 		case key.Matches(msg, m.keys.Help):
 			m.help.ShowAll = !m.help.ShowAll
-			m.setListSize() // Adjust list size based on help visibility
+			// Adjust spec selector size based on help visibility
+			if m.help.ShowAll {
+				m.specSelector.SetSize(m.paneWidth(), m.height-4)
+			} else {
+				m.specSelector.SetSize(m.paneWidth(), m.height-3)
+			}
 			return *m, nil
 		case key.Matches(msg, m.keys.Back):
 			m.navigateBack()
@@ -284,6 +251,13 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Quit):
 			return *m, func() tea.Msg { return ExitMsg{} }
 		}
+	case common.SpecSelectedMsg:
+		// Handle spec selection from the selector component
+		// Navigate to the selected spec's children (make it the current node)
+		if msg.Spec.ID != "" {
+			return *m, m.setCurrentNode(&msg.Spec)
+		}
+		return *m, nil
 	}
 	return *m, nil
 }
@@ -324,16 +298,15 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 	m.currentSpec = currentSpec
 	m.specs = specs
 
-	// Update list items
-	items := make([]list.Item, len(specs))
-	for i, s := range specs {
-		items[i] = s
+	// Update spec selector with new specs and title
+	config := common.SpecSelectorConfig{
+		Title: title,
 	}
-	m.list.SetItems(items)
-	m.list.Title = title
+	m.specSelector = common.NewSpecSelector(config)
+	m.specSelector.SetSpecs(specs)
+	m.specSelector.SetSize(m.paneWidth(), m.height-3)
 
-	// Reset selection to first item and update details
-	m.list.Select(0)
+	// Update details for first spec if available
 	if len(specs) > 0 {
 		m.updateDetailsForSpec(specs[0])
 	}
@@ -343,8 +316,8 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 
 // navigateToChildren navigates to the children of the selected spec
 func (m *Model) navigateToChildren() tea.Cmd {
-	spec, ok := m.list.SelectedItem().(interactive.Spec)
-	if !ok {
+	spec := m.specSelector.GetSelectedSpec()
+	if spec == nil {
 		return nil
 	}
 
@@ -354,7 +327,7 @@ func (m *Model) navigateToChildren() tea.Cmd {
 		return nil // No children or error
 	}
 
-	return m.setCurrentNode(&spec)
+	return m.setCurrentNode(spec)
 }
 
 // navigateBack navigates back to the parent level
@@ -403,15 +376,12 @@ func (m *Model) View() string {
 	paneWidth := m.paneWidth()
 
 	// Layout: left (list), right (details)
-	var left strings.Builder
-	left.WriteString(m.list.View())
-	left.WriteString(m.help.View(m.keys))
-	finalLeft := lipgloss.JoinVertical(lipgloss.Top, m.list.View(), m.help.View(m.keys))
+	finalLeft := lipgloss.JoinVertical(lipgloss.Top, m.specSelector.View(), m.help.View(m.keys))
 
 	// Right: details for selected spec
 	var right strings.Builder
-	spec, ok := m.list.SelectedItem().(interactive.Spec)
-	if ok {
+	spec := m.specSelector.GetSelectedSpec()
+	if spec != nil {
 		right.WriteString(fmt.Sprintf("%s\n%s\n\n", spec.Title, strings.Repeat("=", paneWidth)))
 		right.WriteString(spec.Content)
 		right.WriteString("\n\nLinked Commits:\n")
