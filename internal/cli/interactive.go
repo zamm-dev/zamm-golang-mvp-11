@@ -1139,13 +1139,13 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // getLinkedSpecs retrieves linked specifications based on direction
 func (m *Model) getLinkedSpecs(specID string, direction models.Direction) ([]interactive.Spec, error) {
-	relatedSpecs, err := m.app.specService.GetLinkedSpecs(specID, direction)
+	linkedSpecs, err := m.app.specService.GetLinkedSpecs(specID, direction)
 	if err != nil {
 		return nil, err
 	}
 
-	specs := make([]interactive.Spec, 0, len(relatedSpecs))
-	for _, spec := range relatedSpecs {
+	specs := make([]interactive.Spec, 0, len(linkedSpecs))
+	for _, spec := range linkedSpecs {
 		specs = append(specs, interactive.Spec{
 			ID:        spec.ID,
 			Title:     spec.Title,
