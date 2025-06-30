@@ -74,7 +74,7 @@ type SpecCommitLink struct {
 - `SpecID`: Foreign key to SpecNode.ID
 - `CommitID`: Git commit hash (40-character hex string)
 - `RepoPath`: Absolute path to Git repository
-- `LinkType`: Either "implements" or "references" for MVP
+- `LinkType`: Either "implements" or "fixes" for MVP
 - Foreign key constraints ensure referential integrity
 
 ---
@@ -221,7 +221,7 @@ zamm spec update <spec-id> --title "New Title" --content "New content"
 zamm spec delete <spec-id>
 
 # Link management  
-zamm link create --spec <spec-id> --commit <commit-hash> [--repo <repo-path>] [--type implements|references]
+zamm link create --spec <spec-id> --commit <commit-hash> [--repo <repo-path>] [--type implements|fixes]
 zamm link list-by-spec <spec-id>
 zamm link list-by-commit <commit-hash> [--repo <repo-path>]
 zamm link delete --spec <spec-id> --commit <commit-hash> [--repo <repo-path>]

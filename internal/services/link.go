@@ -149,8 +149,8 @@ func (s *linkService) validateLinkInput(specID, commitID, repoPath, linkType str
 		return models.NewZammError(models.ErrTypeValidation, "repository path cannot be empty")
 	}
 
-	if linkType != "" && linkType != "implements" && linkType != "references" {
-		return models.NewZammError(models.ErrTypeValidation, "link type must be 'implements' or 'references'")
+	if linkType != "" && linkType != "implements" && linkType != "fixes" {
+		return models.NewZammError(models.ErrTypeValidation, "link type must be 'implements' or 'fixes'")
 	}
 
 	return nil

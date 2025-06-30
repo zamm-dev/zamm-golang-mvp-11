@@ -101,7 +101,7 @@ zamm spec delete <spec-id>
 
 ```bash
 # Create a link between spec and commit
-zamm link create --spec <spec-id> --commit <commit-hash> [--repo <repo-path>] [--type implements|references]
+zamm link create --spec <spec-id> --commit <commit-hash> [--repo <repo-path>] [--type implements|fixes]
 
 # List commits linked to a spec
 zamm link list-by-spec <spec-id>

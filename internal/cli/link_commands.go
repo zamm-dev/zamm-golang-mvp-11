@@ -45,7 +45,7 @@ func (a *App) createLinkCommand(jsonOutput, quiet bool) *cobra.Command {
 	createCmd.Flags().StringVar(&specID, "spec", "", "Specification ID (required)")
 	createCmd.Flags().StringVar(&commitID, "commit", "", "Commit hash (required)")
 	createCmd.Flags().StringVar(&repoPath, "repo", "", "Repository path (default: current directory)")
-	createCmd.Flags().StringVar(&linkType, "type", "implements", "Link type (implements or references)")
+	createCmd.Flags().StringVar(&linkType, "type", "implements", "Link type (implements or fixes)")
 	createCmd.MarkFlagRequired("spec")
 	createCmd.MarkFlagRequired("commit")
 

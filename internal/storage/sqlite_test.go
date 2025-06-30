@@ -721,7 +721,7 @@ func TestCreateLink(t *testing.T) {
 			SpecID:   spec.ID,
 			CommitID: "abcdef1234567890abcdef1234567890abcdef12",
 			RepoPath: "/test/repo",
-			LinkType: "references",
+			LinkType: "fixes",
 		}
 
 		err = ts.storage.CreateLink(link)
@@ -730,8 +730,8 @@ func TestCreateLink(t *testing.T) {
 		}
 
 		// Verify original values were preserved
-		if link.LinkType != "references" {
-			t.Errorf("Expected link_type 'references', got %s", link.LinkType)
+		if link.LinkType != "fixes" {
+			t.Errorf("Expected link_type 'fixes', got %s", link.LinkType)
 		}
 	})
 
