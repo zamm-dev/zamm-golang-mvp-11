@@ -25,7 +25,7 @@ type Storage interface {
 	GetSpecLink(id string) (*models.SpecSpecLink, error)
 	GetLinkedSpecs(specID string, direction models.Direction) ([]*models.SpecNode, error)
 	DeleteSpecLink(id string) error
-	DeleteSpecLinkBySpecs(parentSpecID, childSpecID string) error
+	DeleteSpecLinkBySpecs(fromSpecID, toSpecID string) error
 	// DAG validation
 	WouldCreateCycle(parentSpecID, childSpecID string) (bool, error)
 

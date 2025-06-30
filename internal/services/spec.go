@@ -163,7 +163,7 @@ func (s *specService) RemoveChildFromParent(childSpecID, parentSpecID string) er
 		return models.NewZammError(models.ErrTypeValidation, "parent spec ID cannot be empty")
 	}
 
-	return s.storage.DeleteSpecLinkBySpecs(parentSpecID, childSpecID)
+	return s.storage.DeleteSpecLinkBySpecs(childSpecID, parentSpecID)
 }
 
 // GetParents retrieves all parent specs for a given spec

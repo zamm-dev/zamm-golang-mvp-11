@@ -472,7 +472,7 @@ func (s *SQLiteStorage) DeleteSpecLink(id string) error {
 	return nil
 }
 
-// DeleteSpecLinkBySpecs deletes a spec-spec link by parent and child spec IDs
+// DeleteSpecLinkBySpecs deletes a spec-spec link by fromSpecID and toSpecID
 func (s *SQLiteStorage) DeleteSpecLinkBySpecs(fromSpecID, toSpecID string) error {
 	query := `DELETE FROM spec_spec_links WHERE from_spec_id = ? AND to_spec_id = ?`
 
