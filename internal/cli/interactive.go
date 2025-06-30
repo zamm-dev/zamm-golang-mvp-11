@@ -1073,7 +1073,7 @@ func (m *Model) updateUnlinkTypeSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.resetInputs()
 
 			// Get child specs that can be unlinked directly
-			unlinkSpecs, err := m.getLinkedSpecs(m.selectedSpecID, models.Incoming)
+			unlinkSpecs, err := m.getChildSpecs(m.selectedSpecID)
 			if err != nil {
 				m.message = fmt.Sprintf("Error loading linked specs: %v", err)
 				m.showMessage = true
@@ -1137,17 +1137,9 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// getLinkedSpecs retrieves linked specifications based on direction
-func (m *Model) getLinkedSpecs(specID string, direction models.Direction) ([]interactive.Spec, error) {
-	var linkedSpecs []*models.SpecNode
-	var err error
-
-	if direction == models.Incoming {
-		linkedSpecs, err = m.app.specService.GetParents(specID)
-	} else {
-		linkedSpecs, err = m.app.specService.GetChildren(specID)
-	}
-
+// getChildSpecs retrieves child specifications for the given spec
+func (m *Model) getChildSpecs(specID string) ([]interactive.Spec, error) {
+	linkedSpecs, err := m.app.specService.GetChildren(specID)
 	if err != nil {
 		return nil, err
 	}
