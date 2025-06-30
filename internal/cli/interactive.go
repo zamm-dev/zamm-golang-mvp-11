@@ -670,9 +670,9 @@ func (m *Model) deleteLinkCmd(specID, commitID, repoPath string) tea.Cmd {
 }
 
 // linkSpecsCmd returns a command to create a hierarchical link between specs
-func (m *Model) linkSpecsCmd(parentSpecID, childSpecID, linkType string) tea.Cmd {
+func (m *Model) linkSpecsCmd(parentSpecID, childSpecID string) tea.Cmd {
 	return func() tea.Msg {
-		link, err := m.app.specService.LinkSpecs(parentSpecID, childSpecID, linkType)
+		link, err := m.app.specService.AddChildToParent(childSpecID, parentSpecID)
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
@@ -689,14 +689,14 @@ func (m *Model) linkSpecsCmd(parentSpecID, childSpecID, linkType string) tea.Cmd
 		}
 
 		return operationCompleteMsg{message: fmt.Sprintf("✅ Created %s link from '%s' to '%s' (ID: %s). Press Enter to continue...",
-			linkType, parentTitle, childTitle, link.ID)}
+			"parent-child", parentTitle, childTitle, link.ID)}
 	}
 }
 
 // unlinkSpecsCmd returns a command to remove a hierarchical link between specs
 func (m *Model) unlinkSpecsCmd(parentSpecID, childSpecID string) tea.Cmd {
 	return func() tea.Msg {
-		err := m.app.specService.UnlinkSpecs(parentSpecID, childSpecID)
+		err := m.app.specService.RemoveChildFromParent(childSpecID, parentSpecID)
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
@@ -1132,14 +1132,22 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if linkType == "" {
 			linkType = "child"
 		}
-		return m, m.linkSpecsCmd(m.selectedSpecID, m.selectedChildSpecID, linkType)
+		return m, m.linkSpecsCmd(m.selectedSpecID, m.selectedChildSpecID)
 	}
 	return m, nil
 }
 
 // getLinkedSpecs retrieves linked specifications based on direction
 func (m *Model) getLinkedSpecs(specID string, direction models.Direction) ([]interactive.Spec, error) {
-	linkedSpecs, err := m.app.specService.GetLinkedSpecs(specID, direction)
+	var linkedSpecs []*models.SpecNode
+	var err error
+
+	if direction == models.Incoming {
+		linkedSpecs, err = m.app.specService.GetParents(specID)
+	} else {
+		linkedSpecs, err = m.app.specService.GetChildren(specID)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -1168,7 +1176,7 @@ func (cs *combinedService) GetCommitsForSpec(specID string) ([]*models.SpecCommi
 }
 
 func (cs *combinedService) GetChildSpecs(specID string) ([]*models.SpecNode, error) {
-	return cs.specService.GetLinkedSpecs(specID, models.Outgoing)
+	return cs.specService.GetChildren(specID)
 }
 
 func (cs *combinedService) GetSpecByID(specID string) (*interactive.Spec, error) {
@@ -1198,7 +1206,7 @@ func (cs *combinedService) GetTopLevelSpecs() ([]interactive.Spec, error) {
 	var topLevelSpecs []interactive.Spec
 	for _, spec := range allSpecs {
 		// Check if this spec has any parents
-		parents, err := cs.specService.GetLinkedSpecs(spec.ID, models.Incoming)
+		parents, err := cs.specService.GetParents(spec.ID)
 		if err != nil {
 			continue // Skip specs we can't check
 		}
@@ -1217,7 +1225,7 @@ func (cs *combinedService) GetTopLevelSpecs() ([]interactive.Spec, error) {
 }
 
 func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, error) {
-	parents, err := cs.specService.GetLinkedSpecs(specID, models.Incoming)
+	parents, err := cs.specService.GetParents(specID)
 	if err != nil {
 		return nil, err
 	}
