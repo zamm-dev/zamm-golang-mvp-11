@@ -4,6 +4,14 @@ import (
 	"time"
 )
 
+// Direction represents which part of a hierarchical relationship to retrieve
+type Direction int
+
+const (
+	Outgoing Direction = iota // Get children (specs that this spec points to)
+	Incoming                  // Get parents (specs that point to this spec)
+)
+
 // SpecNode represents a specification node in the system
 type SpecNode struct {
 	ID        string    `json:"id" db:"id"`

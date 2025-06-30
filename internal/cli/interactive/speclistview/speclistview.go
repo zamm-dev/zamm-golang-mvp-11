@@ -32,7 +32,7 @@ type ExitMsg struct{}
 // Model represents the state of the spec list view screen
 type LinkService interface {
 	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
-	GetChildSpecs(specID string) ([]*models.SpecSpecLink, error)
+	GetChildSpecs(specID string) ([]*models.SpecNode, error)
 	GetSpecByID(specID string) (*interactive.Spec, error)
 	GetTopLevelSpecs() ([]interactive.Spec, error)
 	GetParentSpec(specID string) (*interactive.Spec, error)
@@ -119,7 +119,7 @@ type Model struct {
 	help         help.Model
 	specs        []interactive.Spec
 	links        []*models.SpecCommitLink
-	childSpecs   []*models.SpecSpecLink
+	childSpecs   []*models.SpecNode
 	linkService  LinkService
 
 	// Navigation state
@@ -277,18 +277,20 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 		title = "Specifications"
 	} else {
 		// Get children of the current spec
-		childSpecLinks, err := m.linkService.GetChildSpecs(currentSpec.ID)
+		childSpecNodes, err := m.linkService.GetChildSpecs(currentSpec.ID)
 		if err != nil {
 			return nil
 		}
 
-		// Convert child spec links to interactive.Spec objects
-		childSpecs := make([]interactive.Spec, 0, len(childSpecLinks))
-		for _, link := range childSpecLinks {
-			childSpec, err := m.linkService.GetSpecByID(link.ToSpecID)
-			if err == nil && childSpec != nil {
-				childSpecs = append(childSpecs, *childSpec)
-			}
+		// Convert child spec nodes to interactive.Spec objects
+		childSpecs := make([]interactive.Spec, 0, len(childSpecNodes))
+		for _, node := range childSpecNodes {
+			childSpecs = append(childSpecs, interactive.Spec{
+				ID:        node.ID,
+				Title:     node.Title,
+				Content:   node.Content,
+				CreatedAt: node.CreatedAt.Format("2006-01-02 15:04"),
+			})
 		}
 		specs = childSpecs
 		title = currentSpec.Title
@@ -407,14 +409,8 @@ func (m *Model) View() string {
 			right.WriteString("  -\n")
 		} else {
 			for _, cs := range m.childSpecs {
-				// Fetch the child spec directly from the service to get the title
-				childSpec, err := m.linkService.GetSpecByID(cs.ToSpecID)
-				var specTitle string
-				if err == nil && childSpec != nil {
-					specTitle = childSpec.Title
-				} else {
-					specTitle = cs.ToSpecID // fallback to ID if spec not found
-				}
+				// cs is now directly a SpecNode
+				specTitle := cs.Title
 
 				if len(specTitle) > paneWidth-2 {
 					specTitle = specTitle[:paneWidth-5] + "..."

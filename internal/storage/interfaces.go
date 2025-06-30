@@ -23,8 +23,7 @@ type Storage interface {
 	// Spec hierarchy operations (DAG)
 	CreateSpecLink(link *models.SpecSpecLink) error
 	GetSpecLink(id string) (*models.SpecSpecLink, error)
-	GetParentSpecs(specID string) ([]*models.SpecSpecLink, error)
-	GetChildSpecs(specID string) ([]*models.SpecSpecLink, error)
+	GetLinkedSpecs(specID string, direction models.Direction) ([]*models.SpecNode, error)
 	DeleteSpecLink(id string) error
 	DeleteSpecLinkBySpecs(parentSpecID, childSpecID string) error
 	// DAG validation
@@ -33,7 +32,7 @@ type Storage interface {
 	// Utility
 	BackupDatabase(backupPath string) error
 	Close() error
-	
+
 	// Migration operations
 	RunMigrationsIfNeeded() error
 	GetMigrationVersion() (uint, bool, error)

@@ -19,16 +19,15 @@ type SpecService interface {
 	// Hierarchical operations
 	LinkSpecs(parentSpecID, childSpecID, linkType string) (*models.SpecSpecLink, error)
 	UnlinkSpecs(parentSpecID, childSpecID string) error
-	GetParentSpecs(specID string) ([]*models.SpecSpecLink, error)
-	GetChildSpecs(specID string) ([]*models.SpecSpecLink, error)
+	GetLinkedSpecs(specID string, direction models.Direction) ([]*models.SpecNode, error)
 	GetSpecsWithHierarchy() ([]*SpecWithHierarchy, error)
 }
 
 // SpecWithHierarchy represents a spec with its hierarchical relationships
 type SpecWithHierarchy struct {
 	*models.SpecNode
-	Parents  []*models.SpecSpecLink `json:"parents"`
-	Children []*models.SpecSpecLink `json:"children"`
+	Parents  []*models.SpecNode `json:"parents"`
+	Children []*models.SpecNode `json:"children"`
 }
 
 // specService implements the SpecService interface
@@ -169,22 +168,13 @@ func (s *specService) UnlinkSpecs(parentSpecID, childSpecID string) error {
 	return s.storage.DeleteSpecLinkBySpecs(parentSpecID, childSpecID)
 }
 
-// GetParentSpecs retrieves all parent specs for a given spec
-func (s *specService) GetParentSpecs(specID string) ([]*models.SpecSpecLink, error) {
+// GetLinkedSpecs retrieves all related specs (parents or children) for a given spec
+func (s *specService) GetLinkedSpecs(specID string, direction models.Direction) ([]*models.SpecNode, error) {
 	if specID == "" {
 		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
 
-	return s.storage.GetParentSpecs(specID)
-}
-
-// GetChildSpecs retrieves all child specs for a given spec
-func (s *specService) GetChildSpecs(specID string) ([]*models.SpecSpecLink, error) {
-	if specID == "" {
-		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
-	}
-
-	return s.storage.GetChildSpecs(specID)
+	return s.storage.GetLinkedSpecs(specID, direction)
 }
 
 // GetSpecsWithHierarchy retrieves all specs with their hierarchical relationships
@@ -196,12 +186,12 @@ func (s *specService) GetSpecsWithHierarchy() ([]*SpecWithHierarchy, error) {
 
 	result := make([]*SpecWithHierarchy, len(specs))
 	for i, spec := range specs {
-		parents, err := s.storage.GetParentSpecs(spec.ID)
+		parents, err := s.storage.GetLinkedSpecs(spec.ID, models.Incoming)
 		if err != nil {
 			return nil, err
 		}
 
-		children, err := s.storage.GetChildSpecs(spec.ID)
+		children, err := s.storage.GetLinkedSpecs(spec.ID, models.Outgoing)
 		if err != nil {
 			return nil, err
 		}

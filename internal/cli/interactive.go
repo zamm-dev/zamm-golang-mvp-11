@@ -97,14 +97,6 @@ type operationCompleteMsg struct {
 	message string
 }
 
-// Direction represents which part of an edge to retrieve
-type Direction int
-
-const (
-	Outgoing Direction = iota
-	Incoming
-)
-
 // createInteractiveCommand creates the interactive mode command
 func (a *App) createInteractiveCommand() *cobra.Command {
 	return &cobra.Command{
@@ -1077,12 +1069,11 @@ func (m *Model) updateUnlinkTypeSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cursor == 0 {
 			// Unlink from Git Commit
 			return m, m.loadLinksForSpecCmd()
-		} else if m.cursor == 1 {
-			// Unlink from Parent Spec
+		} else if m.cursor == 1 { // Unlink from Parent Spec
 			m.resetInputs()
 
 			// Get child specs that can be unlinked directly
-			unlinkSpecs, err := m.getLinkedSpecs(m.selectedSpecID, Incoming)
+			unlinkSpecs, err := m.getLinkedSpecs(m.selectedSpecID, models.Incoming)
 			if err != nil {
 				m.message = fmt.Sprintf("Error loading linked specs: %v", err)
 				m.showMessage = true
@@ -1147,59 +1138,22 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // getLinkedSpecs retrieves linked specifications based on direction
-func (m *Model) getLinkedSpecs(specID string, direction Direction) ([]interactive.Spec, error) {
-	switch direction {
-	case Outgoing:
-		// Get parent specs (specs that link to this one)
-		parentLinks, err := m.app.specService.GetParentSpecs(specID)
-		if err != nil {
-			return nil, err
-		}
-
-		specs := make([]interactive.Spec, 0, len(parentLinks))
-		for _, link := range parentLinks {
-			parentSpec, err := m.app.specService.GetSpec(link.FromSpecID)
-			if err != nil {
-				continue // Skip specs we can't retrieve
-			}
-			if parentSpec != nil {
-				specs = append(specs, interactive.Spec{
-					ID:        parentSpec.ID,
-					Title:     parentSpec.Title,
-					Content:   parentSpec.Content,
-					CreatedAt: parentSpec.CreatedAt.Format("2006-01-02 15:04"),
-				})
-			}
-		}
-		return specs, nil
-
-	case Incoming:
-		// Get child specs (specs that this one links to)
-		childLinks, err := m.app.specService.GetChildSpecs(specID)
-		if err != nil {
-			return nil, err
-		}
-
-		specs := make([]interactive.Spec, 0, len(childLinks))
-		for _, link := range childLinks {
-			childSpec, err := m.app.specService.GetSpec(link.ToSpecID)
-			if err != nil {
-				continue // Skip specs we can't retrieve
-			}
-			if childSpec != nil {
-				specs = append(specs, interactive.Spec{
-					ID:        childSpec.ID,
-					Title:     childSpec.Title,
-					Content:   childSpec.Content,
-					CreatedAt: childSpec.CreatedAt.Format("2006-01-02 15:04"),
-				})
-			}
-		}
-		return specs, nil
-
-	default:
-		return nil, fmt.Errorf("unknown direction: %v", direction)
+func (m *Model) getLinkedSpecs(specID string, direction models.Direction) ([]interactive.Spec, error) {
+	relatedSpecs, err := m.app.specService.GetLinkedSpecs(specID, direction)
+	if err != nil {
+		return nil, err
 	}
+
+	specs := make([]interactive.Spec, 0, len(relatedSpecs))
+	for _, spec := range relatedSpecs {
+		specs = append(specs, interactive.Spec{
+			ID:        spec.ID,
+			Title:     spec.Title,
+			Content:   spec.Content,
+			CreatedAt: spec.CreatedAt.Format("2006-01-02 15:04"),
+		})
+	}
+	return specs, nil
 }
 
 // combinedService adapts both LinkService and SpecService to provide
@@ -1213,8 +1167,8 @@ func (cs *combinedService) GetCommitsForSpec(specID string) ([]*models.SpecCommi
 	return cs.linkService.GetCommitsForSpec(specID)
 }
 
-func (cs *combinedService) GetChildSpecs(specID string) ([]*models.SpecSpecLink, error) {
-	return cs.specService.GetChildSpecs(specID)
+func (cs *combinedService) GetChildSpecs(specID string) ([]*models.SpecNode, error) {
+	return cs.specService.GetLinkedSpecs(specID, models.Outgoing)
 }
 
 func (cs *combinedService) GetSpecByID(specID string) (*interactive.Spec, error) {
@@ -1244,7 +1198,7 @@ func (cs *combinedService) GetTopLevelSpecs() ([]interactive.Spec, error) {
 	var topLevelSpecs []interactive.Spec
 	for _, spec := range allSpecs {
 		// Check if this spec has any parents
-		parents, err := cs.specService.GetParentSpecs(spec.ID)
+		parents, err := cs.specService.GetLinkedSpecs(spec.ID, models.Incoming)
 		if err != nil {
 			continue // Skip specs we can't check
 		}
@@ -1263,7 +1217,7 @@ func (cs *combinedService) GetTopLevelSpecs() ([]interactive.Spec, error) {
 }
 
 func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, error) {
-	parents, err := cs.specService.GetParentSpecs(specID)
+	parents, err := cs.specService.GetLinkedSpecs(specID, models.Incoming)
 	if err != nil {
 		return nil, err
 	}
@@ -1273,18 +1227,12 @@ func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, erro
 	}
 
 	// For simplicity, return the first parent if multiple exist
-	parentID := parents[0].FromSpecID
-	parentNode, err := cs.specService.GetSpec(parentID)
-	if err != nil {
-		return nil, err
-	}
-	if parentNode == nil {
-		return nil, nil
-	}
+	parent := parents[0]
 
 	return &interactive.Spec{
-		ID:      parentNode.ID,
-		Title:   parentNode.Title,
-		Content: parentNode.Content,
+		ID:        parent.ID,
+		Title:     parent.Title,
+		Content:   parent.Content,
+		CreatedAt: parent.CreatedAt.Format("2006-01-02 15:04"),
 	}, nil
 }
