@@ -32,9 +32,8 @@ type ExitMsg struct{}
 // Model represents the state of the spec list view screen
 type LinkService interface {
 	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
-	GetChildSpecs(specID string) ([]*models.SpecNode, error)
+	GetChildSpecs(specID *string) ([]*models.SpecNode, error) // nil specID returns top-level specs
 	GetSpecByID(specID string) (*interactive.Spec, error)
-	GetTopLevelSpecs() ([]interactive.Spec, error)
 	GetParentSpec(specID string) (*interactive.Spec, error)
 }
 
@@ -136,13 +135,15 @@ func New(linkService LinkService) Model {
 	}
 	specSelector := common.NewSpecSelector(config)
 
-	return Model{
+	model := Model{
 		specSelector: specSelector,
 		keys:         keys,
 		help:         help.New(),
 		linkService:  linkService,
 		currentSpec:  nil, // Start at top level
 	}
+
+	return model
 }
 
 func (m *Model) SetSize(width, height int) {
@@ -170,7 +171,7 @@ func (m *Model) SetSpecs(specs []interactive.Spec) {
 			m.links = nil
 		}
 
-		childSpecs, err := m.linkService.GetChildSpecs(specs[0].ID)
+		childSpecs, err := m.linkService.GetChildSpecs(&specs[0].ID)
 		if err == nil {
 			m.childSpecs = childSpecs
 		} else {
@@ -199,7 +200,7 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					m.links = nil
 				}
 
-				childSpecs, err := m.linkService.GetChildSpecs(spec.ID)
+				childSpecs, err := m.linkService.GetChildSpecs(&spec.ID)
 				if err == nil {
 					m.childSpecs = childSpecs
 				} else {
@@ -269,15 +270,25 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 
 	if currentSpec == nil {
 		// At top level
-		topLevelSpecs, err := m.linkService.GetTopLevelSpecs()
+		topLevelSpecNodes, err := m.linkService.GetChildSpecs(nil)
 		if err != nil {
 			return nil
+		}
+		// Convert spec nodes to interactive.Spec objects
+		topLevelSpecs := make([]interactive.Spec, 0, len(topLevelSpecNodes))
+		for _, node := range topLevelSpecNodes {
+			topLevelSpecs = append(topLevelSpecs, interactive.Spec{
+				ID:        node.ID,
+				Title:     node.Title,
+				Content:   node.Content,
+				CreatedAt: node.CreatedAt.Format("2006-01-02 15:04"),
+			})
 		}
 		specs = topLevelSpecs
 		title = "Specifications"
 	} else {
 		// Get children of the current spec
-		childSpecNodes, err := m.linkService.GetChildSpecs(currentSpec.ID)
+		childSpecNodes, err := m.linkService.GetChildSpecs(&currentSpec.ID)
 		if err != nil {
 			return nil
 		}
@@ -324,7 +335,7 @@ func (m *Model) navigateToChildren() tea.Cmd {
 	}
 
 	// Check if this spec has children before navigating
-	childSpecLinks, err := m.linkService.GetChildSpecs(spec.ID)
+	childSpecLinks, err := m.linkService.GetChildSpecs(&spec.ID)
 	if err != nil || len(childSpecLinks) == 0 {
 		return nil // No children or error
 	}
@@ -361,7 +372,7 @@ func (m *Model) updateDetailsForSpec(spec interactive.Spec) {
 		m.links = nil
 	}
 
-	childSpecs, err := m.linkService.GetChildSpecs(spec.ID)
+	childSpecs, err := m.linkService.GetChildSpecs(&spec.ID)
 	if err == nil {
 		m.childSpecs = childSpecs
 	} else {
@@ -412,7 +423,7 @@ func (m *Model) View() string {
 				// cs is now directly a SpecNode
 				specTitle := cs.Title
 
-				if len(specTitle) > paneWidth-2 {
+				if len(specTitle) > paneWidth-2 && paneWidth > 5 {
 					specTitle = specTitle[:paneWidth-5] + "..."
 				}
 				right.WriteString(fmt.Sprintf("  %s\n", specTitle))

@@ -1167,8 +1167,32 @@ func (cs *combinedService) GetCommitsForSpec(specID string) ([]*models.SpecCommi
 	return cs.linkService.GetCommitsForSpec(specID)
 }
 
-func (cs *combinedService) GetChildSpecs(specID string) ([]*models.SpecNode, error) {
-	return cs.specService.GetChildren(specID)
+func (cs *combinedService) GetChildSpecs(specID *string) ([]*models.SpecNode, error) {
+	if specID == nil {
+		// Get all specs and filter for top-level ones (those without parents)
+		allSpecs, err := cs.specService.ListSpecs()
+		if err != nil {
+			return nil, err
+		}
+
+		var topLevelSpecs []*models.SpecNode
+		for _, spec := range allSpecs {
+			// Check if this spec has any parents
+			parents, err := cs.specService.GetParents(spec.ID)
+			if err != nil {
+				continue // Skip specs we can't check
+			}
+
+			// If no parents, it's a top-level spec
+			if len(parents) == 0 {
+				topLevelSpecs = append(topLevelSpecs, spec)
+			}
+		}
+
+		return topLevelSpecs, nil
+	}
+
+	return cs.specService.GetChildren(*specID)
 }
 
 func (cs *combinedService) GetSpecByID(specID string) (*interactive.Spec, error) {
@@ -1186,34 +1210,6 @@ func (cs *combinedService) GetSpecByID(specID string) (*interactive.Spec, error)
 		Title:   specNode.Title,
 		Content: specNode.Content,
 	}, nil
-}
-
-func (cs *combinedService) GetTopLevelSpecs() ([]interactive.Spec, error) {
-	// Get all specs and filter for top-level ones (those without parents)
-	allSpecs, err := cs.specService.ListSpecs()
-	if err != nil {
-		return nil, err
-	}
-
-	var topLevelSpecs []interactive.Spec
-	for _, spec := range allSpecs {
-		// Check if this spec has any parents
-		parents, err := cs.specService.GetParents(spec.ID)
-		if err != nil {
-			continue // Skip specs we can't check
-		}
-
-		// If no parents, it's a top-level spec
-		if len(parents) == 0 {
-			topLevelSpecs = append(topLevelSpecs, interactive.Spec{
-				ID:      spec.ID,
-				Title:   spec.Title,
-				Content: spec.Content,
-			})
-		}
-	}
-
-	return topLevelSpecs, nil
 }
 
 func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, error) {

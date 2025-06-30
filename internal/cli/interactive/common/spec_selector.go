@@ -43,8 +43,10 @@ func (d specDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 	str := spec.Title
 	maxWidth := m.Width() - 2 // account for padding
-	if len(str) > maxWidth {
+	if len(str) > maxWidth && maxWidth > 3 {
 		str = str[:maxWidth-3] + "..."
+	} else if len(str) > maxWidth && maxWidth > 0 {
+		str = str[:maxWidth]
 	}
 
 	fn := specStyle.Render
