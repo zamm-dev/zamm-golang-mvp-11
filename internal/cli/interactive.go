@@ -1143,15 +1143,20 @@ func (m *Model) updateLinkTypeSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state = LinkSpecToSpecSelection
 			m.cursor = 0
 
-			// Configure spec selector with filter to exclude current spec
+			// Configure spec selector and filter out current spec
 			config := common.SpecSelectorConfig{
 				Title: "🔗 Link to Specification",
-				FilterPredicate: func(spec interactive.Spec) bool {
-					return spec.ID != m.selectedSpecID
-				},
 			}
 			m.specSelector = common.NewSpecSelector(config)
-			m.specSelector.SetSpecs(m.specs)
+
+			// Filter out the current spec
+			filteredSpecs := make([]interactive.Spec, 0, len(m.specs))
+			for _, spec := range m.specs {
+				if spec.ID != m.selectedSpecID {
+					filteredSpecs = append(filteredSpecs, spec)
+				}
+			}
+			m.specSelector.SetSpecs(filteredSpecs)
 			m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
 
 			return m, nil
@@ -1226,15 +1231,20 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = 0
 		m.resetInputs()
 
-		// Reconfigure spec selector
+		// Reconfigure spec selector and filter out current spec
 		config := common.SpecSelectorConfig{
 			Title: "🔗 Link to Specification",
-			FilterPredicate: func(spec interactive.Spec) bool {
-				return spec.ID != m.selectedSpecID
-			},
 		}
 		m.specSelector = common.NewSpecSelector(config)
-		m.specSelector.SetSpecs(m.specs)
+
+		// Filter out the current spec
+		filteredSpecs := make([]interactive.Spec, 0, len(m.specs))
+		for _, spec := range m.specs {
+			if spec.ID != m.selectedSpecID {
+				filteredSpecs = append(filteredSpecs, spec)
+			}
+		}
+		m.specSelector.SetSpecs(filteredSpecs)
 		m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
 
 		return m, nil

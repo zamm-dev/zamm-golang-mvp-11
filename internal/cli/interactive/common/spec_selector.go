@@ -17,8 +17,7 @@ type SpecSelectedMsg struct {
 
 // SpecSelectorConfig configures the behavior of the spec selector
 type SpecSelectorConfig struct {
-	Title           string
-	FilterPredicate func(spec interactive.Spec) bool // Optional filter function
+	Title string
 }
 
 // DefaultSpecSelectorConfig returns sensible default configuration
@@ -58,12 +57,10 @@ func (d specDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 // SpecSelector is a reusable component for selecting specifications
 type SpecSelector struct {
-	list          list.Model
-	config        SpecSelectorConfig
-	specs         []interactive.Spec
-	filteredSpecs []interactive.Spec
-	width         int
-	height        int
+	list   list.Model
+	config SpecSelectorConfig
+	width  int
+	height int
 }
 
 // NewSpecSelector creates a new spec selector component
@@ -88,8 +85,12 @@ func (s *SpecSelector) SetSize(width, height int) {
 
 // SetSpecs sets the available specifications
 func (s *SpecSelector) SetSpecs(specs []interactive.Spec) {
-	s.specs = specs
-	s.applyFilter()
+	// Convert to list items
+	items := make([]list.Item, len(specs))
+	for i, spec := range specs {
+		items[i] = spec
+	}
+	s.list.SetItems(items)
 }
 
 // GetSelectedSpec returns the currently selected spec, if any
@@ -100,29 +101,6 @@ func (s *SpecSelector) GetSelectedSpec() *interactive.Spec {
 		}
 	}
 	return nil
-}
-
-// applyFilter applies the filter predicate and updates the list items
-func (s *SpecSelector) applyFilter() {
-	s.filteredSpecs = s.specs
-
-	// Apply filter if provided
-	if s.config.FilterPredicate != nil {
-		filtered := make([]interactive.Spec, 0, len(s.specs))
-		for _, spec := range s.specs {
-			if s.config.FilterPredicate(spec) {
-				filtered = append(filtered, spec)
-			}
-		}
-		s.filteredSpecs = filtered
-	}
-
-	// Convert to list items
-	items := make([]list.Item, len(s.filteredSpecs))
-	for i, spec := range s.filteredSpecs {
-		items[i] = spec
-	}
-	s.list.SetItems(items)
 }
 
 // Update handles tea messages and updates the component
@@ -148,19 +126,9 @@ func (s *SpecSelector) Update(msg tea.Msg) (*SpecSelector, tea.Cmd) {
 
 // View renders the spec selector
 func (s *SpecSelector) View() string {
-	if len(s.filteredSpecs) == 0 {
+	if len(s.list.Items()) == 0 {
 		return fmt.Sprintf("%s\n\nNo specifications available.\nPress Esc to go back.", s.config.Title)
 	}
 
 	return s.list.View()
-}
-
-// IsEmpty returns true if there are no specs available
-func (s *SpecSelector) IsEmpty() bool {
-	return len(s.filteredSpecs) == 0
-}
-
-// Count returns the number of available specs (after filtering)
-func (s *SpecSelector) Count() int {
-	return len(s.filteredSpecs)
 }
