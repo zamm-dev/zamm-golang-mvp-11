@@ -303,10 +303,8 @@ func (m *Model) View() string {
 
 		right.WriteString("\n\nChild Specifications:\n")
 		if len(m.childSpecs) == 0 {
-			right.WriteString("  (none)\n")
+			right.WriteString("  -\n")
 		} else {
-			right.WriteString("  SPEC TITLE       TYPE         CREATED\n")
-			right.WriteString("  ──────────       ────         ───────\n")
 			for _, cs := range m.childSpecs {
 				// Look up the spec title from the specs list
 				specTitle := cs.ToSpecID // fallback to ID if title not found
@@ -317,12 +315,10 @@ func (m *Model) View() string {
 					}
 				}
 
-				if len(specTitle) > 16 {
-					specTitle = specTitle[:16] + "..."
+				if len(specTitle) > paneWidth-2 {
+					specTitle = specTitle[:paneWidth-5] + "..."
 				}
-				linkType := cs.LinkType
-				created := cs.CreatedAt.Format("2006-01-02 15:04")
-				right.WriteString(fmt.Sprintf("  %-16s %-12s %s\n", specTitle, linkType, created))
+				right.WriteString(fmt.Sprintf("  %s\n", specTitle))
 			}
 		}
 	} else {
