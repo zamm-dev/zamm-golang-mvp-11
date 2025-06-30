@@ -2,33 +2,33 @@ package storage
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/yourorg/zamm-mvp/internal/models"
 )
 
+//go:embed migrations/*.sql
+var migrationFiles embed.FS
+
 // MigrationService handles database migrations using golang-migrate
 type MigrationService struct {
-	db           *sql.DB
-	migrationDir string
+	db *sql.DB
 }
 
 // NewMigrationService creates a new migration service
 func NewMigrationService(db *sql.DB, migrationDir string) *MigrationService {
 	return &MigrationService{
-		db:           db,
-		migrationDir: migrationDir,
+		db: db,
 	}
 }
 
 // RunMigrationsIfNeeded checks for pending migrations and runs them
 func (m *MigrationService) RunMigrationsIfNeeded() error {
 	// Get database path from the connection string
-	// For SQLite, we need to construct the database URL
-	// We'll use the database connection to get the filename
 	rows, err := m.db.Query("PRAGMA database_list")
 	if err != nil {
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get database info", err)
@@ -44,11 +44,15 @@ func (m *MigrationService) RunMigrationsIfNeeded() error {
 	}
 	rows.Close()
 	
-	// Create migrate instance with separate database connection
-	sourceURL := fmt.Sprintf("file://%s", m.migrationDir)
-	databaseURL := fmt.Sprintf("sqlite3://%s", file)
+	// Create source driver from embedded files
+	sourceDriver, err := iofs.New(migrationFiles, "migrations")
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create source driver", err)
+	}
 	
-	migrateInstance, err := migrate.New(sourceURL, databaseURL)
+	// Create migrate instance
+	databaseURL := fmt.Sprintf("sqlite3://%s", file)
+	migrateInstance, err := migrate.NewWithSourceInstance("iofs", sourceDriver, databaseURL)
 	if err != nil {
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create migrate instance", err)
 	}
@@ -105,11 +109,15 @@ func (m *MigrationService) GetCurrentVersion() (uint, bool, error) {
 	}
 	rows.Close()
 
-	// Create migrate instance with separate database connection
-	sourceURL := fmt.Sprintf("file://%s", m.migrationDir)
-	databaseURL := fmt.Sprintf("sqlite3://%s", file)
+	// Create source driver from embedded files
+	sourceDriver, err := iofs.New(migrationFiles, "migrations")
+	if err != nil {
+		return 0, false, models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create source driver", err)
+	}
 	
-	migrateInstance, err := migrate.New(sourceURL, databaseURL)
+	// Create migrate instance
+	databaseURL := fmt.Sprintf("sqlite3://%s", file)
+	migrateInstance, err := migrate.NewWithSourceInstance("iofs", sourceDriver, databaseURL)
 	if err != nil {
 		return 0, false, models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create migrate instance", err)
 	}
@@ -146,11 +154,15 @@ func (m *MigrationService) ForceMigrationVersion(version uint) error {
 	}
 	rows.Close()
 
-	// Create migrate instance with separate database connection
-	sourceURL := fmt.Sprintf("file://%s", m.migrationDir)
-	databaseURL := fmt.Sprintf("sqlite3://%s", file)
+	// Create source driver from embedded files
+	sourceDriver, err := iofs.New(migrationFiles, "migrations")
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create source driver", err)
+	}
 	
-	migrateInstance, err := migrate.New(sourceURL, databaseURL)
+	// Create migrate instance
+	databaseURL := fmt.Sprintf("sqlite3://%s", file)
+	migrateInstance, err := migrate.NewWithSourceInstance("iofs", sourceDriver, databaseURL)
 	if err != nil {
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create migrate instance", err)
 	}

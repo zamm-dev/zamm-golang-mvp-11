@@ -71,6 +71,22 @@ func runMigrations(db *sql.DB) error {
 	CREATE INDEX idx_links_spec_id ON spec_commit_links(spec_id);
 	CREATE INDEX idx_links_commit_id ON spec_commit_links(commit_id);
 	CREATE INDEX idx_links_repo_path ON spec_commit_links(repo_path);
+
+	CREATE TABLE spec_spec_links (
+		id TEXT PRIMARY KEY,
+		from_spec_id TEXT NOT NULL,
+		to_spec_id TEXT NOT NULL,
+		link_type TEXT NOT NULL DEFAULT 'child',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (from_spec_id) REFERENCES spec_nodes(id) ON DELETE CASCADE,
+		FOREIGN KEY (to_spec_id) REFERENCES spec_nodes(id) ON DELETE CASCADE,
+		UNIQUE(from_spec_id, to_spec_id),
+		CHECK(from_spec_id != to_spec_id)
+	);
+
+	CREATE INDEX idx_spec_spec_links_from ON spec_spec_links(from_spec_id);
+	CREATE INDEX idx_spec_spec_links_to ON spec_spec_links(to_spec_id);
+	CREATE INDEX idx_spec_spec_links_type ON spec_spec_links(link_type);
 	`
 
 	_, err := db.Exec(schema)
@@ -1479,6 +1495,243 @@ func TestEdgeCases(t *testing.T) {
 
 		if retrieved.Title != "" {
 			t.Errorf("Expected empty title, got %s", retrieved.Title)
+		}
+	})
+}
+
+// TestSpecHierarchy tests spec-to-spec linking functionality
+func TestSpecHierarchy(t *testing.T) {
+	ts := setupTestDB(t)
+	defer ts.storage.Close()
+
+	// Create test specs
+	parentSpec := &models.SpecNode{
+		ID:       uuid.New().String(),
+		StableID: uuid.New().String(),
+		Version:  1,
+		Title:    "Parent Specification",
+		Content:  "Parent content",
+		NodeType: "spec",
+	}
+
+	childSpec := &models.SpecNode{
+		ID:       uuid.New().String(),
+		StableID: uuid.New().String(),
+		Version:  1,
+		Title:    "Child Specification",
+		Content:  "Child content",
+		NodeType: "spec",
+	}
+
+	// Create the specs
+	err := ts.storage.CreateSpec(parentSpec)
+	if err != nil {
+		t.Fatalf("Failed to create parent spec: %v", err)
+	}
+
+	err = ts.storage.CreateSpec(childSpec)
+	if err != nil {
+		t.Fatalf("Failed to create child spec: %v", err)
+	}
+
+	t.Run("CreateSpecLink", func(t *testing.T) {
+		link := &models.SpecSpecLink{
+			FromSpecID: childSpec.ID,
+			ToSpecID:   parentSpec.ID,
+			LinkType:   "child",
+		}
+
+		err := ts.storage.CreateSpecLink(link)
+		if err != nil {
+			t.Fatalf("Failed to create spec link: %v", err)
+		}
+
+		if link.ID == "" {
+			t.Error("Expected link ID to be generated")
+		}
+
+		if link.CreatedAt.IsZero() {
+			t.Error("Expected CreatedAt to be set")
+		}
+	})
+
+	t.Run("GetLinkedSpecs", func(t *testing.T) {
+		// Test getting children (outgoing direction)
+		children, err := ts.storage.GetLinkedSpecs(parentSpec.ID, models.Outgoing)
+		if err != nil {
+			t.Fatalf("Failed to get children: %v", err)
+		}
+
+		if len(children) != 1 {
+			t.Fatalf("Expected 1 child, got %d", len(children))
+		}
+
+		if children[0].ID != childSpec.ID {
+			t.Errorf("Expected child ID %s, got %s", childSpec.ID, children[0].ID)
+		}
+
+		// Test getting parents (incoming direction)
+		parents, err := ts.storage.GetLinkedSpecs(childSpec.ID, models.Incoming)
+		if err != nil {
+			t.Fatalf("Failed to get parents: %v", err)
+		}
+
+		if len(parents) != 1 {
+			t.Fatalf("Expected 1 parent, got %d", len(parents))
+		}
+
+		if parents[0].ID != parentSpec.ID {
+			t.Errorf("Expected parent ID %s, got %s", parentSpec.ID, parents[0].ID)
+		}
+	})
+
+	t.Run("DeleteSpecLinkBySpecs", func(t *testing.T) {
+		// Test successful deletion using fromSpecID (child) and toSpecID (parent)
+		err := ts.storage.DeleteSpecLinkBySpecs(childSpec.ID, parentSpec.ID)
+		if err != nil {
+			t.Fatalf("Failed to delete spec link: %v", err)
+		}
+
+		// Verify the link is gone
+		children, err := ts.storage.GetLinkedSpecs(parentSpec.ID, models.Outgoing)
+		if err != nil {
+			t.Fatalf("Failed to get children after deletion: %v", err)
+		}
+
+		if len(children) != 0 {
+			t.Errorf("Expected 0 children after deletion, got %d", len(children))
+		}
+
+		// Test deletion of non-existent link
+		err = ts.storage.DeleteSpecLinkBySpecs(childSpec.ID, parentSpec.ID)
+		if err == nil {
+			t.Error("Expected error when deleting non-existent link")
+		}
+
+		// Check error type
+		if !strings.Contains(err.Error(), "spec link not found") {
+			t.Errorf("Expected 'spec link not found' error, got: %v", err)
+		}
+	})
+
+	t.Run("DeleteSpecLinkBySpecs_WrongOrder", func(t *testing.T) {
+		// Create a new link for this test
+		link := &models.SpecSpecLink{
+			FromSpecID: childSpec.ID,
+			ToSpecID:   parentSpec.ID,
+			LinkType:   "child",
+		}
+
+		err := ts.storage.CreateSpecLink(link)
+		if err != nil {
+			t.Fatalf("Failed to create spec link: %v", err)
+		}
+
+		// Test deletion with wrong parameter order (should fail)
+		err = ts.storage.DeleteSpecLinkBySpecs(parentSpec.ID, childSpec.ID)
+		if err == nil {
+			t.Error("Expected error when using wrong parameter order")
+		}
+
+		// Verify the link still exists
+		children, err := ts.storage.GetLinkedSpecs(parentSpec.ID, models.Outgoing)
+		if err != nil {
+			t.Fatalf("Failed to get children: %v", err)
+		}
+
+		if len(children) != 1 {
+			t.Errorf("Expected 1 child (link should still exist), got %d", len(children))
+		}
+
+		// Clean up - delete with correct order
+		err = ts.storage.DeleteSpecLinkBySpecs(childSpec.ID, parentSpec.ID)
+		if err != nil {
+			t.Fatalf("Failed to delete spec link with correct order: %v", err)
+		}
+	})
+}
+
+// TestSpecHierarchyIntegration tests the integration between services and storage
+func TestSpecHierarchyIntegration(t *testing.T) {
+	ts := setupTestDB(t)
+	defer ts.storage.Close()
+
+	// Create test specs
+	parentSpec := &models.SpecNode{
+		ID:       uuid.New().String(),
+		StableID: uuid.New().String(),
+		Version:  1,
+		Title:    "Integration Parent",
+		Content:  "Parent content for integration test",
+		NodeType: "spec",
+	}
+
+	childSpec := &models.SpecNode{
+		ID:       uuid.New().String(),
+		StableID: uuid.New().String(),
+		Version:  1,
+		Title:    "Integration Child",
+		Content:  "Child content for integration test",
+		NodeType: "spec",
+	}
+
+	// Create the specs
+	err := ts.storage.CreateSpec(parentSpec)
+	if err != nil {
+		t.Fatalf("Failed to create parent spec: %v", err)
+	}
+
+	err = ts.storage.CreateSpec(childSpec)
+	if err != nil {
+		t.Fatalf("Failed to create child spec: %v", err)
+	}
+
+	// Create a link
+	link := &models.SpecSpecLink{
+		FromSpecID: childSpec.ID,
+		ToSpecID:   parentSpec.ID,
+		LinkType:   "child",
+	}
+
+	err = ts.storage.CreateSpecLink(link)
+	if err != nil {
+		t.Fatalf("Failed to create spec link: %v", err)
+	}
+
+	t.Run("VerifyDatabaseSchema", func(t *testing.T) {
+		// Query the database directly to verify the schema
+		var fromSpecID, toSpecID string
+		query := `SELECT from_spec_id, to_spec_id FROM spec_spec_links WHERE id = ?`
+		err := ts.db.QueryRow(query, link.ID).Scan(&fromSpecID, &toSpecID)
+		if err != nil {
+			t.Fatalf("Failed to query spec link: %v", err)
+		}
+
+		if fromSpecID != childSpec.ID {
+			t.Errorf("Expected from_spec_id to be child ID %s, got %s", childSpec.ID, fromSpecID)
+		}
+
+		if toSpecID != parentSpec.ID {
+			t.Errorf("Expected to_spec_id to be parent ID %s, got %s", parentSpec.ID, toSpecID)
+		}
+	})
+
+	t.Run("DeleteUsingCorrectDirection", func(t *testing.T) {
+		// This simulates the fixed service layer call:
+		// DeleteSpecLinkBySpecs(fromSpecID=childSpecID, toSpecID=parentSpecID)
+		err := ts.storage.DeleteSpecLinkBySpecs(childSpec.ID, parentSpec.ID)
+		if err != nil {
+			t.Fatalf("Failed to delete spec link using correct direction: %v", err)
+		}
+
+		// Verify deletion was successful
+		children, err := ts.storage.GetLinkedSpecs(parentSpec.ID, models.Outgoing)
+		if err != nil {
+			t.Fatalf("Failed to get children after deletion: %v", err)
+		}
+
+		if len(children) != 0 {
+			t.Errorf("Expected 0 children after deletion, got %d", len(children))
 		}
 	})
 }

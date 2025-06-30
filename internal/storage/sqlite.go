@@ -24,10 +24,10 @@ func NewSQLiteStorage(dbPath string) (*SQLiteStorage, error) {
 	}
 
 	// Find the migrations directory relative to the current working directory
-	migrationDir := "migrations"
+	// No longer needed since migrations are embedded
 
 	// Create migration service
-	migrationService := NewMigrationService(db, migrationDir)
+	migrationService := NewMigrationService(db, "")
 
 	storage := &SQLiteStorage{
 		db:               db,
