@@ -162,6 +162,11 @@ func (m *Model) paneWidth() int {
 	return (m.width - 1) / 2 // width of each half pane, minus 1 for padding
 }
 
+// Refresh refreshes the current view data by reloading specs for the current node
+func (m *Model) Refresh() tea.Cmd {
+	return m.setCurrentNode(m.currentSpec)
+}
+
 // Update handles messages and updates the model
 func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
