@@ -236,7 +236,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.specs = msg.specs
-		m.specListView.SetSpecs(m.specs)
 		return m, nil
 
 	case linksLoadedMsg:

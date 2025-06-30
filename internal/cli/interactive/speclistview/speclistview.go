@@ -143,6 +143,11 @@ func New(linkService LinkService) Model {
 		currentSpec:  nil, // Start at top level
 	}
 
+	// Initialize with top-level specs
+	if linkService != nil {
+		model.setCurrentNode(nil)
+	}
+
 	return model
 }
 
@@ -155,29 +160,6 @@ func (m *Model) SetSize(width, height int) {
 
 func (m *Model) paneWidth() int {
 	return (m.width - 1) / 2 // width of each half pane, minus 1 for padding
-}
-
-// SetSpecs sets the specifications to be displayed
-func (m *Model) SetSpecs(specs []interactive.Spec) {
-	m.specs = specs
-	m.specSelector.SetSpecs(specs)
-
-	// Fetch links and child specs for the first spec if available
-	if m.linkService != nil && len(specs) > 0 {
-		links, err := m.linkService.GetCommitsForSpec(specs[0].ID)
-		if err == nil {
-			m.links = links
-		} else {
-			m.links = nil
-		}
-
-		childSpecs, err := m.linkService.GetChildSpecs(&specs[0].ID)
-		if err == nil {
-			m.childSpecs = childSpecs
-		} else {
-			m.childSpecs = nil
-		}
-	}
 }
 
 // Update handles messages and updates the model
