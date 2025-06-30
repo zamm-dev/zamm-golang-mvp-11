@@ -407,13 +407,13 @@ func (m *Model) View() string {
 			right.WriteString("  -\n")
 		} else {
 			for _, cs := range m.childSpecs {
-				// Look up the spec title from the specs list
-				specTitle := cs.ToSpecID // fallback to ID if title not found
-				for _, s := range m.specs {
-					if s.ID == cs.ToSpecID {
-						specTitle = s.Title
-						break
-					}
+				// Fetch the child spec directly from the service to get the title
+				childSpec, err := m.linkService.GetSpecByID(cs.ToSpecID)
+				var specTitle string
+				if err == nil && childSpec != nil {
+					specTitle = childSpec.Title
+				} else {
+					specTitle = cs.ToSpecID // fallback to ID if spec not found
 				}
 
 				if len(specTitle) > paneWidth-2 {

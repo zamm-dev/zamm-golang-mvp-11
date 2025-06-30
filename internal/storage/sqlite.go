@@ -25,7 +25,7 @@ func NewSQLiteStorage(dbPath string) (*SQLiteStorage, error) {
 
 	// Find the migrations directory relative to the current working directory
 	migrationDir := "migrations"
-	
+
 	// Create migration service
 	migrationService := NewMigrationService(db, migrationDir)
 
@@ -406,7 +406,7 @@ func (s *SQLiteStorage) GetSpecLink(id string) (*models.SpecSpecLink, error) {
 // GetParentSpecs retrieves all parent spec links for a given spec ID
 func (s *SQLiteStorage) GetParentSpecs(specID string) ([]*models.SpecSpecLink, error) {
 	query := `SELECT id, from_spec_id, to_spec_id, link_type, created_at 
-			  FROM spec_spec_links WHERE to_spec_id = ? ORDER BY created_at DESC`
+			  FROM spec_spec_links WHERE from_spec_id = ? AND link_type = 'child' ORDER BY created_at DESC`
 
 	rows, err := s.db.Query(query, specID)
 	if err != nil {
@@ -434,7 +434,7 @@ func (s *SQLiteStorage) GetParentSpecs(specID string) ([]*models.SpecSpecLink, e
 // GetChildSpecs retrieves all child spec links for a given spec ID
 func (s *SQLiteStorage) GetChildSpecs(specID string) ([]*models.SpecSpecLink, error) {
 	query := `SELECT id, from_spec_id, to_spec_id, link_type, created_at 
-			  FROM spec_spec_links WHERE from_spec_id = ? ORDER BY created_at DESC`
+			  FROM spec_spec_links WHERE to_spec_id = ? AND link_type = 'child' ORDER BY created_at DESC`
 
 	rows, err := s.db.Query(query, specID)
 	if err != nil {

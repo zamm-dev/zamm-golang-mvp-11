@@ -67,7 +67,6 @@ type Model struct {
 	confirmAction string
 
 	// Hierarchical spec links
-	specLinks           []specLinkItem
 	selectedChildSpecID string
 	inputLinkType       string
 
@@ -81,16 +80,6 @@ type linkItem struct {
 	RepoPath  string
 	LinkType  string
 	CreatedAt string
-}
-
-type specLinkItem struct {
-	ID           string
-	ParentSpecID string
-	ChildSpecID  string
-	ParentTitle  string
-	ChildTitle   string
-	LinkType     string
-	CreatedAt    string
 }
 
 // Custom messages
@@ -108,22 +97,12 @@ type operationCompleteMsg struct {
 	message string
 }
 
-type specLinksLoadedMsg struct {
-	links []specLinkItem
-	err   error
-}
-
-// SpecLinkSelectedForRemovalMsg is sent when a spec link is selected for removal
-type SpecLinkSelectedForRemovalMsg struct {
-	SpecLinkItem specLinkItem
-}
-
 // Direction represents which part of an edge to retrieve
 type Direction int
 
 const (
-	From Direction = iota
-	To
+	Outgoing Direction = iota
+	Incoming
 )
 
 // createInteractiveCommand creates the interactive mode command
@@ -289,35 +268,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case operationCompleteMsg:
 		m.message = msg.message
 		m.showMessage = true
-		return m, nil
-
-	case specLinksLoadedMsg:
-		if msg.err != nil {
-			m.message = fmt.Sprintf("Error loading spec links: %v", msg.err)
-			m.showMessage = true
-			return m, nil
-		}
-		m.specLinks = msg.links
-
-		if len(m.specLinks) == 0 {
-			m.message = "No specification links found."
-			m.showMessage = true
-			return m, nil
-		}
-
-		// Configure the spec selector for unlink mode
-		config := common.SpecSelectorConfig{
-			Title: "🗑️ Remove Specification Link",
-		}
-		m.specSelector = common.NewSpecSelector(config)
-
-		// Convert spec links to specs for display - get linked child specs
-		unlinkSpecs := m.convertSpecLinksToSpecs(To)
-		m.specSelector.SetSpecs(unlinkSpecs)
-		m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
-
-		m.state = UnlinkSpecFromSpecSelection
-		m.cursor = 0
 		return m, nil
 
 	case speclistview.CreateNewSpecMsg:
@@ -727,66 +677,6 @@ func (m *Model) deleteLinkCmd(specID, commitID, repoPath string) tea.Cmd {
 	}
 }
 
-// loadSpecLinksForSpecCmd returns a command to load spec-to-spec links for the selected spec
-func (m *Model) loadSpecLinksForSpecCmd() tea.Cmd {
-	return func() tea.Msg {
-		parents, err := m.app.specService.GetParentSpecs(m.selectedSpecID)
-		if err != nil {
-			return specLinksLoadedMsg{err: err}
-		}
-
-		children, err := m.app.specService.GetChildSpecs(m.selectedSpecID)
-		if err != nil {
-			return specLinksLoadedMsg{err: err}
-		}
-
-		// Combine parents and children into a single list for display
-		var linkItems []specLinkItem
-
-		// Add parents (where selectedSpec is the child)
-		for _, link := range parents {
-			var parentTitle string
-			for _, spec := range m.specs {
-				if spec.ID == link.FromSpecID {
-					parentTitle = spec.Title
-					break
-				}
-			}
-			linkItems = append(linkItems, specLinkItem{
-				ID:           link.ID,
-				ParentSpecID: link.FromSpecID,
-				ChildSpecID:  link.ToSpecID,
-				ParentTitle:  parentTitle,
-				ChildTitle:   "", // Current spec
-				LinkType:     link.LinkType,
-				CreatedAt:    link.CreatedAt.Format("2006-01-02 15:04"),
-			})
-		}
-
-		// Add children (where selectedSpec is the parent)
-		for _, link := range children {
-			var childTitle string
-			for _, spec := range m.specs {
-				if spec.ID == link.ToSpecID {
-					childTitle = spec.Title
-					break
-				}
-			}
-			linkItems = append(linkItems, specLinkItem{
-				ID:           link.ID,
-				ParentSpecID: link.FromSpecID,
-				ChildSpecID:  link.ToSpecID,
-				ParentTitle:  "", // Current spec
-				ChildTitle:   childTitle,
-				LinkType:     link.LinkType,
-				CreatedAt:    link.CreatedAt.Format("2006-01-02 15:04"),
-			})
-		}
-
-		return specLinksLoadedMsg{links: linkItems}
-	}
-}
-
 // linkSpecsCmd returns a command to create a hierarchical link between specs
 func (m *Model) linkSpecsCmd(parentSpecID, childSpecID, linkType string) tea.Cmd {
 	return func() tea.Msg {
@@ -1190,9 +1080,32 @@ func (m *Model) updateUnlinkTypeSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else if m.cursor == 1 {
 			// Unlink from Parent Spec
 			m.resetInputs()
+
+			// Get child specs that can be unlinked directly
+			unlinkSpecs, err := m.getLinkedSpecs(m.selectedSpecID, Incoming)
+			if err != nil {
+				m.message = fmt.Sprintf("Error loading linked specs: %v", err)
+				m.showMessage = true
+				return m, nil
+			}
+
+			if len(unlinkSpecs) == 0 {
+				m.message = "No child specifications found to unlink."
+				m.showMessage = true
+				return m, nil
+			}
+
+			// Configure the spec selector for unlink mode
+			config := common.SpecSelectorConfig{
+				Title: "🗑️ Remove Specification Link",
+			}
+			m.specSelector = common.NewSpecSelector(config)
+			m.specSelector.SetSpecs(unlinkSpecs)
+			m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
+
 			m.state = UnlinkSpecFromSpecSelection
 			m.cursor = 0
-			return m, m.loadSpecLinksForSpecCmd()
+			return m, nil
 		}
 	}
 	return m, nil
@@ -1233,42 +1146,60 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// convertSpecLinksToSpecs converts specLinkItem list to interactive.Spec list for display in spec selector
-func (m *Model) convertSpecLinksToSpecs(direction Direction) []interactive.Spec {
-	specMap := make(map[string]interactive.Spec)
+// getLinkedSpecs retrieves linked specifications based on direction
+func (m *Model) getLinkedSpecs(specID string, direction Direction) ([]interactive.Spec, error) {
+	switch direction {
+	case Outgoing:
+		// Get parent specs (specs that link to this one)
+		parentLinks, err := m.app.specService.GetParentSpecs(specID)
+		if err != nil {
+			return nil, err
+		}
 
-	for _, link := range m.specLinks {
-		switch direction {
-		case From:
-			// Get specs that are linked FROM (parents when current spec is child)
-			if link.ChildSpecID == m.selectedSpecID {
-				for _, spec := range m.specs {
-					if spec.ID == link.ParentSpecID {
-						specMap[spec.ID] = spec
-						break
-					}
-				}
+		specs := make([]interactive.Spec, 0, len(parentLinks))
+		for _, link := range parentLinks {
+			parentSpec, err := m.app.specService.GetSpec(link.FromSpecID)
+			if err != nil {
+				continue // Skip specs we can't retrieve
 			}
-		case To:
-			// Get specs that are linked TO (children when current spec is parent)
-			if link.ParentSpecID == m.selectedSpecID {
-				for _, spec := range m.specs {
-					if spec.ID == link.ChildSpecID {
-						specMap[spec.ID] = spec
-						break
-					}
-				}
+			if parentSpec != nil {
+				specs = append(specs, interactive.Spec{
+					ID:        parentSpec.ID,
+					Title:     parentSpec.Title,
+					Content:   parentSpec.Content,
+					CreatedAt: parentSpec.CreatedAt.Format("2006-01-02 15:04"),
+				})
 			}
 		}
-	}
+		return specs, nil
 
-	// Convert map to slice
-	specs := make([]interactive.Spec, 0, len(specMap))
-	for _, spec := range specMap {
-		specs = append(specs, spec)
-	}
+	case Incoming:
+		// Get child specs (specs that this one links to)
+		childLinks, err := m.app.specService.GetChildSpecs(specID)
+		if err != nil {
+			return nil, err
+		}
 
-	return specs
+		specs := make([]interactive.Spec, 0, len(childLinks))
+		for _, link := range childLinks {
+			childSpec, err := m.app.specService.GetSpec(link.ToSpecID)
+			if err != nil {
+				continue // Skip specs we can't retrieve
+			}
+			if childSpec != nil {
+				specs = append(specs, interactive.Spec{
+					ID:        childSpec.ID,
+					Title:     childSpec.Title,
+					Content:   childSpec.Content,
+					CreatedAt: childSpec.CreatedAt.Format("2006-01-02 15:04"),
+				})
+			}
+		}
+		return specs, nil
+
+	default:
+		return nil, fmt.Errorf("unknown direction: %v", direction)
+	}
 }
 
 // combinedService adapts both LinkService and SpecService to provide
