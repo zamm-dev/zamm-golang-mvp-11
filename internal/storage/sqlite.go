@@ -405,26 +405,25 @@ func (s *SQLiteStorage) GetSpecLink(id string) (*models.SpecSpecLink, error) {
 
 // GetLinkedSpecs retrieves all related specs (parents or children) for a given spec ID
 func (s *SQLiteStorage) GetLinkedSpecs(specID string, direction models.Direction) ([]*models.SpecNode, error) {
-	var query string
+	var desiredMatch, retrievedNode string
 
 	switch direction {
 	case models.Incoming: // Get parents
-		query = `
-			SELECT sn.id, sn.stable_id, sn.version, sn.title, sn.content, sn.node_type, sn.created_at, sn.updated_at
-			FROM spec_nodes sn
-			INNER JOIN spec_spec_links ssl ON sn.id = ssl.to_spec_id
-			WHERE ssl.from_spec_id = ? AND ssl.link_type = 'child'
-			ORDER BY sn.created_at DESC`
+		desiredMatch = "from_spec_id"
+		retrievedNode = "to_spec_id"
 	case models.Outgoing: // Get children
-		query = `
-			SELECT sn.id, sn.stable_id, sn.version, sn.title, sn.content, sn.node_type, sn.created_at, sn.updated_at
-			FROM spec_nodes sn
-			INNER JOIN spec_spec_links ssl ON sn.id = ssl.from_spec_id
-			WHERE ssl.to_spec_id = ? AND ssl.link_type = 'child'
-			ORDER BY sn.created_at DESC`
+		desiredMatch = "to_spec_id"
+		retrievedNode = "from_spec_id"
 	default:
 		return nil, models.NewZammError(models.ErrTypeValidation, "invalid direction")
 	}
+
+	query := fmt.Sprintf(`
+		SELECT sn.id, sn.stable_id, sn.version, sn.title, sn.content, sn.node_type, sn.created_at, sn.updated_at
+		FROM spec_nodes sn
+		INNER JOIN spec_spec_links ssl ON sn.id = ssl.%s
+		WHERE ssl.%s = ? AND ssl.link_type = 'child'
+		ORDER BY sn.created_at DESC`, retrievedNode, desiredMatch)
 
 	rows, err := s.db.Query(query, specID)
 	if err != nil {
