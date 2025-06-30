@@ -34,18 +34,23 @@ type ExitMsg struct{}
 type LinkService interface {
 	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
 	GetChildSpecs(specID string) ([]*models.SpecSpecLink, error)
+	GetSpecByID(specID string) (*interactive.Spec, error)
+	GetTopLevelSpecs() ([]interactive.Spec, error)
+	GetParentSpec(specID string) (*interactive.Spec, error)
 }
 
 type keyMap struct {
 	Up     key.Binding
 	Down   key.Binding
+	Select key.Binding
 	Create key.Binding
 	Edit   key.Binding
 	Delete key.Binding
 	Link   key.Binding
 	Remove key.Binding
 	Help   key.Binding
-	Return key.Binding
+	Back   key.Binding
+	Quit   key.Binding
 }
 
 var keys = keyMap{
@@ -56,6 +61,14 @@ var keys = keyMap{
 	Down: key.NewBinding(
 		key.WithKeys("down", "j"),
 		key.WithHelp("↓", "prev"),
+	),
+	Select: key.NewBinding(
+		key.WithKeys("enter"),
+		key.WithHelp("↵", "select"),
+	),
+	Back: key.NewBinding(
+		key.WithKeys("esc"),
+		key.WithHelp("Esc", "back"),
 	),
 	Create: key.NewBinding(
 		key.WithKeys("c", "C"),
@@ -77,9 +90,9 @@ var keys = keyMap{
 		key.WithKeys("r", "R"),
 		key.WithHelp("r", "remove link"),
 	),
-	Return: key.NewBinding(
-		key.WithKeys("esc", "q", "Q"),
-		key.WithHelp("Esc", "back"),
+	Quit: key.NewBinding(
+		key.WithKeys("q", "Q"),
+		key.WithHelp("q", "quit"),
 	),
 	Help: key.NewBinding(
 		key.WithKeys("h", "?"),
@@ -88,15 +101,16 @@ var keys = keyMap{
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Create, k.Edit, k.Delete, k.Link, k.Remove, k.Help, k.Return}
+	return []key.Binding{k.Help, k.Quit}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down},
+		{k.Select, k.Back},
 		{k.Create, k.Edit, k.Delete},
 		{k.Link, k.Remove},
-		{k.Help, k.Return},
+		{k.Help, k.Quit},
 	}
 }
 
@@ -136,6 +150,9 @@ type Model struct {
 	childSpecs  []*models.SpecSpecLink
 	linkService LinkService
 
+	// Navigation state
+	currentSpec *interactive.Spec // nil for top level
+
 	width  int
 	height int
 }
@@ -151,6 +168,7 @@ func New(linkService LinkService) Model {
 		keys:        keys,
 		help:        help.New(),
 		linkService: linkService,
+		currentSpec: nil, // Start at top level
 	}
 }
 
@@ -182,6 +200,7 @@ func (m *Model) SetSpecs(specs []interactive.Spec) {
 		items[i] = s
 	}
 	m.list.SetItems(items)
+	m.list.Title = "Specifications"
 
 	// Fetch links and child specs for the first spec if available
 	if m.linkService != nil && len(specs) > 0 {
@@ -226,6 +245,9 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 			}
 			return *m, cmd
+		case key.Matches(msg, m.keys.Select):
+			m.navigateToChildren()
+			return *m, nil
 		case key.Matches(msg, m.keys.Create):
 			return *m, func() tea.Msg { return CreateNewSpecMsg{} }
 		case key.Matches(msg, m.keys.Edit):
@@ -256,11 +278,120 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.help.ShowAll = !m.help.ShowAll
 			m.setListSize() // Adjust list size based on help visibility
 			return *m, nil
-		case key.Matches(msg, m.keys.Return):
+		case key.Matches(msg, m.keys.Back):
+			m.navigateBack()
+			return *m, nil
+		case key.Matches(msg, m.keys.Quit):
 			return *m, func() tea.Msg { return ExitMsg{} }
 		}
 	}
 	return *m, nil
+}
+
+// setCurrentNode sets the current spec and updates the display with its children
+func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
+	var specs []interactive.Spec
+	var title string
+
+	if currentSpec == nil {
+		// At top level
+		topLevelSpecs, err := m.linkService.GetTopLevelSpecs()
+		if err != nil {
+			return nil
+		}
+		specs = topLevelSpecs
+		title = "Specifications"
+	} else {
+		// Get children of the current spec
+		childSpecLinks, err := m.linkService.GetChildSpecs(currentSpec.ID)
+		if err != nil {
+			return nil
+		}
+
+		// Convert child spec links to interactive.Spec objects
+		childSpecs := make([]interactive.Spec, 0, len(childSpecLinks))
+		for _, link := range childSpecLinks {
+			childSpec, err := m.linkService.GetSpecByID(link.ToSpecID)
+			if err == nil && childSpec != nil {
+				childSpecs = append(childSpecs, *childSpec)
+			}
+		}
+		specs = childSpecs
+		title = currentSpec.Title
+	}
+
+	// Update model state
+	m.currentSpec = currentSpec
+	m.specs = specs
+
+	// Update list items
+	items := make([]list.Item, len(specs))
+	for i, s := range specs {
+		items[i] = s
+	}
+	m.list.SetItems(items)
+	m.list.Title = title
+
+	// Reset selection to first item and update details
+	m.list.Select(0)
+	if len(specs) > 0 {
+		m.updateDetailsForSpec(specs[0])
+	}
+
+	return nil
+}
+
+// navigateToChildren navigates to the children of the selected spec
+func (m *Model) navigateToChildren() tea.Cmd {
+	spec, ok := m.list.SelectedItem().(interactive.Spec)
+	if !ok {
+		return nil
+	}
+
+	// Check if this spec has children before navigating
+	childSpecLinks, err := m.linkService.GetChildSpecs(spec.ID)
+	if err != nil || len(childSpecLinks) == 0 {
+		return nil // No children or error
+	}
+
+	return m.setCurrentNode(&spec)
+}
+
+// navigateBack navigates back to the parent level
+func (m *Model) navigateBack() tea.Cmd {
+	if m.currentSpec == nil {
+		return nil // Already at top level
+	}
+
+	// Get parent spec
+	parentSpec, err := m.linkService.GetParentSpec(m.currentSpec.ID)
+	if err != nil || parentSpec == nil {
+		// No parent found, go back to top level
+		return m.setCurrentNode(nil)
+	}
+
+	return m.setCurrentNode(parentSpec)
+}
+
+// updateDetailsForSpec updates the links and child specs for the given spec
+func (m *Model) updateDetailsForSpec(spec interactive.Spec) {
+	if m.linkService == nil {
+		return
+	}
+
+	links, err := m.linkService.GetCommitsForSpec(spec.ID)
+	if err == nil {
+		m.links = links
+	} else {
+		m.links = nil
+	}
+
+	childSpecs, err := m.linkService.GetChildSpecs(spec.ID)
+	if err == nil {
+		m.childSpecs = childSpecs
+	} else {
+		m.childSpecs = nil
+	}
 }
 
 // View renders the spec list view screen

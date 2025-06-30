@@ -1265,7 +1265,7 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// combinedService adapts both LinkService and SpecService to provide 
+// combinedService adapts both LinkService and SpecService to provide
 // the interface needed by speclistview
 type combinedService struct {
 	linkService services.LinkService
@@ -1278,4 +1278,76 @@ func (cs *combinedService) GetCommitsForSpec(specID string) ([]*models.SpecCommi
 
 func (cs *combinedService) GetChildSpecs(specID string) ([]*models.SpecSpecLink, error) {
 	return cs.specService.GetChildSpecs(specID)
+}
+
+func (cs *combinedService) GetSpecByID(specID string) (*interactive.Spec, error) {
+	specNode, err := cs.specService.GetSpec(specID)
+	if err != nil {
+		return nil, err
+	}
+	if specNode == nil {
+		return nil, nil
+	}
+
+	// Convert models.SpecNode to interactive.Spec
+	return &interactive.Spec{
+		ID:      specNode.ID,
+		Title:   specNode.Title,
+		Content: specNode.Content,
+	}, nil
+}
+
+func (cs *combinedService) GetTopLevelSpecs() ([]interactive.Spec, error) {
+	// Get all specs and filter for top-level ones (those without parents)
+	allSpecs, err := cs.specService.ListSpecs()
+	if err != nil {
+		return nil, err
+	}
+
+	var topLevelSpecs []interactive.Spec
+	for _, spec := range allSpecs {
+		// Check if this spec has any parents
+		parents, err := cs.specService.GetParentSpecs(spec.ID)
+		if err != nil {
+			continue // Skip specs we can't check
+		}
+
+		// If no parents, it's a top-level spec
+		if len(parents) == 0 {
+			topLevelSpecs = append(topLevelSpecs, interactive.Spec{
+				ID:      spec.ID,
+				Title:   spec.Title,
+				Content: spec.Content,
+			})
+		}
+	}
+
+	return topLevelSpecs, nil
+}
+
+func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, error) {
+	parents, err := cs.specService.GetParentSpecs(specID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(parents) == 0 {
+		return nil, nil // No parent
+	}
+
+	// For simplicity, return the first parent if multiple exist
+	parentID := parents[0].FromSpecID
+	parentNode, err := cs.specService.GetSpec(parentID)
+	if err != nil {
+		return nil, err
+	}
+	if parentNode == nil {
+		return nil, nil
+	}
+
+	return &interactive.Spec{
+		ID:      parentNode.ID,
+		Title:   parentNode.Title,
+		Content: parentNode.Content,
+	}, nil
 }
