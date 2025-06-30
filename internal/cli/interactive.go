@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	interactive "github.com/yourorg/zamm-mvp/internal/cli/interactive"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive/speclistview"
+	"github.com/yourorg/zamm-mvp/internal/models"
+	"github.com/yourorg/zamm-mvp/internal/services"
 )
 
 // MenuState represents the current state of the interactive menu
@@ -130,11 +132,16 @@ func (a *App) runInteractiveMode() error {
 	ti := textinput.New()
 	ti.Focus()
 
+	combinedSvc := &combinedService{
+		linkService: a.linkService,
+		specService: a.specService,
+	}
+
 	model := Model{
 		app:            a,
 		state:          SpecListView,
 		textInput:      ti,
-		specListView:   speclistview.New(a.linkService),
+		specListView:   speclistview.New(combinedSvc),
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
 	}
@@ -1256,4 +1263,19 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.linkSpecsCmd(m.selectedSpecID, m.selectedChildSpecID, linkType)
 	}
 	return m, nil
+}
+
+// combinedService adapts both LinkService and SpecService to provide 
+// the interface needed by speclistview
+type combinedService struct {
+	linkService services.LinkService
+	specService services.SpecService
+}
+
+func (cs *combinedService) GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error) {
+	return cs.linkService.GetCommitsForSpec(specID)
+}
+
+func (cs *combinedService) GetChildSpecs(specID string) ([]*models.SpecSpecLink, error) {
+	return cs.specService.GetChildSpecs(specID)
 }

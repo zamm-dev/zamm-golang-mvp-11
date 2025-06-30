@@ -33,6 +33,7 @@ type ExitMsg struct{}
 // Model represents the state of the spec list view screen
 type LinkService interface {
 	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
+	GetChildSpecs(specID string) ([]*models.SpecSpecLink, error)
 }
 
 type keyMap struct {
@@ -132,6 +133,7 @@ type Model struct {
 	help        help.Model
 	specs       []interactive.Spec
 	links       []*models.SpecCommitLink
+	childSpecs  []*models.SpecSpecLink
 	linkService LinkService
 
 	width  int
@@ -181,13 +183,20 @@ func (m *Model) SetSpecs(specs []interactive.Spec) {
 	}
 	m.list.SetItems(items)
 
-	// Fetch links for the first spec if available
+	// Fetch links and child specs for the first spec if available
 	if m.linkService != nil && len(specs) > 0 {
 		links, err := m.linkService.GetCommitsForSpec(specs[0].ID)
 		if err == nil {
 			m.links = links
 		} else {
 			m.links = nil
+		}
+
+		childSpecs, err := m.linkService.GetChildSpecs(specs[0].ID)
+		if err == nil {
+			m.childSpecs = childSpecs
+		} else {
+			m.childSpecs = nil
 		}
 	}
 }
@@ -207,6 +216,13 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					m.links = links
 				} else {
 					m.links = nil
+				}
+
+				childSpecs, err := m.linkService.GetChildSpecs(spec.ID)
+				if err == nil {
+					m.childSpecs = childSpecs
+				} else {
+					m.childSpecs = nil
 				}
 			}
 			return *m, cmd
@@ -282,6 +298,31 @@ func (m *Model) View() string {
 				linkType := l.LinkType
 				created := l.CreatedAt.Format("2006-01-02 15:04")
 				right.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
+			}
+		}
+
+		right.WriteString("\n\nChild Specifications:\n")
+		if len(m.childSpecs) == 0 {
+			right.WriteString("  (none)\n")
+		} else {
+			right.WriteString("  SPEC TITLE       TYPE         CREATED\n")
+			right.WriteString("  ──────────       ────         ───────\n")
+			for _, cs := range m.childSpecs {
+				// Look up the spec title from the specs list
+				specTitle := cs.ToSpecID // fallback to ID if title not found
+				for _, s := range m.specs {
+					if s.ID == cs.ToSpecID {
+						specTitle = s.Title
+						break
+					}
+				}
+
+				if len(specTitle) > 16 {
+					specTitle = specTitle[:16] + "..."
+				}
+				linkType := cs.LinkType
+				created := cs.CreatedAt.Format("2006-01-02 15:04")
+				right.WriteString(fmt.Sprintf("  %-16s %-12s %s\n", specTitle, linkType, created))
 			}
 		}
 	} else {
