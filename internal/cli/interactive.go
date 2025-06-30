@@ -71,7 +71,7 @@ type Model struct {
 	selectedChildSpecID string
 	inputLinkType       string
 
-	// Spec selector component
+	// Spec selector components
 	specSelector common.SpecSelector
 }
 
@@ -112,6 +112,19 @@ type specLinksLoadedMsg struct {
 	links []specLinkItem
 	err   error
 }
+
+// SpecLinkSelectedForRemovalMsg is sent when a spec link is selected for removal
+type SpecLinkSelectedForRemovalMsg struct {
+	SpecLinkItem specLinkItem
+}
+
+// Direction represents which part of an edge to retrieve
+type Direction int
+
+const (
+	From Direction = iota
+	To
+)
 
 // createInteractiveCommand creates the interactive mode command
 func (a *App) createInteractiveCommand() *cobra.Command {
@@ -209,7 +222,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, cmd
 		case UnlinkSpecFromSpecSelection:
-			return m.updateUnlinkSpecFromSpecSelection(msg)
+			// Use spec selector for spec unlink selection
+			var cmd tea.Cmd
+			selector, selectorCmd := m.specSelector.Update(msg)
+			m.specSelector = *selector
+			cmd = selectorCmd
+
+			// Handle escape key to go back
+			if msg.String() == "esc" {
+				m.state = UnlinkTypeSelection
+				m.cursor = 0
+				return m, nil
+			}
+
+			return m, cmd
 		case CreateSpecTitle, CreateSpecContent,
 			EditSpecTitle, EditSpecContent,
 			LinkSpecCommit, LinkSpecRepo, LinkSpecType,
@@ -278,6 +304,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showMessage = true
 			return m, nil
 		}
+
+		// Configure the spec selector for unlink mode
+		config := common.SpecSelectorConfig{
+			Title: "🗑️ Remove Specification Link",
+		}
+		m.specSelector = common.NewSpecSelector(config)
+
+		// Convert spec links to specs for display - get linked child specs
+		unlinkSpecs := m.convertSpecLinksToSpecs(To)
+		m.specSelector.SetSpecs(unlinkSpecs)
+		m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
 
 		m.state = UnlinkSpecFromSpecSelection
 		m.cursor = 0
@@ -348,6 +385,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.Focus()
 				return m, nil
 			}
+		} else if m.state == UnlinkSpecFromSpecSelection {
+			// Handle spec selection for unlinking
+			// Just unlink between the current spec and the selected spec
+			selectedSpecID := msg.Spec.ID
+			return m, m.unlinkSpecsCmd(m.selectedSpecID, selectedSpecID)
 		}
 
 	case speclistview.ExitMsg:
@@ -811,7 +853,7 @@ func (m *Model) View() string {
 	case LinkSpecToSpecSelection:
 		return m.specSelector.View()
 	case UnlinkSpecFromSpecSelection:
-		return m.renderUnlinkSpecFromSpecSelection()
+		return m.specSelector.View()
 	case CreateSpecTitle, CreateSpecContent:
 		return m.renderCreateSpec()
 	case EditSpecTitle, EditSpecContent:
@@ -1047,47 +1089,6 @@ func (m *Model) renderUnlinkTypeSelection() string {
 }
 
 // renderLinkSpecToSpecSelection renders the spec-to-spec selection menu
-// renderUnlinkSpecFromSpecSelection renders the spec unlink selection menu
-func (m *Model) renderUnlinkSpecFromSpecSelection() string {
-	s := "🗑️  Remove Specification Link\n"
-	s += "=============================\n\n"
-
-	if len(m.specLinks) == 0 {
-		s += "No specification links found.\n\n"
-		s += "Press Esc to go back"
-		return s
-	}
-
-	// Find selected spec title
-	var currentSpecTitle string
-	for _, spec := range m.specs {
-		if spec.ID == m.selectedSpecID {
-			currentSpecTitle = spec.Title
-			break
-		}
-	}
-
-	s += fmt.Sprintf("Specification links for '%s':\n\n", currentSpecTitle)
-
-	for i, link := range m.specLinks {
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
-		}
-
-		if link.ParentSpecID == m.selectedSpecID {
-			// Current spec is the parent
-			s += fmt.Sprintf("%s → %s (%s)\n", cursor, link.ChildTitle, link.LinkType)
-		} else {
-			// Current spec is the child
-			s += fmt.Sprintf("%s ← %s (%s)\n", cursor, link.ParentTitle, link.LinkType)
-		}
-	}
-
-	s += "\nUse ↑/↓ arrows to navigate, Enter to remove, Esc to go back"
-	return s
-}
-
 // renderLinkSpecToSpecType renders the link type input form
 func (m *Model) renderLinkSpecToSpecType() string {
 	s := "🔗 Specification Link Type\n"
@@ -1143,7 +1144,7 @@ func (m *Model) updateLinkTypeSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state = LinkSpecToSpecSelection
 			m.cursor = 0
 
-			// Configure spec selector and filter out current spec
+			// Configure spec selector for linking mode
 			config := common.SpecSelectorConfig{
 				Title: "🔗 Link to Specification",
 			}
@@ -1197,32 +1198,6 @@ func (m *Model) updateUnlinkTypeSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateUnlinkSpecFromSpecSelection handles spec-to-spec unlinking selection
-func (m *Model) updateUnlinkSpecFromSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc":
-		m.state = UnlinkTypeSelection
-		m.cursor = 0
-		return m, nil
-	case "up", "k":
-		if m.cursor > 0 {
-			m.cursor--
-		}
-	case "down", "j":
-		if m.cursor < len(m.specLinks)-1 {
-			m.cursor++
-		}
-	case "enter", " ":
-		if m.cursor < len(m.specLinks) {
-			selectedLink := m.specLinks[m.cursor]
-			return m, m.unlinkSpecsCmd(selectedLink.ParentSpecID, selectedLink.ChildSpecID)
-		}
-	}
-	return m, nil
-}
-
 // updateLinkSpecToSpecType handles the link type input for spec-to-spec linking
 func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
@@ -1256,6 +1231,44 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.linkSpecsCmd(m.selectedSpecID, m.selectedChildSpecID, linkType)
 	}
 	return m, nil
+}
+
+// convertSpecLinksToSpecs converts specLinkItem list to interactive.Spec list for display in spec selector
+func (m *Model) convertSpecLinksToSpecs(direction Direction) []interactive.Spec {
+	specMap := make(map[string]interactive.Spec)
+
+	for _, link := range m.specLinks {
+		switch direction {
+		case From:
+			// Get specs that are linked FROM (parents when current spec is child)
+			if link.ChildSpecID == m.selectedSpecID {
+				for _, spec := range m.specs {
+					if spec.ID == link.ParentSpecID {
+						specMap[spec.ID] = spec
+						break
+					}
+				}
+			}
+		case To:
+			// Get specs that are linked TO (children when current spec is parent)
+			if link.ParentSpecID == m.selectedSpecID {
+				for _, spec := range m.specs {
+					if spec.ID == link.ChildSpecID {
+						specMap[spec.ID] = spec
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// Convert map to slice
+	specs := make([]interactive.Spec, 0, len(specMap))
+	for _, spec := range specMap {
+		specs = append(specs, spec)
+	}
+
+	return specs
 }
 
 // combinedService adapts both LinkService and SpecService to provide
