@@ -14,7 +14,9 @@ import (
 )
 
 // CreateNewSpecMsg signals that the user wants to create a new specification
-type CreateNewSpecMsg struct{}
+type CreateNewSpecMsg struct {
+	ParentSpecID *string // nil for top-level, otherwise ID of parent spec
+}
 type LinkCommitSpecMsg struct {
 	SpecID string
 }
@@ -199,7 +201,12 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.navigateToChildren()
 			return *m, nil
 		case key.Matches(msg, m.keys.Create):
-			return *m, func() tea.Msg { return CreateNewSpecMsg{} }
+			// Get the current node (not the selected spec) to use as parent
+			var parentSpecID *string
+			if m.currentSpec != nil {
+				parentSpecID = &m.currentSpec.ID
+			}
+			return *m, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: parentSpecID} }
 		case key.Matches(msg, m.keys.Edit):
 			spec := m.specSelector.GetSelectedSpec()
 			if spec == nil {

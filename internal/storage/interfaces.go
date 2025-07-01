@@ -27,7 +27,7 @@ type Storage interface {
 	DeleteSpecLink(id string) error
 	DeleteSpecLinkBySpecs(fromSpecID, toSpecID string) error
 	// DAG validation
-	WouldCreateCycle(parentSpecID, childSpecID string) (bool, error)
+	WouldCreateCycle(fromSpecID, toSpecID string) (bool, error)
 
 	// Utility
 	BackupDatabase(backupPath string) error

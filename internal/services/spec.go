@@ -142,8 +142,8 @@ func (s *specService) AddChildToParent(childSpecID, parentSpecID string) (*model
 	}
 
 	link := &models.SpecSpecLink{
-		FromSpecID: parentSpecID,
-		ToSpecID:   childSpecID,
+		FromSpecID: childSpecID,
+		ToSpecID:   parentSpecID,
 		LinkType:   "child",
 	}
 

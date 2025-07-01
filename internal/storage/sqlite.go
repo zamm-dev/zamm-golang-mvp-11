@@ -493,26 +493,26 @@ func (s *SQLiteStorage) DeleteSpecLinkBySpecs(fromSpecID, toSpecID string) error
 	return nil
 }
 
-// WouldCreateCycle checks if adding a link from parentSpecID to childSpecID would create a cycle
-func (s *SQLiteStorage) WouldCreateCycle(parentSpecID, childSpecID string) (bool, error) {
-	// If parent and child are the same, it's a direct cycle
-	if parentSpecID == childSpecID {
+// WouldCreateCycle checks if adding a link from fromSpecID to toSpecID would create a cycle
+func (s *SQLiteStorage) WouldCreateCycle(fromSpecID, toSpecID string) (bool, error) {
+	// If from and to are the same, it's a direct cycle
+	if fromSpecID == toSpecID {
 		return true, nil
 	}
 
-	// Use a recursive CTE to check if there's already a path from childSpecID to parentSpecID
-	// If such a path exists, adding parentSpecID -> childSpecID would create a cycle
+	// Use a recursive CTE to check if there's already a path from toSpecID to fromSpecID
+	// If such a path exists, adding fromSpecID -> toSpecID would create a cycle
 	query := `
 		WITH RECURSIVE spec_path(spec_id) AS (
-			SELECT from_spec_id FROM spec_spec_links WHERE to_spec_id = ?
+			SELECT to_spec_id FROM spec_spec_links WHERE from_spec_id = ?
 			UNION
-			SELECT ssl.from_spec_id
+			SELECT ssl.to_spec_id
 			FROM spec_spec_links ssl
-			INNER JOIN spec_path sp ON ssl.to_spec_id = sp.spec_id
+			INNER JOIN spec_path sp ON ssl.from_spec_id = sp.spec_id
 		)
 		SELECT 1 FROM spec_path WHERE spec_id = ? LIMIT 1`
 
-	row := s.db.QueryRow(query, childSpecID, parentSpecID)
+	row := s.db.QueryRow(query, toSpecID, fromSpecID)
 	var exists int
 	err := row.Scan(&exists)
 	if err != nil {

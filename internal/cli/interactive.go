@@ -65,6 +65,7 @@ type Model struct {
 	editingSpecID string
 	contentLines  []string
 	confirmAction string
+	parentSpecID  *string // ID of parent spec when creating new spec (nil for top-level)
 
 	// Hierarchical spec links
 	selectedChildSpecID string
@@ -264,6 +265,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case speclistview.CreateNewSpecMsg:
 		if m.state == SpecListView {
 			m.resetInputs()
+			m.parentSpecID = msg.ParentSpecID // Store parent spec ID for later use
 			m.state = CreateSpecTitle
 			m.promptText = "Enter title:"
 			m.textInput.Focus()
@@ -589,6 +591,7 @@ func (m *Model) resetInputs() {
 	m.editingSpecID = ""
 	m.contentLines = []string{}
 	m.confirmAction = ""
+	m.parentSpecID = nil
 	m.selectedChildSpecID = ""
 	m.inputLinkType = ""
 	m.textInput.Reset()
@@ -602,6 +605,15 @@ func (m *Model) createSpecCmd(title, content string) tea.Cmd {
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
+
+		// If there's a parent spec ID, create the parent-child relationship
+		if m.parentSpecID != nil {
+			_, err := m.app.specService.AddChildToParent(spec.ID, *m.parentSpecID)
+			if err != nil {
+				return operationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
+			}
+		}
+
 		return operationCompleteMsg{message: fmt.Sprintf("✅ Created specification: %s. Press Enter to continue...", spec.Title)}
 	}
 }
@@ -1131,7 +1143,7 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if linkType == "" {
 			linkType = "child"
 		}
-		return m, m.linkSpecsCmd(m.selectedSpecID, m.selectedChildSpecID)
+		return m, m.linkSpecsCmd(m.selectedChildSpecID, m.selectedSpecID)
 	}
 	return m, nil
 }
