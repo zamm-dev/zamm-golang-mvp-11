@@ -118,6 +118,11 @@ func (a *App) runInteractiveMode() error {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 
+	// Initialize root spec on startup
+	if err := a.specService.InitializeRootSpec(); err != nil {
+		return fmt.Errorf("failed to initialize root spec: %w", err)
+	}
+
 	ti := textinput.New()
 	ti.Focus()
 

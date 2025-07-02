@@ -43,6 +43,14 @@ type SpecSpecLink struct {
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
 }
 
+// ProjectMetadata represents project-level metadata and configuration
+type ProjectMetadata struct {
+	ID         int       `json:"id" db:"id"`
+	RootSpecID *string   `json:"root_spec_id" db:"root_spec_id"` // Nullable foreign key to specs
+	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
+}
+
 // ErrorType represents different categories of errors in the system
 type ErrorType string
 

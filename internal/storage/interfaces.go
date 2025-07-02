@@ -29,6 +29,13 @@ type Storage interface {
 	// DAG validation
 	WouldCreateCycle(fromSpecID, toSpecID string) (bool, error)
 
+	// Project metadata operations
+	GetProjectMetadata() (*models.ProjectMetadata, error)
+	SetRootSpecID(specID string) error
+
+	// Orphan spec operations
+	GetOrphanSpecs() ([]*models.SpecNode, error)
+
 	// Utility
 	BackupDatabase(backupPath string) error
 	Close() error

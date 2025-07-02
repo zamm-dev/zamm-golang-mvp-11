@@ -400,3 +400,127 @@ func TestAddChildToParent(t *testing.T) {
 		}
 	})
 }
+
+func TestInitializeRootSpec(t *testing.T) {
+	service, cleanup := setupTestService(t)
+	defer cleanup()
+
+	t.Run("CreateRootSpecWhenNoneExists", func(t *testing.T) {
+		// Test creating a root spec when none exists
+		err := service.InitializeRootSpec()
+		if err != nil {
+			t.Fatalf("Failed to initialize root spec: %v", err)
+		}
+
+		// Verify root spec was created
+		rootSpec, err := service.GetRootSpec()
+		if err != nil {
+			t.Fatalf("Failed to get root spec: %v", err)
+		}
+
+		if rootSpec == nil {
+			t.Fatal("Root spec should not be nil")
+		}
+
+		if rootSpec.Title != "New Project" {
+			t.Errorf("Expected title 'New Project', got '%s'", rootSpec.Title)
+		}
+	})
+
+	t.Run("DoesNotRecreateExistingRootSpec", func(t *testing.T) {
+		// Get the current root spec
+		originalRoot, err := service.GetRootSpec()
+		if err != nil {
+			t.Fatalf("Failed to get original root spec: %v", err)
+		}
+
+		// Call InitializeRootSpec again
+		err = service.InitializeRootSpec()
+		if err != nil {
+			t.Fatalf("Failed to initialize root spec: %v", err)
+		}
+
+		// Verify the same root spec is returned
+		currentRoot, err := service.GetRootSpec()
+		if err != nil {
+			t.Fatalf("Failed to get current root spec: %v", err)
+		}
+
+		if currentRoot.ID != originalRoot.ID {
+			t.Errorf("Root spec ID changed from %s to %s", originalRoot.ID, currentRoot.ID)
+		}
+	})
+
+	t.Run("LinksOrphanedSpecs", func(t *testing.T) {
+		// Create some orphaned specs
+		orphan1, err := service.CreateSpec("Orphan 1", "Content 1")
+		if err != nil {
+			t.Fatalf("Failed to create orphan spec 1: %v", err)
+		}
+
+		orphan2, err := service.CreateSpec("Orphan 2", "Content 2")
+		if err != nil {
+			t.Fatalf("Failed to create orphan spec 2: %v", err)
+		}
+
+		// Get root spec before initialization
+		rootSpec, err := service.GetRootSpec()
+		if err != nil {
+			t.Fatalf("Failed to get root spec: %v", err)
+		}
+
+		// Initialize root spec (should link orphans)
+		err = service.InitializeRootSpec()
+		if err != nil {
+			t.Fatalf("Failed to initialize root spec: %v", err)
+		}
+
+		// Verify orphans are linked to root
+		children, err := service.GetChildren(rootSpec.ID)
+		if err != nil {
+			t.Fatalf("Failed to get root children: %v", err)
+		}
+
+		// Should contain at least our two orphaned specs
+		foundOrphan1, foundOrphan2 := false, false
+		for _, child := range children {
+			if child.ID == orphan1.ID {
+				foundOrphan1 = true
+			}
+			if child.ID == orphan2.ID {
+				foundOrphan2 = true
+			}
+		}
+
+		if !foundOrphan1 {
+			t.Error("Orphan 1 was not linked to root spec")
+		}
+		if !foundOrphan2 {
+			t.Error("Orphan 2 was not linked to root spec")
+		}
+	})
+	t.Run("WorksWithFreshDatabase", func(t *testing.T) {
+		// Create a fresh service to test that the fix works
+		freshService, freshCleanup := setupTestService(t)
+		defer freshCleanup()
+
+		// This should now work successfully after fixing the foreign key constraint issue
+		err := freshService.InitializeRootSpec()
+		
+		if err != nil {
+			t.Errorf("Expected no error with fresh database, but got: %v", err)
+		} else {
+			t.Log("Successfully initialized root spec with fresh database")
+			
+			// Verify root spec was created
+			rootSpec, err := freshService.GetRootSpec()
+			if err != nil {
+				t.Errorf("Failed to get root spec after initialization: %v", err)
+			} else if rootSpec == nil {
+				t.Error("Root spec should not be nil after initialization")
+			} else {
+				t.Logf("Root spec created successfully with ID: %s", rootSpec.ID)
+			}
+		}
+	})
+}

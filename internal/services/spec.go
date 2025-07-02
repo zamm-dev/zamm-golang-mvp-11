@@ -22,6 +22,11 @@ type SpecService interface {
 	GetParents(specID string) ([]*models.SpecNode, error)
 	GetChildren(specID string) ([]*models.SpecNode, error)
 	GetSpecsWithHierarchy() ([]*SpecWithHierarchy, error)
+
+	// Root spec operations
+	InitializeRootSpec() error
+	GetRootSpec() (*models.SpecNode, error)
+	GetOrphanSpecs() ([]*models.SpecNode, error)
 }
 
 // SpecWithHierarchy represents a spec with its hierarchical relationships
@@ -211,6 +216,72 @@ func (s *specService) GetSpecsWithHierarchy() ([]*SpecWithHierarchy, error) {
 	}
 
 	return result, nil
+}
+
+// InitializeRootSpec creates the root specification if it doesn't exist
+// and links all orphaned specs to it
+func (s *specService) InitializeRootSpec() error {
+	// Check if root spec already exists
+	rootSpec, err := s.GetRootSpec()
+	var rootSpecID string
+
+	if err != nil || rootSpec == nil {
+		// Create root spec
+		newRootSpec, err := s.CreateSpec("New Project", "Requirement: This project should exist.")
+		if err != nil {
+			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create root spec", err)
+		}
+
+		// Set it as the root spec in metadata
+		err = s.storage.SetRootSpecID(newRootSpec.ID)
+		if err != nil {
+			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to set root spec ID", err)
+		}
+
+		rootSpecID = newRootSpec.ID
+	} else {
+		rootSpecID = rootSpec.ID
+	}
+
+	// Link all orphaned specs to the root
+	orphans, err := s.storage.GetOrphanSpecs()
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get orphaned specs", err)
+	}
+
+	for _, spec := range orphans {
+		// Skip the root spec itself
+		if spec.ID == rootSpecID {
+			continue
+		}
+
+		// Link orphaned spec to the root
+		_, err := s.AddChildToParent(spec.ID, rootSpecID)
+		if err != nil {
+			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to link orphaned spec to root", err)
+		}
+	}
+
+	return nil
+}
+
+// GetRootSpec retrieves the root specification
+func (s *specService) GetRootSpec() (*models.SpecNode, error) {
+	metadata, err := s.storage.GetProjectMetadata()
+	if err != nil {
+		return nil, err
+	}
+
+	if metadata.RootSpecID == nil {
+		return nil, models.NewZammError(models.ErrTypeNotFound, "root spec ID not set in project metadata")
+	}
+
+	return s.storage.GetSpec(*metadata.RootSpecID)
+}
+
+// GetOrphanSpecs retrieves all specs that don't have any parents
+func (s *specService) GetOrphanSpecs() ([]*models.SpecNode, error) {
+	return s.storage.GetOrphanSpecs()
 }
 
 // validateSpecInput validates specification input data

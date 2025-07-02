@@ -525,6 +525,62 @@ func (s *SQLiteStorage) WouldCreateCycle(fromSpecID, toSpecID string) (bool, err
 	return true, nil // A cycle would be created
 }
 
+// GetProjectMetadata retrieves the project metadata
+func (s *SQLiteStorage) GetProjectMetadata() (*models.ProjectMetadata, error) {
+	query := `
+		SELECT id, root_spec_id, created_at, updated_at 
+		FROM project_metadata 
+		WHERE id = 1
+	`
+
+	var metadata models.ProjectMetadata
+	row := s.db.QueryRow(query)
+	err := row.Scan(&metadata.ID, &metadata.RootSpecID, &metadata.CreatedAt, &metadata.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, models.NewZammError(models.ErrTypeNotFound, "project metadata not found")
+		}
+		return nil, models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get project metadata", err)
+	}
+
+	return &metadata, nil
+}
+
+// SetRootSpecID sets the root specification ID in project metadata
+func (s *SQLiteStorage) SetRootSpecID(specID string) error {
+	// First try to update existing metadata
+	updateQuery := `
+		UPDATE project_metadata 
+		SET root_spec_id = ?, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = 1
+	`
+
+	result, err := s.db.Exec(updateQuery, specID)
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to update root spec ID", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to check update result", err)
+	}
+
+	// If no rows were affected, insert new metadata
+	if rowsAffected == 0 {
+		insertQuery := `
+			INSERT INTO project_metadata (id, root_spec_id) 
+			VALUES (1, ?)
+		`
+
+		_, err = s.db.Exec(insertQuery, specID)
+		if err != nil {
+			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to insert root spec ID", err)
+		}
+	}
+
+	return nil
+}
+
 // RunMigrationsIfNeeded runs any pending migrations
 func (s *SQLiteStorage) RunMigrationsIfNeeded() error {
 	return s.migrationService.RunMigrationsIfNeeded()
@@ -557,4 +613,47 @@ func (s *SQLiteStorage) Close() error {
 		return s.db.Close()
 	}
 	return nil
+}
+
+// GetOrphanSpecs returns all specs that don't have any outgoing "child" links
+// (i.e., specs that are not children of any parent)
+func (s *SQLiteStorage) GetOrphanSpecs() ([]*models.SpecNode, error) {
+	query := `
+		SELECT s.id, s.stable_id, s.version, s.title, s.content, s.node_type, s.created_at, s.updated_at
+		FROM spec_nodes s
+		LEFT JOIN spec_spec_links ssl ON s.id = ssl.from_spec_id AND ssl.link_type = 'child'
+		WHERE ssl.from_spec_id IS NULL
+		ORDER BY s.created_at ASC
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, models.NewZammError(models.ErrTypeStorage, "failed to query orphan specs: "+err.Error())
+	}
+	defer rows.Close()
+
+	var specs []*models.SpecNode
+	for rows.Next() {
+		spec := &models.SpecNode{}
+		err := rows.Scan(
+			&spec.ID,
+			&spec.StableID,
+			&spec.Version,
+			&spec.Title,
+			&spec.Content,
+			&spec.NodeType,
+			&spec.CreatedAt,
+			&spec.UpdatedAt,
+		)
+		if err != nil {
+			return nil, models.NewZammError(models.ErrTypeStorage, "failed to scan orphan spec: "+err.Error())
+		}
+		specs = append(specs, spec)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, models.NewZammError(models.ErrTypeStorage, "error iterating orphan specs: "+err.Error())
+	}
+
+	return specs, nil
 }
