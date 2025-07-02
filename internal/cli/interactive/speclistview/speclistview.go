@@ -371,10 +371,6 @@ func (m *Model) updateDetailsForSpec(spec interactive.Spec) {
 
 // View renders the spec list view screen
 func (m *Model) View() string {
-	if len(m.specs) == 0 {
-		return "No specifications found.\n\nPress Esc to return to main menu"
-	}
-
 	paneWidth := m.paneWidth()
 
 	// Determine if current node is active (no child is selected)
