@@ -373,6 +373,8 @@ func (m *Model) updateDetailsForSpec(spec interactive.Spec) {
 	} else {
 		m.childSpecs = nil
 	}
+
+	m.viewport.SetYOffset(0) // Reset viewport offset when changing spec
 }
 
 // generateRightPaneContent generates the content for the right pane viewport
