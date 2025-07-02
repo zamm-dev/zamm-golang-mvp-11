@@ -30,7 +30,7 @@ func DefaultSpecSelectorConfig() SpecSelectorConfig {
 // specDelegate handles rendering of spec items in the list
 type specDelegate struct{}
 
-var specStyle = lipgloss.NewStyle()
+var defaultStyle = lipgloss.NewStyle()
 
 func (d specDelegate) Height() int                             { return 1 }
 func (d specDelegate) Spacing() int                            { return 0 }
@@ -49,11 +49,10 @@ func (d specDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		str = str[:maxWidth]
 	}
 
-	fn := specStyle.Render
 	if index == m.Index() {
-		fmt.Fprint(w, specStyle.Foreground(lipgloss.Color("2")).Render("> "+str))
+		fmt.Fprint(w, HighlightStyle().Render("> "+str))
 	} else {
-		fmt.Fprint(w, fn("  "+str))
+		fmt.Fprint(w, defaultStyle.Render("  "+str))
 	}
 }
 
