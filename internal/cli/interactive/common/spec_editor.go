@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -35,13 +36,12 @@ type SpecEditorCancelMsg struct{}
 
 // SpecEditor is a reusable component for creating/editing specifications
 type SpecEditor struct {
-	config       SpecEditorConfig
-	mode         SpecEditorMode
-	titleInput   textinput.Model
-	contentInput textinput.Model
-	contentLines []string
-	width        int
-	height       int
+	config          SpecEditorConfig
+	mode            SpecEditorMode
+	titleInput      textinput.Model
+	contentTextarea textarea.Model
+	width           int
+	height          int
 }
 
 // NewSpecEditor creates a new spec editor component
@@ -51,21 +51,20 @@ func NewSpecEditor(config SpecEditorConfig) SpecEditor {
 	titleInput.Focus()
 	titleInput.SetValue(config.InitialTitle)
 
-	contentInput := textinput.New()
-	contentInput.Placeholder = "Enter content line"
-
-	// Split initial content into lines if provided
-	var contentLines []string
+	contentTextarea := textarea.New()
+	contentTextarea.Placeholder = "Enter specification content..."
 	if config.InitialContent != "" {
-		contentLines = strings.Split(config.InitialContent, "\n")
+		contentTextarea.SetValue(config.InitialContent)
 	}
+	// Force initialization by calling Focus then Blur
+	contentTextarea.Focus()
+	contentTextarea.Blur()
 
 	return SpecEditor{
-		config:       config,
-		mode:         EditingTitle,
-		titleInput:   titleInput,
-		contentInput: contentInput,
-		contentLines: contentLines,
+		config:          config,
+		mode:            EditingTitle,
+		titleInput:      titleInput,
+		contentTextarea: contentTextarea,
 	}
 }
 
@@ -74,7 +73,9 @@ func (s *SpecEditor) SetSize(width, height int) {
 	s.width = width
 	s.height = height
 	s.titleInput.Width = width - 4 // Account for padding
-	s.contentInput.Width = width - 4
+
+	// Don't set textarea dimensions immediately - wait until we're in content editing mode
+	// This prevents panics during early initialization
 }
 
 // Update handles tea messages and updates the component
@@ -93,18 +94,20 @@ func (s *SpecEditor) Update(msg tea.Msg) (*SpecEditor, tea.Cmd) {
 				}
 				s.mode = EditingContent
 				s.titleInput.Blur()
-				s.contentInput.Focus()
-				return s, nil
-			} else if s.mode == EditingContent {
-				// Add line to content
-				s.contentLines = append(s.contentLines, s.contentInput.Value())
-				s.contentInput.Reset()
+
+				// Set textarea dimensions now that we're switching to content mode
+				if s.width > 10 && s.height > 15 {
+					s.contentTextarea.SetWidth(s.width - 4)
+					s.contentTextarea.SetHeight(s.height - 10)
+				}
+
+				s.contentTextarea.Focus()
 				return s, nil
 			}
 		case tea.KeyCtrlS:
 			if s.mode == EditingContent {
 				title := strings.TrimSpace(s.titleInput.Value())
-				content := strings.Join(s.contentLines, "\n")
+				content := strings.TrimSpace(s.contentTextarea.Value())
 
 				// For edit mode, if content is empty, keep existing content
 				if content == "" && s.config.InitialContent != "" {
@@ -137,7 +140,7 @@ func (s *SpecEditor) Update(msg tea.Msg) (*SpecEditor, tea.Cmd) {
 	if s.mode == EditingTitle {
 		s.titleInput, cmd = s.titleInput.Update(msg)
 	} else {
-		s.contentInput, cmd = s.contentInput.Update(msg)
+		s.contentTextarea, cmd = s.contentTextarea.Update(msg)
 	}
 
 	return s, cmd
@@ -163,7 +166,7 @@ func (s *SpecEditor) View() string {
 	} else if s.mode == EditingContent {
 		sb.WriteString(fmt.Sprintf("Title: %s\n\n", s.titleInput.Value()))
 
-		if s.config.ShowExisting && len(s.contentLines) == 0 && s.config.InitialContent != "" {
+		if s.config.ShowExisting && strings.TrimSpace(s.contentTextarea.Value()) == "" && s.config.InitialContent != "" {
 			sb.WriteString("Current content:\n")
 			for _, line := range strings.Split(s.config.InitialContent, "\n") {
 				sb.WriteString("  " + line + "\n")
@@ -177,12 +180,8 @@ func (s *SpecEditor) View() string {
 		}
 		sb.WriteString("):\n\n")
 
-		// Show entered content lines
-		for _, line := range s.contentLines {
-			sb.WriteString("  " + line + "\n")
-		}
-		sb.WriteString(s.contentInput.View() + "\n\n")
-		sb.WriteString("Press Enter to add line, Ctrl+S to finish")
+		sb.WriteString(s.contentTextarea.View() + "\n\n")
+		sb.WriteString("Press Ctrl+S to finish")
 		if s.config.ShowExisting {
 			sb.WriteString(", Ctrl+K to keep existing")
 		}
