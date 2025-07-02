@@ -71,7 +71,7 @@ type SpecSelector struct {
 
 // NewSpecSelector creates a new spec selector component
 func NewSpecSelector(config SpecSelectorConfig) SpecSelector {
-	delegate := specDelegate{}
+	delegate := specDelegate{isInFocus: true} // Start in focus by default
 	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.Title = config.Title
 	l.SetShowHelp(false)
