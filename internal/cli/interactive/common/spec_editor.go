@@ -40,7 +40,6 @@ type SpecEditor struct {
 	contentTextarea textarea.Model
 	width           int
 	height          int
-	initialized     bool // Track if textarea has been properly sized
 }
 
 // NewSpecEditor creates a new spec editor component
