@@ -65,7 +65,7 @@ type Model struct {
 	editingSpecID string
 	contentLines  []string
 	confirmAction string
-	parentSpecID  *string // ID of parent spec when creating new spec (nil for top-level)
+	parentSpecID  string // ID of parent spec when creating new spec
 
 	// Hierarchical spec links
 	selectedChildSpecID string
@@ -596,7 +596,7 @@ func (m *Model) resetInputs() {
 	m.editingSpecID = ""
 	m.contentLines = []string{}
 	m.confirmAction = ""
-	m.parentSpecID = nil
+	m.parentSpecID = ""
 	m.selectedChildSpecID = ""
 	m.inputLinkType = ""
 	m.textInput.Reset()
@@ -612,8 +612,8 @@ func (m *Model) createSpecCmd(title, content string) tea.Cmd {
 		}
 
 		// If there's a parent spec ID, create the parent-child relationship
-		if m.parentSpecID != nil {
-			_, err := m.app.specService.AddChildToParent(spec.ID, *m.parentSpecID)
+		if m.parentSpecID != "" {
+			_, err := m.app.specService.AddChildToParent(spec.ID, m.parentSpecID)
 			if err != nil {
 				return operationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
 			}
@@ -1246,5 +1246,23 @@ func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, erro
 		Title:     parent.Title,
 		Content:   parent.Content,
 		CreatedAt: parent.CreatedAt.Format("2006-01-02 15:04"),
+	}, nil
+}
+
+func (cs *combinedService) GetRootSpec() (*interactive.Spec, error) {
+	rootNode, err := cs.specService.GetRootSpec()
+	if err != nil {
+		return nil, err
+	}
+	if rootNode == nil {
+		return nil, nil
+	}
+
+	// Convert models.SpecNode to interactive.Spec
+	return &interactive.Spec{
+		ID:        rootNode.ID,
+		Title:     rootNode.Title,
+		Content:   rootNode.Content,
+		CreatedAt: rootNode.CreatedAt.Format("2006-01-02 15:04"),
 	}, nil
 }

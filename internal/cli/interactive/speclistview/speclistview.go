@@ -15,7 +15,7 @@ import (
 
 // CreateNewSpecMsg signals that the user wants to create a new specification
 type CreateNewSpecMsg struct {
-	ParentSpecID *string // nil for top-level, otherwise ID of parent spec
+	ParentSpecID string // ID of parent spec
 }
 type LinkCommitSpecMsg struct {
 	SpecID string
@@ -37,6 +37,7 @@ type LinkService interface {
 	GetChildSpecs(specID *string) ([]*models.SpecNode, error) // nil specID returns top-level specs
 	GetSpecByID(specID string) (*interactive.Spec, error)
 	GetParentSpec(specID string) (*interactive.Spec, error)
+	GetRootSpec() (*interactive.Spec, error)
 }
 
 type keyMap struct {
@@ -124,7 +125,7 @@ type Model struct {
 	linkService  LinkService
 
 	// Navigation state
-	currentSpec *interactive.Spec // nil for top level
+	currentSpec *interactive.Spec // always defined - root node by default
 
 	width  int
 	height int
@@ -142,12 +143,12 @@ func New(linkService LinkService) Model {
 		keys:         keys,
 		help:         help.New(),
 		linkService:  linkService,
-		currentSpec:  nil, // Start at top level
+		currentSpec:  nil, // Will be set to root spec in initialization
 	}
 
-	// Initialize with top-level specs
+	// Initialize with root spec as current node
 	if linkService != nil {
-		model.setCurrentNode(nil)
+		model.initializeWithRootSpec()
 	}
 
 	return model
@@ -201,12 +202,8 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			m.navigateToChildren()
 			return *m, nil
 		case key.Matches(msg, m.keys.Create):
-			// Get the current node (not the selected spec) to use as parent
-			var parentSpecID *string
-			if m.currentSpec != nil {
-				parentSpecID = &m.currentSpec.ID
-			}
-			return *m, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: parentSpecID} }
+			// Use the current spec ID as parent (always defined)
+			return *m, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: m.currentSpec.ID} }
 		case key.Matches(msg, m.keys.Edit):
 			spec := m.specSelector.GetSelectedSpec()
 			if spec == nil {
@@ -263,43 +260,32 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 	var title string
 
 	if currentSpec == nil {
-		// At top level
-		topLevelSpecNodes, err := m.linkService.GetChildSpecs(nil)
+		// This should only happen during initialization error - try to get root spec
+		rootSpec, err := m.linkService.GetRootSpec()
 		if err != nil {
 			return nil
 		}
-		// Convert spec nodes to interactive.Spec objects
-		topLevelSpecs := make([]interactive.Spec, 0, len(topLevelSpecNodes))
-		for _, node := range topLevelSpecNodes {
-			topLevelSpecs = append(topLevelSpecs, interactive.Spec{
-				ID:        node.ID,
-				Title:     node.Title,
-				Content:   node.Content,
-				CreatedAt: node.CreatedAt.Format("2006-01-02 15:04"),
-			})
-		}
-		specs = topLevelSpecs
-		title = "Specifications"
-	} else {
-		// Get children of the current spec
-		childSpecNodes, err := m.linkService.GetChildSpecs(&currentSpec.ID)
-		if err != nil {
-			return nil
-		}
-
-		// Convert child spec nodes to interactive.Spec objects
-		childSpecs := make([]interactive.Spec, 0, len(childSpecNodes))
-		for _, node := range childSpecNodes {
-			childSpecs = append(childSpecs, interactive.Spec{
-				ID:        node.ID,
-				Title:     node.Title,
-				Content:   node.Content,
-				CreatedAt: node.CreatedAt.Format("2006-01-02 15:04"),
-			})
-		}
-		specs = childSpecs
-		title = currentSpec.Title
+		currentSpec = rootSpec
 	}
+
+	// Get children of the current spec
+	childSpecNodes, err := m.linkService.GetChildSpecs(&currentSpec.ID)
+	if err != nil {
+		return nil
+	}
+
+	// Convert child spec nodes to interactive.Spec objects
+	childSpecs := make([]interactive.Spec, 0, len(childSpecNodes))
+	for _, node := range childSpecNodes {
+		childSpecs = append(childSpecs, interactive.Spec{
+			ID:        node.ID,
+			Title:     node.Title,
+			Content:   node.Content,
+			CreatedAt: node.CreatedAt.Format("2006-01-02 15:04"),
+		})
+	}
+	specs = childSpecs
+	title = currentSpec.Title
 
 	// Update model state
 	m.currentSpec = currentSpec
@@ -340,14 +326,20 @@ func (m *Model) navigateToChildren() tea.Cmd {
 // navigateBack navigates back to the parent level
 func (m *Model) navigateBack() tea.Cmd {
 	if m.currentSpec == nil {
-		return nil // Already at top level
+		return nil // This shouldn't happen anymore
 	}
 
 	// Get parent spec
 	parentSpec, err := m.linkService.GetParentSpec(m.currentSpec.ID)
 	if err != nil || parentSpec == nil {
-		// No parent found, go back to top level
-		return m.setCurrentNode(nil)
+		// No parent found - check if we're already at root
+		rootSpec, err := m.linkService.GetRootSpec()
+		if err != nil || rootSpec == nil || rootSpec.ID == m.currentSpec.ID {
+			// Already at root or can't get root, stay where we are
+			return nil
+		}
+		// Go to root spec
+		return m.setCurrentNode(rootSpec)
 	}
 
 	return m.setCurrentNode(parentSpec)
@@ -372,6 +364,22 @@ func (m *Model) updateDetailsForSpec(spec interactive.Spec) {
 	} else {
 		m.childSpecs = nil
 	}
+}
+
+// initializeWithRootSpec initializes the model with the root spec as the current node
+func (m *Model) initializeWithRootSpec() {
+	if m.linkService == nil {
+		return
+	}
+
+	rootSpec, err := m.linkService.GetRootSpec()
+	if err != nil {
+		// If we can't get the root spec, fall back to nil (this shouldn't happen with proper initialization)
+		m.setCurrentNode(nil)
+		return
+	}
+
+	m.setCurrentNode(rootSpec)
 }
 
 // View renders the spec list view screen
