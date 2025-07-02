@@ -389,38 +389,42 @@ func (m *Model) View() string {
 
 	// Right: details for active spec
 	var right strings.Builder
-	right.WriteString(fmt.Sprintf("%s\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth)))
-	right.WriteString(m.activeSpec.Content)
-	right.WriteString("\n\nLinked Commits:\n")
-	if len(m.links) == 0 {
-		right.WriteString("  (none)\n")
+	if isCurrentNodeActive {
+		right.WriteString("Select a child specification to view its details\n\n")
 	} else {
-		right.WriteString("  COMMIT           REPO             TYPE         CREATED\n")
-		right.WriteString("  ──────           ────             ────         ───────\n")
-		for _, l := range m.links {
-			commitID := l.CommitID
-			if len(commitID) > 12 {
-				commitID = commitID[:12] + "..."
+		right.WriteString(fmt.Sprintf("%s\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth)))
+		right.WriteString(m.activeSpec.Content)
+		right.WriteString("\n\nLinked Commits:\n")
+		if len(m.links) == 0 {
+			right.WriteString("  (none)\n")
+		} else {
+			right.WriteString("  COMMIT           REPO             TYPE         CREATED\n")
+			right.WriteString("  ──────           ────             ────         ───────\n")
+			for _, l := range m.links {
+				commitID := l.CommitID
+				if len(commitID) > 12 {
+					commitID = commitID[:12] + "..."
+				}
+				repo := l.RepoPath
+				linkType := l.LinkType
+				created := l.CreatedAt.Format("2006-01-02 15:04")
+				right.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
 			}
-			repo := l.RepoPath
-			linkType := l.LinkType
-			created := l.CreatedAt.Format("2006-01-02 15:04")
-			right.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
 		}
-	}
 
-	right.WriteString("\n\nChild Specifications:\n")
-	if len(m.childSpecs) == 0 {
-		right.WriteString("  -\n")
-	} else {
-		for _, cs := range m.childSpecs {
-			// cs is now directly a SpecNode
-			specTitle := cs.Title
+		right.WriteString("\n\nChild Specifications:\n")
+		if len(m.childSpecs) == 0 {
+			right.WriteString("  -\n")
+		} else {
+			for _, cs := range m.childSpecs {
+				// cs is now directly a SpecNode
+				specTitle := cs.Title
 
-			if len(specTitle) > paneWidth-2 && paneWidth > 5 {
-				specTitle = specTitle[:paneWidth-5] + "..."
+				if len(specTitle) > paneWidth-2 && paneWidth > 5 {
+					specTitle = specTitle[:paneWidth-5] + "..."
+				}
+				right.WriteString(fmt.Sprintf("  %s\n", specTitle))
 			}
-			right.WriteString(fmt.Sprintf("  %s\n", specTitle))
 		}
 	}
 
