@@ -377,29 +377,29 @@ func (m *Model) View() string {
 	isCurrentNodeActive := m.activeSpec.ID == m.currentSpec.ID
 
 	// Layout: left (list), right (details)
-	leftContent := lipgloss.JoinVertical(lipgloss.Top, m.specSelector.View(), m.help.View(m.keys))
+	left := lipgloss.JoinVertical(lipgloss.Top, m.specSelector.View(), m.help.View(m.keys))
 
-	// Apply highlight style to entire left pane if current node is active
-	var finalLeft string
+	var leftStyle lipgloss.Style
 	if isCurrentNodeActive {
-		finalLeft = common.ActiveNodeStyle().Render(leftContent)
+		leftStyle = common.ActiveNodeStyle()
 	} else {
-		finalLeft = leftContent
+		leftStyle = lipgloss.NewStyle()
 	}
+	left = leftStyle.Width(paneWidth).Render(left)
 
 	// Right: details for active spec
-	var right strings.Builder
+	var rightBuilder strings.Builder
 	if isCurrentNodeActive {
-		right.WriteString("Select a child specification to view its details\n\n")
+		rightBuilder.WriteString("Select a child specification to view its details\n\n")
 	} else {
-		right.WriteString(fmt.Sprintf("%s\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth)))
-		right.WriteString(m.activeSpec.Content)
-		right.WriteString("\n\nLinked Commits:\n")
+		rightBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth)))
+		rightBuilder.WriteString(m.activeSpec.Content)
+		rightBuilder.WriteString("\n\nLinked Commits:\n")
 		if len(m.links) == 0 {
-			right.WriteString("  (none)\n")
+			rightBuilder.WriteString("  (none)\n")
 		} else {
-			right.WriteString("  COMMIT           REPO             TYPE         CREATED\n")
-			right.WriteString("  ──────           ────             ────         ───────\n")
+			rightBuilder.WriteString("  COMMIT           REPO             TYPE         CREATED\n")
+			rightBuilder.WriteString("  ──────           ────             ────         ───────\n")
 			for _, l := range m.links {
 				commitID := l.CommitID
 				if len(commitID) > 12 {
@@ -408,13 +408,13 @@ func (m *Model) View() string {
 				repo := l.RepoPath
 				linkType := l.LinkType
 				created := l.CreatedAt.Format("2006-01-02 15:04")
-				right.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
+				rightBuilder.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
 			}
 		}
 
-		right.WriteString("\n\nChild Specifications:\n")
+		rightBuilder.WriteString("\n\nChild Specifications:\n")
 		if len(m.childSpecs) == 0 {
-			right.WriteString("  -\n")
+			rightBuilder.WriteString("  -\n")
 		} else {
 			for _, cs := range m.childSpecs {
 				// cs is now directly a SpecNode
@@ -423,20 +423,18 @@ func (m *Model) View() string {
 				if len(specTitle) > paneWidth-2 && paneWidth > 5 {
 					specTitle = specTitle[:paneWidth-5] + "..."
 				}
-				right.WriteString(fmt.Sprintf("  %s\n", specTitle))
+				rightBuilder.WriteString(fmt.Sprintf("  %s\n", specTitle))
 			}
 		}
 	}
 
-	rightContent := right.String()
-
-	// Apply highlight style to entire right pane if a child node is active
-	var finalRight string
-	if !isCurrentNodeActive {
-		finalRight = lipgloss.NewStyle().Width(paneWidth + 1).PaddingLeft(1).Render(common.ActiveNodeStyle().Render(rightContent))
+	var rightStyle lipgloss.Style
+	if isCurrentNodeActive {
+		rightStyle = lipgloss.NewStyle()
 	} else {
-		finalRight = lipgloss.NewStyle().Width(paneWidth + 1).PaddingLeft(1).Render(rightContent)
+		rightStyle = common.ActiveNodeStyle().Width(paneWidth).PaddingLeft(1)
 	}
+	right := rightStyle.Width(paneWidth + 1).MarginLeft(1).Render(rightBuilder.String())
 
-	return lipgloss.JoinHorizontal(lipgloss.Left, finalLeft, finalRight)
+	return lipgloss.JoinHorizontal(lipgloss.Left, left, right)
 }
