@@ -275,7 +275,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Title:          "📝 Create New Specification",
 				InitialTitle:   "",
 				InitialContent: "",
-				ShowExisting:   false,
 			}
 			m.specEditor = common.NewSpecEditor(config)
 			m.specEditor.SetSize(m.terminalWidth, m.terminalHeight)
@@ -302,7 +301,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Title:          "✏️  Edit Specification",
 				InitialTitle:   currentTitle,
 				InitialContent: currentContent,
-				ShowExisting:   true,
 			}
 			m.specEditor = common.NewSpecEditor(config)
 			m.specEditor.SetSize(m.terminalWidth, m.terminalHeight)
