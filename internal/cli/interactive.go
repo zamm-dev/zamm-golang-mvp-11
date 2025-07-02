@@ -21,10 +21,7 @@ type MenuState int
 const (
 	SpecListView MenuState = iota
 	LinkSelection
-	CreateSpecTitle
-	CreateSpecContent
-	EditSpecTitle
-	EditSpecContent
+	SpecEditor
 	LinkSpecCommit
 	LinkSpecRepo
 	LinkSpecType
@@ -73,6 +70,7 @@ type Model struct {
 
 	// Spec selector components
 	specSelector common.SpecSelector
+	specEditor   common.SpecEditor
 }
 
 type linkItem struct {
@@ -159,6 +157,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalHeight = msg.Height
 		m.specListView.SetSize(msg.Width, msg.Height)
 		m.specSelector.SetSize(msg.Width, msg.Height)
+		m.specEditor.SetSize(msg.Width, msg.Height)
 	case tea.KeyMsg:
 		if m.showMessage {
 			if msg.String() == "enter" || msg.String() == " " || msg.String() == "esc" {
@@ -213,18 +212,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			return m, cmd
-		case CreateSpecTitle, CreateSpecContent,
-			EditSpecTitle, EditSpecContent,
-			LinkSpecCommit, LinkSpecRepo, LinkSpecType,
+		case SpecEditor:
+			var cmd tea.Cmd
+			editor, editorCmd := m.specEditor.Update(msg)
+			m.specEditor = *editor
+			cmd = editorCmd
+			return m, cmd
+		case LinkSpecCommit, LinkSpecRepo, LinkSpecType,
 			LinkSpecToSpecType:
 			var cmd tea.Cmd
 			m.textInput, cmd = m.textInput.Update(msg)
 
 			switch m.state {
-			case CreateSpecTitle, CreateSpecContent:
-				return m.updateCreateSpec(msg)
-			case EditSpecTitle, EditSpecContent:
-				return m.updateEditSpec(msg)
 			case LinkSpecCommit, LinkSpecRepo, LinkSpecType:
 				return m.updateLinkSpec(msg)
 			case LinkSpecToSpecType:
@@ -271,9 +270,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state == SpecListView {
 			m.resetInputs()
 			m.parentSpecID = msg.ParentSpecID // Store parent spec ID for later use
-			m.state = CreateSpecTitle
-			m.promptText = "Enter title:"
-			m.textInput.Focus()
+
+			config := common.SpecEditorConfig{
+				Title:          "📝 Create New Specification",
+				InitialTitle:   "",
+				InitialContent: "",
+				ShowExisting:   false,
+			}
+			m.specEditor = common.NewSpecEditor(config)
+			m.specEditor.SetSize(m.terminalWidth, m.terminalHeight)
+			m.state = SpecEditor
 			return m, nil
 		}
 
@@ -281,17 +287,26 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state == SpecListView {
 			m.resetInputs()
 			m.editingSpecID = msg.SpecID
-			// Find current title for pre-filling
+
+			// Find current title and content for pre-filling
+			var currentTitle, currentContent string
 			for _, spec := range m.specs {
 				if spec.ID == msg.SpecID {
-					m.inputTitle = spec.Title
-					m.textInput.SetValue(spec.Title)
+					currentTitle = spec.Title
+					currentContent = spec.Content
 					break
 				}
 			}
-			m.state = EditSpecTitle
-			m.promptText = "Enter new title (or press Enter to keep current):"
-			m.textInput.Focus()
+
+			config := common.SpecEditorConfig{
+				Title:          "✏️  Edit Specification",
+				InitialTitle:   currentTitle,
+				InitialContent: currentContent,
+				ShowExisting:   true,
+			}
+			m.specEditor = common.NewSpecEditor(config)
+			m.specEditor.SetSize(m.terminalWidth, m.terminalHeight)
+			m.state = SpecEditor
 			return m, nil
 		}
 
@@ -320,6 +335,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = UnlinkTypeSelection
 			m.cursor = 0
 			return m, nil
+		}
+
+	case common.SpecEditorCompleteMsg:
+		if m.state == SpecEditor {
+			// Determine if this is create or edit based on whether we have an editingSpecID
+			if m.editingSpecID != "" {
+				// Edit existing spec
+				return m, m.updateSpecCmd(m.editingSpecID, msg.Title, msg.Content)
+			} else {
+				// Create new spec
+				return m, m.createSpecCmd(msg.Title, msg.Content)
+			}
+		}
+
+	case common.SpecEditorCancelMsg:
+		if m.state == SpecEditor {
+			m.state = SpecListView
+			m.resetInputs()
+			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
 		}
 
 	case common.SpecSelectedMsg:
@@ -370,92 +404,6 @@ func (m *Model) updateLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter", " ":
 		if len(m.links) > 0 {
 			return m.executeLinkAction()
-		}
-	}
-	return m, nil
-}
-
-// updateCreateSpec handles updates for creating new specifications
-func (m *Model) updateCreateSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
-	case tea.KeyCtrlC, tea.KeyEsc:
-		m.state = SpecListView
-		m.cursor = 0
-		m.resetInputs()
-		return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
-	case tea.KeyEnter:
-		if m.state == CreateSpecTitle {
-			if strings.TrimSpace(m.textInput.Value()) == "" {
-				return m, nil // Don't proceed with empty title
-			}
-			m.inputTitle = strings.TrimSpace(m.textInput.Value())
-			m.textInput.Reset()
-			m.state = CreateSpecContent
-			m.promptText = "Enter content (press Ctrl+S to finish):"
-			return m, nil
-		} else if m.state == CreateSpecContent {
-			// Add line to content
-			m.contentLines = append(m.contentLines, m.textInput.Value())
-			m.textInput.Reset()
-			return m, nil
-		}
-	case tea.KeyCtrlS:
-		if m.state == CreateSpecContent {
-			content := strings.Join(m.contentLines, "\n")
-			return m, m.createSpecCmd(m.inputTitle, content)
-		}
-	}
-	return m, nil
-}
-
-// updateEditSpec handles updates for editing specifications
-func (m *Model) updateEditSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
-	case tea.KeyCtrlC, tea.KeyEsc:
-		m.state = SpecListView
-		m.cursor = 0
-		m.resetInputs()
-		return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
-	case tea.KeyEnter:
-		if m.state == EditSpecTitle {
-			if strings.TrimSpace(m.textInput.Value()) != "" {
-				m.inputTitle = strings.TrimSpace(m.textInput.Value())
-			}
-			m.textInput.Reset()
-			m.state = EditSpecContent
-			m.promptText = "Enter new content (press Ctrl+S to finish, or Ctrl+K to keep existing):"
-			return m, nil
-		} else if m.state == EditSpecContent {
-			// Add line to content
-			m.contentLines = append(m.contentLines, m.textInput.Value())
-			m.textInput.Reset()
-			return m, nil
-		}
-	case tea.KeyCtrlS:
-		if m.state == EditSpecContent {
-			content := strings.Join(m.contentLines, "\n")
-			if strings.TrimSpace(content) == "" {
-				// Keep existing content
-				for _, spec := range m.specs {
-					if spec.ID == m.editingSpecID {
-						content = spec.Content
-						break
-					}
-				}
-			}
-			return m, m.updateSpecCmd(m.editingSpecID, m.inputTitle, content)
-		}
-	case tea.KeyCtrlK:
-		if m.state == EditSpecContent {
-			// Keep existing content
-			var existingContent string
-			for _, spec := range m.specs {
-				if spec.ID == m.editingSpecID {
-					existingContent = spec.Content
-					break
-				}
-			}
-			return m, m.updateSpecCmd(m.editingSpecID, m.inputTitle, existingContent)
 		}
 	}
 	return m, nil
@@ -744,6 +692,8 @@ func (m *Model) View() string {
 		return m.specListView.View()
 	case LinkSelection:
 		return m.renderLinkSelection()
+	case SpecEditor:
+		return m.specEditor.View()
 	case LinkTypeSelection:
 		return m.renderLinkTypeSelection()
 	case UnlinkTypeSelection:
@@ -752,10 +702,6 @@ func (m *Model) View() string {
 		return m.specSelector.View()
 	case UnlinkSpecFromSpecSelection:
 		return m.specSelector.View()
-	case CreateSpecTitle, CreateSpecContent:
-		return m.renderCreateSpec()
-	case EditSpecTitle, EditSpecContent:
-		return m.renderEditSpec()
 	case LinkSpecCommit, LinkSpecRepo, LinkSpecType:
 		return m.renderLinkSpec()
 	case LinkSpecToSpecType:
@@ -799,63 +745,6 @@ func (m *Model) renderLinkSelection() string {
 	}
 
 	s += "\nUse ↑/↓ arrows to navigate, Enter to delete, Esc to go back"
-	return s
-}
-
-// renderCreateSpec renders the create specification form
-func (m *Model) renderCreateSpec() string {
-	s := "📝 Create New Specification\n"
-	s += "===========================\n\n"
-
-	if m.state == CreateSpecTitle {
-		s += m.promptText + "\n"
-		s += m.textInput.View() + "\n\n"
-		s += "Press Enter to continue, Esc to cancel"
-	} else if m.state == CreateSpecContent {
-		s += fmt.Sprintf("Title: %s\n\n", m.inputTitle)
-		s += m.promptText + "\n\n"
-
-		// Show entered content lines
-		for _, line := range m.contentLines {
-			s += "  " + line + "\n"
-		}
-		s += m.textInput.View() + "\n\n"
-		s += "Press Enter to add line, Ctrl+S to finish, Esc to cancel"
-	}
-
-	return s
-}
-
-// renderEditSpec renders the edit specification form
-func (m *Model) renderEditSpec() string {
-	s := "✏️  Edit Specification\n"
-	s += "======================\n\n"
-
-	if m.state == EditSpecTitle {
-		// Show current title
-		var currentTitle string
-		for _, spec := range m.specs {
-			if spec.ID == m.editingSpecID {
-				currentTitle = spec.Title
-				break
-			}
-		}
-		s += fmt.Sprintf("Current title: %s\n\n", currentTitle)
-		s += m.promptText + "\n"
-		s += m.textInput.View() + "\n\n"
-		s += "Press Enter to continue, Esc to cancel"
-	} else if m.state == EditSpecContent {
-		s += fmt.Sprintf("Title: %s\n\n", m.inputTitle)
-		s += m.promptText + "\n\n"
-
-		// Show entered content lines
-		for _, line := range m.contentLines {
-			s += "  " + line + "\n"
-		}
-		s += m.textInput.View() + "\n\n"
-		s += "Press Enter to add line, Ctrl+S to finish, Ctrl+K to keep existing, Esc to cancel"
-	}
-
 	return s
 }
 
