@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
@@ -123,6 +124,7 @@ type Model struct {
 	links        []*models.SpecCommitLink
 	childSpecs   []*models.SpecNode
 	linkService  LinkService
+	viewport     viewport.Model
 
 	// Navigation state
 	currentSpec interactive.Spec // always defined - root node by default
@@ -144,6 +146,7 @@ func New(linkService LinkService) Model {
 		keys:         keys,
 		help:         help.New(),
 		linkService:  linkService,
+		viewport:     viewport.New(0, 0),
 	}
 
 	// Initialize with root spec as current node
@@ -165,6 +168,10 @@ func (m *Model) SetSize(width, height int) {
 	m.height = height
 	m.help.Width = width
 	m.specSelector.SetSize(m.paneWidth(), m.height-3)
+
+	// Set viewport size for the right pane
+	m.viewport.Width = m.paneWidth()
+	m.viewport.Height = m.height
 }
 
 func (m *Model) paneWidth() int {
@@ -237,12 +244,6 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return *m, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Help):
 			m.help.ShowAll = !m.help.ShowAll
-			// Adjust spec selector size based on help visibility
-			if m.help.ShowAll {
-				m.specSelector.SetSize(m.paneWidth(), m.height-4)
-			} else {
-				m.specSelector.SetSize(m.paneWidth(), m.height-3)
-			}
 			return *m, nil
 		case key.Matches(msg, m.keys.Back):
 			// If active spec is a child, set active spec back to current node
@@ -267,7 +268,12 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 		return *m, nil
 	}
-	return *m, nil
+
+	// Update viewport
+	var cmd tea.Cmd
+	m.viewport, cmd = m.viewport.Update(msg)
+
+	return *m, cmd
 }
 
 // setCurrentNode sets the current spec and updates the display with its children
@@ -369,6 +375,62 @@ func (m *Model) updateDetailsForSpec(spec interactive.Spec) {
 	}
 }
 
+// generateRightPaneContent generates the content for the right pane viewport
+func (m *Model) generateRightPaneContent() string {
+	paneWidth := m.paneWidth()
+
+	// Determine if current node is active (no child is selected)
+	isCurrentNodeActive := m.activeSpec.ID == m.currentSpec.ID
+
+	var contentBuilder strings.Builder
+	if isCurrentNodeActive {
+		contentBuilder.WriteString("Select a child specification to view its details\n\n")
+	} else {
+		contentBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth)))
+		contentBuilder.WriteString(m.activeSpec.Content)
+		contentBuilder.WriteString("\n\nLinked Commits:\n")
+		if len(m.links) == 0 {
+			contentBuilder.WriteString("  (none)\n")
+		} else {
+			contentBuilder.WriteString("  COMMIT           REPO             TYPE         CREATED\n")
+			contentBuilder.WriteString("  ──────           ────             ────         ───────\n")
+			for _, l := range m.links {
+				commitID := l.CommitID
+				if len(commitID) > 12 {
+					commitID = commitID[:12] + "..."
+				}
+				repo := l.RepoPath
+				linkType := l.LinkType
+				created := l.CreatedAt.Format("2006-01-02 15:04")
+				contentBuilder.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
+			}
+		}
+
+		contentBuilder.WriteString("\n\nChild Specifications:\n")
+		if len(m.childSpecs) == 0 {
+			contentBuilder.WriteString("  -\n")
+		} else {
+			for _, cs := range m.childSpecs {
+				// cs is now directly a SpecNode
+				specTitle := cs.Title
+
+				if len(specTitle) > paneWidth-2 && paneWidth > 5 {
+					specTitle = specTitle[:paneWidth-5] + "..."
+				}
+				contentBuilder.WriteString(fmt.Sprintf("  %s\n", specTitle))
+			}
+		}
+	}
+
+	var rightStyle lipgloss.Style
+	if isCurrentNodeActive {
+		rightStyle = lipgloss.NewStyle()
+	} else {
+		rightStyle = common.ActiveNodeStyle()
+	}
+	return rightStyle.Width(paneWidth).MarginLeft(1).Render(contentBuilder.String())
+}
+
 // View renders the spec list view screen
 func (m *Model) View() string {
 	paneWidth := m.paneWidth()
@@ -387,54 +449,9 @@ func (m *Model) View() string {
 	}
 	left = leftStyle.Width(paneWidth).Render(left)
 
-	// Right: details for active spec
-	var rightBuilder strings.Builder
-	if isCurrentNodeActive {
-		rightBuilder.WriteString("Select a child specification to view its details\n\n")
-	} else {
-		rightBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth)))
-		rightBuilder.WriteString(m.activeSpec.Content)
-		rightBuilder.WriteString("\n\nLinked Commits:\n")
-		if len(m.links) == 0 {
-			rightBuilder.WriteString("  (none)\n")
-		} else {
-			rightBuilder.WriteString("  COMMIT           REPO             TYPE         CREATED\n")
-			rightBuilder.WriteString("  ──────           ────             ────         ───────\n")
-			for _, l := range m.links {
-				commitID := l.CommitID
-				if len(commitID) > 12 {
-					commitID = commitID[:12] + "..."
-				}
-				repo := l.RepoPath
-				linkType := l.LinkType
-				created := l.CreatedAt.Format("2006-01-02 15:04")
-				rightBuilder.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
-			}
-		}
-
-		rightBuilder.WriteString("\n\nChild Specifications:\n")
-		if len(m.childSpecs) == 0 {
-			rightBuilder.WriteString("  -\n")
-		} else {
-			for _, cs := range m.childSpecs {
-				// cs is now directly a SpecNode
-				specTitle := cs.Title
-
-				if len(specTitle) > paneWidth-2 && paneWidth > 5 {
-					specTitle = specTitle[:paneWidth-5] + "..."
-				}
-				rightBuilder.WriteString(fmt.Sprintf("  %s\n", specTitle))
-			}
-		}
-	}
-
-	var rightStyle lipgloss.Style
-	if isCurrentNodeActive {
-		rightStyle = lipgloss.NewStyle()
-	} else {
-		rightStyle = common.ActiveNodeStyle().Width(paneWidth).PaddingLeft(1)
-	}
-	right := rightStyle.Width(paneWidth + 1).MarginLeft(1).Render(rightBuilder.String())
+	// Right: viewport with details for active spec
+	m.viewport.SetContent(m.generateRightPaneContent())
+	right := m.viewport.View()
 
 	return lipgloss.JoinHorizontal(lipgloss.Left, left, right)
 }
