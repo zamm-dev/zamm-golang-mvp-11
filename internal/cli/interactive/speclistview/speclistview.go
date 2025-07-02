@@ -125,8 +125,8 @@ type Model struct {
 	linkService  LinkService
 
 	// Navigation state
-	currentSpec *interactive.Spec // always defined - root node by default
-	activeSpec  *interactive.Spec // the currently active (highlighted) spec
+	currentSpec interactive.Spec // always defined - root node by default
+	activeSpec  interactive.Spec // the currently active (highlighted) spec
 
 	width  int
 	height int
@@ -144,12 +144,17 @@ func New(linkService LinkService) Model {
 		keys:         keys,
 		help:         help.New(),
 		linkService:  linkService,
-		currentSpec:  nil, // Will be set to root spec in initialization
 	}
 
 	// Initialize with root spec as current node
 	if linkService != nil {
-		model.initializeWithRootSpec()
+		rootSpec, err := linkService.GetRootSpec()
+		if err == nil && rootSpec != nil {
+			// Set both currentSpec and activeSpec to the root spec
+			model.currentSpec = *rootSpec
+			model.activeSpec = *rootSpec
+			model.setCurrentNode(&model.currentSpec)
+		}
 	}
 
 	return model
@@ -168,7 +173,7 @@ func (m *Model) paneWidth() int {
 
 // Refresh refreshes the current view data by reloading specs for the current node
 func (m *Model) Refresh() tea.Cmd {
-	return m.setCurrentNode(m.currentSpec)
+	return m.setCurrentNode(&m.currentSpec)
 }
 
 // Update handles messages and updates the model
@@ -188,7 +193,7 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					// Update active spec to the first child spec (at position 0)
 					selectedSpec := m.specSelector.GetSelectedSpec()
 					if selectedSpec != nil {
-						m.activeSpec = selectedSpec
+						m.activeSpec = *selectedSpec
 						m.updateDetailsForSpec(*selectedSpec)
 					}
 					return *m, nil
@@ -202,7 +207,7 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					// Update active spec to the selected child spec
 					selectedSpec := m.specSelector.GetSelectedSpec()
 					if selectedSpec != nil {
-						m.activeSpec = selectedSpec
+						m.activeSpec = *selectedSpec
 						m.updateDetailsForSpec(*selectedSpec)
 					}
 					return *m, cmd
@@ -210,9 +215,9 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keys.Select):
 			// Navigate to children of the selected spec (if any)
-			if m.activeSpec != nil && m.activeSpec.ID != m.currentSpec.ID {
+			if m.activeSpec.ID != m.currentSpec.ID {
 				// Active spec is a child - navigate to it
-				return *m, m.navigateToChildren(m.activeSpec)
+				return *m, m.navigateToChildren(&m.activeSpec)
 			}
 			return *m, nil
 		case key.Matches(msg, m.keys.Create):
@@ -220,27 +225,15 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return *m, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: m.currentSpec.ID} }
 		case key.Matches(msg, m.keys.Edit):
 			// Edit the active spec
-			if m.activeSpec == nil {
-				return *m, nil // No valid spec selected
-			}
 			return *m, func() tea.Msg { return EditSpecMsg{SpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Delete):
 			// Delete the active spec
-			if m.activeSpec == nil {
-				return *m, nil // No valid spec selected
-			}
 			return *m, func() tea.Msg { return DeleteSpecMsg{SpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Link):
 			// Link commit to the active spec
-			if m.activeSpec == nil {
-				return *m, nil // No valid spec selected
-			}
 			return *m, func() tea.Msg { return LinkCommitSpecMsg{SpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Remove):
 			// Remove link from the active spec
-			if m.activeSpec == nil {
-				return *m, nil // No valid spec selected
-			}
 			return *m, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Help):
 			m.help.ShowAll = !m.help.ShowAll
@@ -253,9 +246,9 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			return *m, nil
 		case key.Matches(msg, m.keys.Back):
 			// If active spec is a child, set active spec back to current node
-			if m.activeSpec != nil && m.activeSpec.ID != m.currentSpec.ID {
+			if m.activeSpec.ID != m.currentSpec.ID {
 				m.activeSpec = m.currentSpec
-				m.updateDetailsForSpec(*m.activeSpec)
+				m.updateDetailsForSpec(m.activeSpec)
 
 				// Update focus state - list is no longer in focus since we're back to current node
 				m.specSelector.SetFocus(false)
@@ -311,8 +304,8 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 	title = currentSpec.Title
 
 	// Update model state
-	m.currentSpec = currentSpec
-	m.activeSpec = currentSpec // Set active spec to current node by default
+	m.currentSpec = *currentSpec
+	m.activeSpec = *currentSpec // Set active spec to current node by default
 	m.specs = specs
 
 	// Update spec selector with new specs and title
@@ -327,7 +320,7 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 	m.specSelector.SetFocus(false)
 
 	// Update details for the current spec (active spec)
-	m.updateDetailsForSpec(*m.activeSpec)
+	m.updateDetailsForSpec(m.activeSpec)
 
 	return nil
 }
@@ -339,10 +332,6 @@ func (m *Model) navigateToChildren(spec *interactive.Spec) tea.Cmd {
 
 // navigateBack navigates back to the parent level
 func (m *Model) navigateBack() tea.Cmd {
-	if m.currentSpec == nil {
-		return nil // This shouldn't happen anymore
-	}
-
 	// Get parent spec
 	parentSpec, err := m.linkService.GetParentSpec(m.currentSpec.ID)
 	if err != nil || parentSpec == nil {
@@ -380,22 +369,6 @@ func (m *Model) updateDetailsForSpec(spec interactive.Spec) {
 	}
 }
 
-// initializeWithRootSpec initializes the model with the root spec as the current node
-func (m *Model) initializeWithRootSpec() {
-	if m.linkService == nil {
-		return
-	}
-
-	rootSpec, err := m.linkService.GetRootSpec()
-	if err != nil {
-		// If we can't get the root spec, fall back to nil (this shouldn't happen with proper initialization)
-		m.setCurrentNode(nil)
-		return
-	}
-
-	m.setCurrentNode(rootSpec)
-}
-
 // View renders the spec list view screen
 func (m *Model) View() string {
 	if len(m.specs) == 0 {
@@ -405,7 +378,7 @@ func (m *Model) View() string {
 	paneWidth := m.paneWidth()
 
 	// Determine if current node is active (no child is selected)
-	isCurrentNodeActive := m.activeSpec != nil && m.activeSpec.ID == m.currentSpec.ID
+	isCurrentNodeActive := m.activeSpec.ID == m.currentSpec.ID
 
 	// Layout: left (list), right (details)
 	leftContent := lipgloss.JoinVertical(lipgloss.Top, m.specSelector.View(), m.help.View(m.keys))
@@ -420,50 +393,46 @@ func (m *Model) View() string {
 
 	// Right: details for active spec
 	var right strings.Builder
-	if m.activeSpec != nil {
-		right.WriteString(fmt.Sprintf("%s\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth)))
-		right.WriteString(m.activeSpec.Content)
-		right.WriteString("\n\nLinked Commits:\n")
-		if len(m.links) == 0 {
-			right.WriteString("  (none)\n")
-		} else {
-			right.WriteString("  COMMIT           REPO             TYPE         CREATED\n")
-			right.WriteString("  ──────           ────             ────         ───────\n")
-			for _, l := range m.links {
-				commitID := l.CommitID
-				if len(commitID) > 12 {
-					commitID = commitID[:12] + "..."
-				}
-				repo := l.RepoPath
-				linkType := l.LinkType
-				created := l.CreatedAt.Format("2006-01-02 15:04")
-				right.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
-			}
-		}
-
-		right.WriteString("\n\nChild Specifications:\n")
-		if len(m.childSpecs) == 0 {
-			right.WriteString("  -\n")
-		} else {
-			for _, cs := range m.childSpecs {
-				// cs is now directly a SpecNode
-				specTitle := cs.Title
-
-				if len(specTitle) > paneWidth-2 && paneWidth > 5 {
-					specTitle = specTitle[:paneWidth-5] + "..."
-				}
-				right.WriteString(fmt.Sprintf("  %s\n", specTitle))
-			}
-		}
+	right.WriteString(fmt.Sprintf("%s\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth)))
+	right.WriteString(m.activeSpec.Content)
+	right.WriteString("\n\nLinked Commits:\n")
+	if len(m.links) == 0 {
+		right.WriteString("  (none)\n")
 	} else {
-		right.WriteString("No specification selected. Create or select one to view details.\n")
+		right.WriteString("  COMMIT           REPO             TYPE         CREATED\n")
+		right.WriteString("  ──────           ────             ────         ───────\n")
+		for _, l := range m.links {
+			commitID := l.CommitID
+			if len(commitID) > 12 {
+				commitID = commitID[:12] + "..."
+			}
+			repo := l.RepoPath
+			linkType := l.LinkType
+			created := l.CreatedAt.Format("2006-01-02 15:04")
+			right.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
+		}
+	}
+
+	right.WriteString("\n\nChild Specifications:\n")
+	if len(m.childSpecs) == 0 {
+		right.WriteString("  -\n")
+	} else {
+		for _, cs := range m.childSpecs {
+			// cs is now directly a SpecNode
+			specTitle := cs.Title
+
+			if len(specTitle) > paneWidth-2 && paneWidth > 5 {
+				specTitle = specTitle[:paneWidth-5] + "..."
+			}
+			right.WriteString(fmt.Sprintf("  %s\n", specTitle))
+		}
 	}
 
 	rightContent := right.String()
 
 	// Apply highlight style to entire right pane if a child node is active
 	var finalRight string
-	if !isCurrentNodeActive && m.activeSpec != nil {
+	if !isCurrentNodeActive {
 		finalRight = lipgloss.NewStyle().Width(paneWidth + 1).PaddingLeft(1).Render(common.ActiveNodeStyle().Render(rightContent))
 	} else {
 		finalRight = lipgloss.NewStyle().Width(paneWidth + 1).PaddingLeft(1).Render(rightContent)
