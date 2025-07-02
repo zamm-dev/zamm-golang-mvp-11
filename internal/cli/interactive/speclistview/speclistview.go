@@ -214,15 +214,15 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 			}
 		case key.Matches(msg, m.keys.Select):
-			// Navigate to children of the selected spec (if any)
+			// Navigate to children of the active spec (if any)
 			if m.activeSpec.ID != m.currentSpec.ID {
 				// Active spec is a child - navigate to it
 				return *m, m.navigateToChildren(&m.activeSpec)
 			}
 			return *m, nil
 		case key.Matches(msg, m.keys.Create):
-			// Use the current spec ID as parent (always defined)
-			return *m, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: m.currentSpec.ID} }
+			// Use the active spec ID as parent
+			return *m, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Edit):
 			// Edit the active spec
 			return *m, func() tea.Msg { return EditSpecMsg{SpecID: m.activeSpec.ID} }
