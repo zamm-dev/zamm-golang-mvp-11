@@ -192,7 +192,29 @@ func (a *App) createMigrationCommand() *cobra.Command {
 		},
 	}
 
-	migrationCmd.AddCommand(statusCmd, forceCmd, upCmd)
+	// Migration down subcommand
+	downCmd := &cobra.Command{
+		Use:   "down <version>",
+		Short: "Run down migrations to specific version",
+		Long:  "Run down migrations to the specified version. Use with caution - this will remove data.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			version := uint(0)
+			if _, err := fmt.Sscanf(args[0], "%d", &version); err != nil {
+				return fmt.Errorf("invalid version number: %s", args[0])
+			}
+
+			fmt.Printf("Running down migrations to version %d...\n", version)
+			if err := a.storage.MigrateDown(version); err != nil {
+				return err
+			}
+
+			fmt.Println("Down migrations completed successfully")
+			return nil
+		},
+	}
+
+	migrationCmd.AddCommand(statusCmd, forceCmd, upCmd, downCmd)
 	return migrationCmd
 }
 

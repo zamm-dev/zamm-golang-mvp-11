@@ -506,12 +506,12 @@ func TestInitializeRootSpec(t *testing.T) {
 
 		// This should now work successfully after fixing the foreign key constraint issue
 		err := freshService.InitializeRootSpec()
-		
+
 		if err != nil {
 			t.Errorf("Expected no error with fresh database, but got: %v", err)
 		} else {
 			t.Log("Successfully initialized root spec with fresh database")
-			
+
 			// Verify root spec was created
 			rootSpec, err := freshService.GetRootSpec()
 			if err != nil {

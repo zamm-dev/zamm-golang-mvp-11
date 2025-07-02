@@ -34,7 +34,7 @@ func (m *MigrationService) RunMigrationsIfNeeded() error {
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get database info", err)
 	}
 	defer rows.Close()
-	
+
 	var seq int
 	var name, file string
 	if rows.Next() {
@@ -43,13 +43,13 @@ func (m *MigrationService) RunMigrationsIfNeeded() error {
 		}
 	}
 	rows.Close()
-	
+
 	// Create source driver from embedded files
 	sourceDriver, err := iofs.New(migrationFiles, "migrations")
 	if err != nil {
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create source driver", err)
 	}
-	
+
 	// Create migrate instance
 	databaseURL := fmt.Sprintf("sqlite3://%s", file)
 	migrateInstance, err := migrate.NewWithSourceInstance("iofs", sourceDriver, databaseURL)
@@ -99,7 +99,7 @@ func (m *MigrationService) GetCurrentVersion() (uint, bool, error) {
 		return 0, false, models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get database info", err)
 	}
 	defer rows.Close()
-	
+
 	var seq int
 	var name, file string
 	if rows.Next() {
@@ -114,7 +114,7 @@ func (m *MigrationService) GetCurrentVersion() (uint, bool, error) {
 	if err != nil {
 		return 0, false, models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create source driver", err)
 	}
-	
+
 	// Create migrate instance
 	databaseURL := fmt.Sprintf("sqlite3://%s", file)
 	migrateInstance, err := migrate.NewWithSourceInstance("iofs", sourceDriver, databaseURL)
@@ -144,7 +144,7 @@ func (m *MigrationService) ForceMigrationVersion(version uint) error {
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get database info", err)
 	}
 	defer rows.Close()
-	
+
 	var seq int
 	var name, file string
 	if rows.Next() {
@@ -159,7 +159,7 @@ func (m *MigrationService) ForceMigrationVersion(version uint) error {
 	if err != nil {
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create source driver", err)
 	}
-	
+
 	// Create migrate instance
 	databaseURL := fmt.Sprintf("sqlite3://%s", file)
 	migrateInstance, err := migrate.NewWithSourceInstance("iofs", sourceDriver, databaseURL)
@@ -175,5 +175,70 @@ func (m *MigrationService) ForceMigrationVersion(version uint) error {
 	}
 
 	fmt.Printf("Forced migration version to %d\n", version)
+	return nil
+}
+
+// MigrateDown runs down migrations to a specific version
+func (m *MigrationService) MigrateDown(targetVersion uint) error {
+	// Get database path from the connection string
+	rows, err := m.db.Query("PRAGMA database_list")
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get database info", err)
+	}
+	defer rows.Close()
+
+	var seq int
+	var name, file string
+	if rows.Next() {
+		if err := rows.Scan(&seq, &name, &file); err != nil {
+			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to scan database info", err)
+		}
+	}
+	rows.Close()
+
+	// Create source driver from embedded files
+	sourceDriver, err := iofs.New(migrationFiles, "migrations")
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create source driver", err)
+	}
+
+	// Create migrate instance
+	databaseURL := fmt.Sprintf("sqlite3://%s", file)
+	migrateInstance, err := migrate.NewWithSourceInstance("iofs", sourceDriver, databaseURL)
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create migrate instance", err)
+	}
+	defer migrateInstance.Close()
+
+	// Get current version
+	currentVersion, dirty, err := migrateInstance.Version()
+	if err != nil && err != migrate.ErrNilVersion {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get migration version", err)
+	}
+
+	if dirty {
+		return models.NewZammError(models.ErrTypeStorage, "database is in dirty state, manual intervention required")
+	}
+
+	// Migrate down to target version
+	err = migrateInstance.Migrate(targetVersion)
+	if err != nil && err != migrate.ErrNoChange {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to run down migration", err)
+	}
+
+	// Get new version to report what happened
+	newVersion, _, err := migrateInstance.Version()
+	if err != nil && err != migrate.ErrNilVersion {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get new migration version", err)
+	}
+
+	if err == migrate.ErrNilVersion {
+		fmt.Println("Migrated down to empty database")
+	} else if currentVersion != newVersion {
+		fmt.Printf("Database migrated down from version %d to %d\n", currentVersion, newVersion)
+	} else {
+		fmt.Println("Database is already at target version")
+	}
+
 	return nil
 }

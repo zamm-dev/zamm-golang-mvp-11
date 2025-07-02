@@ -657,3 +657,8 @@ func (s *SQLiteStorage) GetOrphanSpecs() ([]*models.SpecNode, error) {
 
 	return specs, nil
 }
+
+// MigrateDown migrates down to a specific version
+func (s *SQLiteStorage) MigrateDown(targetVersion uint) error {
+	return s.migrationService.MigrateDown(targetVersion)
+}

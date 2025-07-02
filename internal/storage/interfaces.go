@@ -44,4 +44,5 @@ type Storage interface {
 	RunMigrationsIfNeeded() error
 	GetMigrationVersion() (uint, bool, error)
 	ForceMigrationVersion(version uint) error
+	MigrateDown(targetVersion uint) error
 }
