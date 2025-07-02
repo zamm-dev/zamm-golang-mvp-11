@@ -28,7 +28,9 @@ func DefaultSpecSelectorConfig() SpecSelectorConfig {
 }
 
 // specDelegate handles rendering of spec items in the list
-type specDelegate struct{}
+type specDelegate struct {
+	isInFocus bool // Whether the list is currently in focus
+}
 
 var defaultStyle = lipgloss.NewStyle()
 
@@ -49,32 +51,48 @@ func (d specDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		str = str[:maxWidth]
 	}
 
-	if index == m.Index() {
+	if index == m.Index() && d.isInFocus {
+		// Show selector and highlight when this item is selected and list is in focus
 		fmt.Fprint(w, HighlightStyle().Render("> "+str))
 	} else {
+		// No selector when list is not in focus or item is not selected
 		fmt.Fprint(w, defaultStyle.Render("  "+str))
 	}
 }
 
 // SpecSelector is a reusable component for selecting specifications
 type SpecSelector struct {
-	list   list.Model
-	config SpecSelectorConfig
-	width  int
-	height int
+	list     list.Model
+	config   SpecSelectorConfig
+	width    int
+	height   int
+	delegate specDelegate
 }
 
 // NewSpecSelector creates a new spec selector component
 func NewSpecSelector(config SpecSelectorConfig) SpecSelector {
-	l := list.New([]list.Item{}, specDelegate{}, 0, 0)
+	delegate := specDelegate{}
+	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.Title = config.Title
 	l.SetShowHelp(false)
 	l.Styles.Title = lipgloss.NewStyle().Bold(true)
 
 	return SpecSelector{
-		list:   l,
-		config: config,
+		list:     l,
+		config:   config,
+		delegate: delegate,
 	}
+}
+
+// SetFocus sets whether the spec selector list is currently in focus
+func (s *SpecSelector) SetFocus(inFocus bool) {
+	s.delegate.isInFocus = inFocus
+	s.list.SetDelegate(s.delegate)
+}
+
+// IsFocused returns whether the spec selector list is currently in focus
+func (s *SpecSelector) IsFocused() bool {
+	return s.delegate.isInFocus
 }
 
 // SetSize sets the dimensions of the spec selector
@@ -102,6 +120,11 @@ func (s *SpecSelector) GetSelectedSpec() *interactive.Spec {
 		}
 	}
 	return nil
+}
+
+// ResetCursor resets the list cursor to the first item
+func (s *SpecSelector) ResetCursor() {
+	s.list.Select(0)
 }
 
 // Update handles tea messages and updates the component

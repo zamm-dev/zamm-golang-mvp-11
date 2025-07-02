@@ -126,6 +126,7 @@ type Model struct {
 
 	// Navigation state
 	currentSpec *interactive.Spec // always defined - root node by default
+	activeSpec  *interactive.Spec // the currently active (highlighted) spec
 
 	width  int
 	height int
@@ -176,58 +177,71 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keys.Up) || key.Matches(msg, m.keys.Down):
-			var cmd tea.Cmd
-			selector, selectorCmd := m.specSelector.Update(msg)
-			m.specSelector = *selector
-			cmd = selectorCmd
+			// Handle navigation between child specs
+			if len(m.specs) > 0 {
+				// Check if list is already in focus
+				if !m.specSelector.IsFocused() {
+					// First time navigating - reset cursor to 0 and set focus
+					m.specSelector.ResetCursor()
+					m.specSelector.SetFocus(true)
 
-			spec := m.specSelector.GetSelectedSpec()
-			if spec != nil {
-				links, err := m.linkService.GetCommitsForSpec(spec.ID)
-				if err == nil {
-					m.links = links
+					// Update active spec to the first child spec (at position 0)
+					selectedSpec := m.specSelector.GetSelectedSpec()
+					if selectedSpec != nil {
+						m.activeSpec = selectedSpec
+						m.updateDetailsForSpec(*selectedSpec)
+					}
+					return *m, nil
 				} else {
-					m.links = nil
-				}
+					// List is already in focus - handle normal navigation
+					var cmd tea.Cmd
+					selector, selectorCmd := m.specSelector.Update(msg)
+					m.specSelector = *selector
+					cmd = selectorCmd
 
-				childSpecs, err := m.linkService.GetChildSpecs(&spec.ID)
-				if err == nil {
-					m.childSpecs = childSpecs
-				} else {
-					m.childSpecs = nil
+					// Update active spec to the selected child spec
+					selectedSpec := m.specSelector.GetSelectedSpec()
+					if selectedSpec != nil {
+						m.activeSpec = selectedSpec
+						m.updateDetailsForSpec(*selectedSpec)
+					}
+					return *m, cmd
 				}
 			}
-			return *m, cmd
 		case key.Matches(msg, m.keys.Select):
-			m.navigateToChildren()
+			// Navigate to children of the selected spec (if any)
+			if m.activeSpec != nil && m.activeSpec.ID != m.currentSpec.ID {
+				// Active spec is a child - navigate to it
+				return *m, m.navigateToChildren(m.activeSpec)
+			}
 			return *m, nil
 		case key.Matches(msg, m.keys.Create):
 			// Use the current spec ID as parent (always defined)
 			return *m, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: m.currentSpec.ID} }
 		case key.Matches(msg, m.keys.Edit):
-			spec := m.specSelector.GetSelectedSpec()
-			if spec == nil {
+			// Edit the active spec
+			if m.activeSpec == nil {
 				return *m, nil // No valid spec selected
 			}
-			return *m, func() tea.Msg { return EditSpecMsg{SpecID: spec.ID} }
+			return *m, func() tea.Msg { return EditSpecMsg{SpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Delete):
-			spec := m.specSelector.GetSelectedSpec()
-			if spec == nil {
+			// Delete the active spec
+			if m.activeSpec == nil {
 				return *m, nil // No valid spec selected
 			}
-			return *m, func() tea.Msg { return DeleteSpecMsg{SpecID: spec.ID} }
+			return *m, func() tea.Msg { return DeleteSpecMsg{SpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Link):
-			spec := m.specSelector.GetSelectedSpec()
-			if spec == nil {
+			// Link commit to the active spec
+			if m.activeSpec == nil {
 				return *m, nil // No valid spec selected
 			}
-			return *m, func() tea.Msg { return LinkCommitSpecMsg{SpecID: spec.ID} }
+			return *m, func() tea.Msg { return LinkCommitSpecMsg{SpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Remove):
-			spec := m.specSelector.GetSelectedSpec()
-			if spec == nil {
+			// Remove link from the active spec
+			if m.activeSpec == nil {
 				return *m, nil // No valid spec selected
 			}
-			return *m, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: spec.ID} }
+			return *m, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Help):
 			m.help.ShowAll = !m.help.ShowAll
 			// Adjust spec selector size based on help visibility
@@ -238,8 +252,17 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 			return *m, nil
 		case key.Matches(msg, m.keys.Back):
-			m.navigateBack()
-			return *m, nil
+			// If active spec is a child, set active spec back to current node
+			if m.activeSpec != nil && m.activeSpec.ID != m.currentSpec.ID {
+				m.activeSpec = m.currentSpec
+				m.updateDetailsForSpec(*m.activeSpec)
+
+				// Update focus state - list is no longer in focus since we're back to current node
+				m.specSelector.SetFocus(false)
+				return *m, nil
+			}
+			// If active spec is current node, navigate back to parent
+			return *m, m.navigateBack()
 		case key.Matches(msg, m.keys.Quit):
 			return *m, func() tea.Msg { return ExitMsg{} }
 		}
@@ -289,6 +312,7 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 
 	// Update model state
 	m.currentSpec = currentSpec
+	m.activeSpec = currentSpec // Set active spec to current node by default
 	m.specs = specs
 
 	// Update spec selector with new specs and title
@@ -299,27 +323,17 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 	m.specSelector.SetSpecs(specs)
 	m.specSelector.SetSize(m.paneWidth(), m.height-3)
 
-	// Update details for first spec if available
-	if len(specs) > 0 {
-		m.updateDetailsForSpec(specs[0])
-	}
+	// Initially, list is not in focus - focus is set when user starts navigating
+	m.specSelector.SetFocus(false)
+
+	// Update details for the current spec (active spec)
+	m.updateDetailsForSpec(*m.activeSpec)
 
 	return nil
 }
 
-// navigateToChildren navigates to the children of the selected spec
-func (m *Model) navigateToChildren() tea.Cmd {
-	spec := m.specSelector.GetSelectedSpec()
-	if spec == nil {
-		return nil
-	}
-
-	// Check if this spec has children before navigating
-	childSpecLinks, err := m.linkService.GetChildSpecs(&spec.ID)
-	if err != nil || len(childSpecLinks) == 0 {
-		return nil // No children or error
-	}
-
+// navigateToChildren navigates to the children of the given spec
+func (m *Model) navigateToChildren(spec *interactive.Spec) tea.Cmd {
 	return m.setCurrentNode(spec)
 }
 
@@ -390,15 +404,25 @@ func (m *Model) View() string {
 
 	paneWidth := m.paneWidth()
 
-	// Layout: left (list), right (details)
-	finalLeft := lipgloss.JoinVertical(lipgloss.Top, m.specSelector.View(), m.help.View(m.keys))
+	// Determine if current node is active (no child is selected)
+	isCurrentNodeActive := m.activeSpec != nil && m.activeSpec.ID == m.currentSpec.ID
 
-	// Right: details for selected spec
+	// Layout: left (list), right (details)
+	leftContent := lipgloss.JoinVertical(lipgloss.Top, m.specSelector.View(), m.help.View(m.keys))
+
+	// Apply highlight style to entire left pane if current node is active
+	var finalLeft string
+	if isCurrentNodeActive {
+		finalLeft = common.ActiveNodeStyle().Render(leftContent)
+	} else {
+		finalLeft = leftContent
+	}
+
+	// Right: details for active spec
 	var right strings.Builder
-	spec := m.specSelector.GetSelectedSpec()
-	if spec != nil {
-		right.WriteString(fmt.Sprintf("%s\n%s\n\n", spec.Title, strings.Repeat("=", paneWidth)))
-		right.WriteString(spec.Content)
+	if m.activeSpec != nil {
+		right.WriteString(fmt.Sprintf("%s\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth)))
+		right.WriteString(m.activeSpec.Content)
 		right.WriteString("\n\nLinked Commits:\n")
 		if len(m.links) == 0 {
 			right.WriteString("  (none)\n")
@@ -434,7 +458,16 @@ func (m *Model) View() string {
 	} else {
 		right.WriteString("No specification selected. Create or select one to view details.\n")
 	}
-	finalRight := lipgloss.NewStyle().Width(paneWidth + 1).PaddingLeft(1).Render(right.String())
+
+	rightContent := right.String()
+
+	// Apply highlight style to entire right pane if a child node is active
+	var finalRight string
+	if !isCurrentNodeActive && m.activeSpec != nil {
+		finalRight = lipgloss.NewStyle().Width(paneWidth + 1).PaddingLeft(1).Render(common.ActiveNodeStyle().Render(rightContent))
+	} else {
+		finalRight = lipgloss.NewStyle().Width(paneWidth + 1).PaddingLeft(1).Render(rightContent)
+	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Left, finalLeft, finalRight)
 }
