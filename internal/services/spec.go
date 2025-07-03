@@ -21,19 +21,11 @@ type SpecService interface {
 	RemoveChildFromParent(childSpecID, parentSpecID string) error
 	GetParents(specID string) ([]*models.SpecNode, error)
 	GetChildren(specID string) ([]*models.SpecNode, error)
-	GetSpecsWithHierarchy() ([]*SpecWithHierarchy, error)
 
 	// Root spec operations
 	InitializeRootSpec() error
 	GetRootSpec() (*models.SpecNode, error)
 	GetOrphanSpecs() ([]*models.SpecNode, error)
-}
-
-// SpecWithHierarchy represents a spec with its hierarchical relationships
-type SpecWithHierarchy struct {
-	*models.SpecNode
-	Parents  []*models.SpecNode `json:"parents"`
-	Children []*models.SpecNode `json:"children"`
 }
 
 // specService implements the SpecService interface
@@ -187,35 +179,6 @@ func (s *specService) GetChildren(specID string) ([]*models.SpecNode, error) {
 	}
 
 	return s.storage.GetLinkedSpecs(specID, models.Outgoing)
-}
-
-// GetSpecsWithHierarchy retrieves all specs with their hierarchical relationships
-func (s *specService) GetSpecsWithHierarchy() ([]*SpecWithHierarchy, error) {
-	specs, err := s.storage.ListSpecs()
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]*SpecWithHierarchy, len(specs))
-	for i, spec := range specs {
-		parents, err := s.GetParents(spec.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		children, err := s.GetChildren(spec.ID)
-		if err != nil {
-			return nil, err
-		}
-
-		result[i] = &SpecWithHierarchy{
-			SpecNode: spec,
-			Parents:  parents,
-			Children: children,
-		}
-	}
-
-	return result, nil
 }
 
 // InitializeRootSpec creates the root specification if it doesn't exist
