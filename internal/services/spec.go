@@ -183,7 +183,6 @@ func (s *specService) GetChildren(specID string) ([]*models.SpecNode, error) {
 func (s *specService) InitializeRootSpec() error {
 	// Check if root spec already exists
 	rootSpec, err := s.GetRootSpec()
-	var rootSpecID string
 
 	if err != nil || rootSpec == nil {
 		// Create root spec
@@ -196,29 +195,6 @@ func (s *specService) InitializeRootSpec() error {
 		err = s.storage.SetRootSpecID(&newRootSpec.ID)
 		if err != nil {
 			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to set root spec ID", err)
-		}
-
-		rootSpecID = newRootSpec.ID
-	} else {
-		rootSpecID = rootSpec.ID
-	}
-
-	// Link all orphaned specs to the root
-	orphans, err := s.storage.GetOrphanSpecs()
-	if err != nil {
-		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get orphaned specs", err)
-	}
-
-	for _, spec := range orphans {
-		// Skip the root spec itself
-		if spec.ID == rootSpecID {
-			continue
-		}
-
-		// Link orphaned spec to the root
-		_, err := s.AddChildToParent(spec.ID, rootSpecID)
-		if err != nil {
-			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to link orphaned spec to root", err)
 		}
 	}
 
