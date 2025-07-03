@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -125,6 +126,7 @@ type Model struct {
 	childSpecs   []*models.SpecNode
 	linkService  LinkService
 	viewport     viewport.Model
+	table        table.Model
 
 	// Navigation state
 	currentSpec interactive.Spec // always defined - root node by default
@@ -141,12 +143,41 @@ func New(linkService LinkService) Model {
 	}
 	specSelector := common.NewSpecSelector(config)
 
+	// Initialize table for commits
+	columns := []table.Column{
+		{Title: "COMMIT", Width: 16},
+		{Title: "REPO", Width: 16},
+		{Title: "TYPE", Width: 12},
+		{Title: "CREATED", Width: 16},
+	}
+
+	commitsTable := table.New(
+		table.WithColumns(columns),
+		table.WithRows([]table.Row{}),
+		table.WithFocused(false),
+		table.WithHeight(7),
+	)
+
+	// Set table styles
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	commitsTable.SetStyles(s)
+
 	model := Model{
 		specSelector: specSelector,
 		keys:         keys,
 		help:         help.New(),
 		linkService:  linkService,
 		viewport:     viewport.New(0, 0),
+		table:        commitsTable,
 	}
 
 	// Initialize with root spec as current node
@@ -172,10 +203,33 @@ func (m *Model) SetSize(width, height int) {
 	// Set viewport size for the right pane
 	m.viewport.Width = m.paneWidth()
 	m.viewport.Height = m.height
+
+	// Update table column widths based on pane width
+	paneWidth := m.paneWidth()
+	// Account for table borders, padding, and margins (approximately 6-8 chars total)
+	availableWidth := paneWidth - 8
+	if availableWidth < 40 {
+		availableWidth = 40 // minimum usable width
+	}
+
+	columns := []table.Column{
+		{Title: "COMMIT", Width: max(12, availableWidth/4)},
+		{Title: "REPO", Width: max(12, availableWidth/4)},
+		{Title: "TYPE", Width: max(8, availableWidth/6)},
+		{Title: "CREATED", Width: max(12, availableWidth/4)},
+	}
+	m.table.SetColumns(columns)
 }
 
 func (m *Model) paneWidth() int {
 	return (m.width - 1) / 2 // width of each half pane, minus 1 for padding
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // Refresh refreshes the current view data by reloading specs for the current node
@@ -273,7 +327,20 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.viewport, cmd = m.viewport.Update(msg)
 
-	return *m, cmd
+	// Update table (for any table-specific interactions)
+	var tableCmd tea.Cmd
+	m.table, tableCmd = m.table.Update(msg)
+
+	// Combine commands if both exist
+	if cmd != nil && tableCmd != nil {
+		return *m, tea.Batch(cmd, tableCmd)
+	} else if cmd != nil {
+		return *m, cmd
+	} else if tableCmd != nil {
+		return *m, tableCmd
+	}
+
+	return *m, nil
 }
 
 // setCurrentNode sets the current spec and updates the display with its children
@@ -363,8 +430,12 @@ func (m *Model) updateDetailsForSpec(spec interactive.Spec) {
 	links, err := m.linkService.GetCommitsForSpec(spec.ID)
 	if err == nil {
 		m.links = links
+		// Update table with commit data
+		m.updateCommitsTable()
 	} else {
 		m.links = nil
+		// Clear table
+		m.table.SetRows([]table.Row{})
 	}
 
 	childSpecs, err := m.linkService.GetChildSpecs(&spec.ID)
@@ -375,6 +446,35 @@ func (m *Model) updateDetailsForSpec(spec interactive.Spec) {
 	}
 
 	m.viewport.SetYOffset(0) // Reset viewport offset when changing spec
+}
+
+// updateCommitsTable updates the table with current commit links
+func (m *Model) updateCommitsTable() {
+	if m.links == nil {
+		m.table.SetRows([]table.Row{})
+		return
+	}
+
+	rows := make([]table.Row, len(m.links))
+	for i, link := range m.links {
+		commitID := link.CommitID
+		if len(commitID) > 12 {
+			commitID = commitID[:12] + "..."
+		}
+		repo := link.RepoPath
+		if len(repo) > 14 {
+			repo = repo[:11] + "..."
+		}
+		linkType := link.LinkType
+		if len(linkType) > 10 {
+			linkType = linkType[:7] + "..."
+		}
+		created := link.CreatedAt.Format("2006-01-02 15:04")
+
+		rows[i] = table.Row{commitID, repo, linkType, created}
+	}
+
+	m.table.SetRows(rows)
 }
 
 // generateRightPaneContent generates the content for the right pane viewport
@@ -394,18 +494,12 @@ func (m *Model) generateRightPaneContent() string {
 		if len(m.links) == 0 {
 			contentBuilder.WriteString("  (none)\n")
 		} else {
-			contentBuilder.WriteString("  COMMIT           REPO             TYPE         CREATED\n")
-			contentBuilder.WriteString("  ──────           ────             ────         ───────\n")
-			for _, l := range m.links {
-				commitID := l.CommitID
-				if len(commitID) > 12 {
-					commitID = commitID[:12] + "..."
-				}
-				repo := l.RepoPath
-				linkType := l.LinkType
-				created := l.CreatedAt.Format("2006-01-02 15:04")
-				contentBuilder.WriteString(fmt.Sprintf("  %-16s %-16s %-12s %s\n", commitID, repo, linkType, created))
-			}
+			// Use the table component for displaying commits
+			// The table already has its own borders, so we don't need to add additional styling
+			// Just add some left margin to align with the content
+			tableView := m.table.View()
+			tableWithMargin := lipgloss.NewStyle().MarginLeft(1).Render(tableView)
+			contentBuilder.WriteString(tableWithMargin)
 		}
 
 		contentBuilder.WriteString("\n\nChild Specifications:\n")
