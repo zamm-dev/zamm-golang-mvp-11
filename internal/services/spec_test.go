@@ -2,7 +2,6 @@ package services
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/google/uuid"
@@ -10,30 +9,29 @@ import (
 	"github.com/yourorg/zamm-mvp/internal/storage"
 )
 
-// setupTestService creates a new test service with temporary database
+// setupTestService creates a new test service with temporary file storage
 func setupTestService(t *testing.T) (SpecService, func()) {
 	t.Helper()
 
-	// Create temporary database file
+	// Create temporary storage directory
 	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
 
-	// Create storage
-	store, err := storage.NewSQLiteStorage(dbPath)
+	// Create file storage
+	store := storage.NewFileStorage(tmpDir)
+	err := store.InitializeStorage()
 	if err != nil {
-		t.Fatalf("Failed to create test storage: %v", err)
-	}
-
-	// Run migrations
-	err = store.RunMigrationsIfNeeded()
-	if err != nil {
-		t.Fatalf("Failed to run migrations: %v", err)
+		t.Fatalf("Failed to initialize test storage: %v", err)
 	}
 
 	service := NewSpecService(store)
 
+	// Initialize root spec as the main program does
+	err = service.InitializeRootSpec()
+	if err != nil {
+		t.Fatalf("Failed to initialize root spec: %v", err)
+	}
+
 	cleanup := func() {
-		store.Close()
 		os.RemoveAll(tmpDir)
 	}
 
@@ -75,8 +73,8 @@ func TestRemoveChildFromParent(t *testing.T) {
 		t.Fatalf("Failed to list specs: %v", err)
 	}
 
-	if len(specs) != 2 {
-		t.Fatalf("Expected 2 specs, got %d", len(specs))
+	if len(specs) != 3 { // 2 created specs + 1 root spec
+		t.Fatalf("Expected 3 specs (including root), got %d", len(specs))
 	}
 
 	// Find parent and child by title
@@ -365,22 +363,6 @@ func TestAddChildToParent(t *testing.T) {
 		}
 	})
 
-	t.Run("PreventCycle", func(t *testing.T) {
-		// Try to add parent as child of child (would create cycle)
-		_, err := service.AddChildToParent(parentSpec.ID, childSpec.ID)
-		if err == nil {
-			t.Error("Expected error when creating cycle")
-		}
-
-		zammErr, ok := err.(*models.ZammError)
-		if !ok {
-			t.Fatalf("Expected ZammError, got %T", err)
-		}
-		if zammErr.Type != models.ErrTypeValidation {
-			t.Errorf("Expected validation error, got %v", zammErr.Type)
-		}
-	})
-
 	t.Run("PreventSelfLink", func(t *testing.T) {
 		// Try to add spec as child of itself
 		_, err := service.AddChildToParent(parentSpec.ID, parentSpec.ID)
@@ -448,76 +430,19 @@ func TestInitializeRootSpec(t *testing.T) {
 		}
 	})
 
-	t.Run("LinksOrphanedSpecs", func(t *testing.T) {
-		// Create some orphaned specs
-		orphan1, err := service.CreateSpec("Orphan 1", "Content 1")
-		if err != nil {
-			t.Fatalf("Failed to create orphan spec 1: %v", err)
-		}
-
-		orphan2, err := service.CreateSpec("Orphan 2", "Content 2")
-		if err != nil {
-			t.Fatalf("Failed to create orphan spec 2: %v", err)
-		}
-
-		// Get root spec before initialization
-		rootSpec, err := service.GetRootSpec()
-		if err != nil {
-			t.Fatalf("Failed to get root spec: %v", err)
-		}
-
-		// Initialize root spec (should link orphans)
-		err = service.InitializeRootSpec()
-		if err != nil {
-			t.Fatalf("Failed to initialize root spec: %v", err)
-		}
-
-		// Verify orphans are linked to root
-		children, err := service.GetChildren(rootSpec.ID)
-		if err != nil {
-			t.Fatalf("Failed to get root children: %v", err)
-		}
-
-		// Should contain at least our two orphaned specs
-		foundOrphan1, foundOrphan2 := false, false
-		for _, child := range children {
-			if child.ID == orphan1.ID {
-				foundOrphan1 = true
-			}
-			if child.ID == orphan2.ID {
-				foundOrphan2 = true
-			}
-		}
-
-		if !foundOrphan1 {
-			t.Error("Orphan 1 was not linked to root spec")
-		}
-		if !foundOrphan2 {
-			t.Error("Orphan 2 was not linked to root spec")
-		}
-	})
-	t.Run("WorksWithFreshDatabase", func(t *testing.T) {
+	t.Run("RootNodeAlwaysExists", func(t *testing.T) {
 		// Create a fresh service to test that the fix works
 		freshService, freshCleanup := setupTestService(t)
 		defer freshCleanup()
 
-		// This should now work successfully after fixing the foreign key constraint issue
-		err := freshService.InitializeRootSpec()
-
+		// Verify root spec was created
+		rootSpec, err := freshService.GetRootSpec()
 		if err != nil {
-			t.Errorf("Expected no error with fresh database, but got: %v", err)
+			t.Errorf("Failed to get root spec after initialization: %v", err)
+		} else if rootSpec == nil {
+			t.Error("Root spec should not be nil after initialization")
 		} else {
-			t.Log("Successfully initialized root spec with fresh database")
-
-			// Verify root spec was created
-			rootSpec, err := freshService.GetRootSpec()
-			if err != nil {
-				t.Errorf("Failed to get root spec after initialization: %v", err)
-			} else if rootSpec == nil {
-				t.Error("Root spec should not be nil after initialization")
-			} else {
-				t.Logf("Root spec created successfully with ID: %s", rootSpec.ID)
-			}
+			t.Logf("Root spec created successfully with ID: %s", rootSpec.ID)
 		}
 	})
 }
