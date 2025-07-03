@@ -67,7 +67,7 @@ func (a *App) runExport(outputDir string) error {
 
 // exportSpecs exports individual spec files to JSON
 func (a *App) exportSpecs(specsDir string) error {
-	specs, err := a.storage.ListSpecs()
+	specs, err := a.storage.ListSpecNodes()
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (a *App) exportSpecLinks(outputDir string) error {
 // exportCommitLinks exports spec-commit links to CSV
 func (a *App) exportCommitLinks(outputDir string) error {
 	// Get all specs first to find all their commit links
-	specs, err := a.storage.ListSpecs()
+	specs, err := a.storage.ListSpecNodes()
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (a *App) getAllSpecSpecLinks() ([]*models.SpecSpecLink, error) {
 	// We need to add a method to the storage interface or use raw SQL
 	// For now, let's implement this using the existing GetLinkedSpecs method
 	
-	specs, err := a.storage.ListSpecs()
+	specs, err := a.storage.ListSpecNodes()
 	if err != nil {
 		return nil, err
 	}

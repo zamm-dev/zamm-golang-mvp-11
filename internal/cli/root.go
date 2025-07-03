@@ -26,7 +26,6 @@ func (a *App) CreateRootCommand() *cobra.Command {
 	rootCmd.AddCommand(a.createStatusCommand(jsonOutput))
 	rootCmd.AddCommand(a.createVersionCommand())
 	rootCmd.AddCommand(a.createBackupCommand())
-	rootCmd.AddCommand(a.createMigrationCommand())
 	rootCmd.AddCommand(a.createInteractiveCommand())
 	rootCmd.AddCommand(a.createExportCommand())
 

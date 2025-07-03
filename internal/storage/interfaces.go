@@ -1,46 +1,40 @@
 package storage
 
-import "github.com/yourorg/zamm-mvp/internal/models"
+import (
+	"github.com/yourorg/zamm-mvp/internal/models"
+)
 
-// Storage defines the interface for all storage operations
+// Storage defines the interface for data storage operations
 type Storage interface {
-	// Spec operations
-	CreateSpec(spec *models.SpecNode) error
-	GetSpec(id string) (*models.SpecNode, error)
-	ListSpecs() ([]*models.SpecNode, error)
-	UpdateSpec(spec *models.SpecNode) error
-	DeleteSpec(id string) error
+	// Initialize storage
+	InitializeStorage() error
 
-	// Link operations
-	CreateLink(link *models.SpecCommitLink) error
-	GetLink(id string) (*models.SpecCommitLink, error)
-	GetLinksBySpec(specID string) ([]*models.SpecCommitLink, error)
+	// SpecNode operations
+	CreateSpecNode(spec *models.SpecNode) error
+	GetSpecNode(id string) (*models.SpecNode, error)
+	UpdateSpecNode(spec *models.SpecNode) error
+	DeleteSpecNode(id string) error
+	ListSpecNodes() ([]*models.SpecNode, error)
+
+	// SpecCommitLink operations
+	CreateSpecCommitLink(link *models.SpecCommitLink) error
+	GetSpecCommitLinks(specID string) ([]*models.SpecCommitLink, error)
+	DeleteSpecCommitLink(id string) error
 	GetLinksByCommit(commitID, repoPath string) ([]*models.SpecCommitLink, error)
+	GetLinksBySpec(specID string) ([]*models.SpecCommitLink, error)
 	DeleteLink(id string) error
 
-	// Spec hierarchy operations (DAG)
-	CreateSpecLink(link *models.SpecSpecLink) error
-	GetSpecLink(id string) (*models.SpecSpecLink, error)
-	GetLinkedSpecs(specID string, direction models.Direction) ([]*models.SpecNode, error)
-	DeleteSpecLink(id string) error
+	// SpecSpecLink operations
+	CreateSpecSpecLink(link *models.SpecSpecLink) error
+	GetSpecSpecLinks(specID string, direction models.Direction) ([]*models.SpecSpecLink, error)
+	DeleteSpecSpecLink(id string) error
 	DeleteSpecLinkBySpecs(fromSpecID, toSpecID string) error
-	// DAG validation
-	WouldCreateCycle(fromSpecID, toSpecID string) (bool, error)
 
-	// Project metadata operations
-	GetProjectMetadata() (*models.ProjectMetadata, error)
-	SetRootSpecID(specID string) error
-
-	// Orphan spec operations
+	// Hierarchical operations
+	GetLinkedSpecs(specID string, direction models.Direction) ([]*models.SpecNode, error)
 	GetOrphanSpecs() ([]*models.SpecNode, error)
 
-	// Utility
-	BackupDatabase(backupPath string) error
-	Close() error
-
-	// Migration operations
-	RunMigrationsIfNeeded() error
-	GetMigrationVersion() (uint, bool, error)
-	ForceMigrationVersion(version uint) error
-	MigrateDown(targetVersion uint) error
+	// ProjectMetadata operations
+	GetProjectMetadata() (*models.ProjectMetadata, error)
+	SetRootSpecID(specID *string) error
 }

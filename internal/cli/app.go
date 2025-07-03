@@ -25,8 +25,8 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
-	store, err := storage.NewSQLiteStorage(cfg.Database.Path)
-	if err != nil {
+	store := storage.NewFileStorage(cfg.Storage.Path)
+	if err := store.InitializeStorage(); err != nil {
 		return nil, err
 	}
 
@@ -40,8 +40,6 @@ func NewApp() (*App, error) {
 
 // Close closes the application and cleans up resources
 func (a *App) Close() error {
-	if a.storage != nil {
-		return a.storage.Close()
-	}
+	// File-based storage doesn't need to be closed
 	return nil
 }

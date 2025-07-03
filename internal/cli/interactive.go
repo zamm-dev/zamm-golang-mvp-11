@@ -110,10 +110,10 @@ func (a *App) createInteractiveCommand() *cobra.Command {
 
 // runInteractiveMode starts the interactive mode with TUI
 func (a *App) runInteractiveMode() error {
-	// Check for and run migrations if needed
-	fmt.Println("Checking for database migrations...")
-	if err := a.storage.RunMigrationsIfNeeded(); err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
+	// Initialize storage if needed
+	fmt.Println("Initializing storage...")
+	if err := a.storage.InitializeStorage(); err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
 	// Initialize root spec on startup

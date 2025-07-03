@@ -53,7 +53,7 @@ func (s *specService) CreateSpec(title, content string) (*models.SpecNode, error
 		Content: strings.TrimSpace(content),
 	}
 
-	if err := s.storage.CreateSpec(spec); err != nil {
+	if err := s.storage.CreateSpecNode(spec); err != nil {
 		return nil, err
 	}
 
@@ -66,7 +66,7 @@ func (s *specService) GetSpec(id string) (*models.SpecNode, error) {
 		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
 
-	return s.storage.GetSpec(id)
+	return s.storage.GetSpecNode(id)
 }
 
 // UpdateSpec updates an existing specification
@@ -81,7 +81,7 @@ func (s *specService) UpdateSpec(id, title, content string) (*models.SpecNode, e
 	}
 
 	// Get existing spec
-	spec, err := s.storage.GetSpec(id)
+	spec, err := s.storage.GetSpecNode(id)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (s *specService) UpdateSpec(id, title, content string) (*models.SpecNode, e
 	spec.Content = strings.TrimSpace(content)
 
 	// Save changes
-	if err := s.storage.UpdateSpec(spec); err != nil {
+	if err := s.storage.UpdateSpecNode(spec); err != nil {
 		return nil, err
 	}
 
@@ -100,7 +100,7 @@ func (s *specService) UpdateSpec(id, title, content string) (*models.SpecNode, e
 
 // ListSpecs retrieves all specifications
 func (s *specService) ListSpecs() ([]*models.SpecNode, error) {
-	return s.storage.ListSpecs()
+	return s.storage.ListSpecNodes()
 }
 
 // DeleteSpec deletes a specification
@@ -109,7 +109,7 @@ func (s *specService) DeleteSpec(id string) error {
 		return models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
 
-	return s.storage.DeleteSpec(id)
+	return s.storage.DeleteSpecNode(id)
 }
 
 // AddChildToParent adds a parent-child relationship by specifying the child and parent
@@ -126,11 +126,11 @@ func (s *specService) AddChildToParent(childSpecID, parentSpecID string) (*model
 	}
 
 	// Verify both specs exist
-	_, err := s.storage.GetSpec(childSpecID)
+	_, err := s.storage.GetSpecNode(childSpecID)
 	if err != nil {
 		return nil, models.NewZammError(models.ErrTypeValidation, "child spec not found")
 	}
-	_, err = s.storage.GetSpec(parentSpecID)
+	_, err = s.storage.GetSpecNode(parentSpecID)
 	if err != nil {
 		return nil, models.NewZammError(models.ErrTypeValidation, "parent spec not found")
 	}
@@ -141,7 +141,8 @@ func (s *specService) AddChildToParent(childSpecID, parentSpecID string) (*model
 		LinkType:   "child",
 	}
 
-	if err := s.storage.CreateSpecLink(link); err != nil {
+	link.ID = uuid.New().String()
+	if err := s.storage.CreateSpecSpecLink(link); err != nil {
 		return nil, err
 	}
 
@@ -193,7 +194,7 @@ func (s *specService) InitializeRootSpec() error {
 		}
 
 		// Set it as the root spec in metadata
-		err = s.storage.SetRootSpecID(newRootSpec.ID)
+		err = s.storage.SetRootSpecID(&newRootSpec.ID)
 		if err != nil {
 			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to set root spec ID", err)
 		}
@@ -236,7 +237,7 @@ func (s *specService) GetRootSpec() (*models.SpecNode, error) {
 		return nil, models.NewZammError(models.ErrTypeNotFound, "root spec ID not set in project metadata")
 	}
 
-	return s.storage.GetSpec(*metadata.RootSpecID)
+	return s.storage.GetSpecNode(*metadata.RootSpecID)
 }
 
 // GetOrphanSpecs retrieves all specs that don't have any parents

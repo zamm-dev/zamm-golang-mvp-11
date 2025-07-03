@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/spf13/viper"
 	"github.com/yourorg/zamm-mvp/internal/models"
@@ -12,16 +11,15 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Database DatabaseConfig `mapstructure:"database"`
-	Git      GitConfig      `mapstructure:"git"`
-	Logging  LoggingConfig  `mapstructure:"logging"`
-	CLI      CLIConfig      `mapstructure:"cli"`
+	Storage StorageConfig `mapstructure:"storage"`
+	Git     GitConfig     `mapstructure:"git"`
+	Logging LoggingConfig `mapstructure:"logging"`
+	CLI     CLIConfig     `mapstructure:"cli"`
 }
 
-// DatabaseConfig holds database-related configuration
-type DatabaseConfig struct {
-	Path    string        `mapstructure:"path"`
-	Timeout time.Duration `mapstructure:"timeout"`
+// StorageConfig holds storage-related configuration
+type StorageConfig struct {
+	Path string `mapstructure:"path"`
 }
 
 // GitConfig holds git-related configuration
@@ -84,8 +82,8 @@ func Load() (*Config, error) {
 	}
 
 	// Apply environment variable overrides
-	if dbPath := os.Getenv("ZAMM_DB_PATH"); dbPath != "" {
-		config.Database.Path = dbPath
+	if storagePath := os.Getenv("ZAMM_STORAGE_PATH"); storagePath != "" {
+		config.Storage.Path = storagePath
 	}
 	if logLevel := os.Getenv("ZAMM_LOG_LEVEL"); logLevel != "" {
 		config.Logging.Level = logLevel
@@ -104,9 +102,8 @@ func Load() (*Config, error) {
 
 // setDefaults sets default configuration values
 func setDefaults(zammDir string) {
-	// Database defaults
-	viper.SetDefault("database.path", filepath.Join(zammDir, "zamm.db"))
-	viper.SetDefault("database.timeout", "30s")
+	// Storage defaults
+	viper.SetDefault("storage.path", zammDir)
 
 	// Git defaults
 	viper.SetDefault("git.default_repo", ".")
@@ -127,9 +124,9 @@ func expandPaths(config *Config) error {
 		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get user home directory", err)
 	}
 
-	// Expand database path
-	if config.Database.Path != "" {
-		config.Database.Path = expandPath(config.Database.Path, homeDir)
+	// Expand storage path
+	if config.Storage.Path != "" {
+		config.Storage.Path = expandPath(config.Storage.Path, homeDir)
 	}
 
 	// Expand log file path
@@ -168,11 +165,10 @@ func expandPath(path, homeDir string) string {
 
 // EnsureDirectories creates necessary directories for the configuration
 func EnsureDirectories(config *Config) error {
-	// Ensure database directory exists
-	if config.Database.Path != "" {
-		dbDir := filepath.Dir(config.Database.Path)
-		if err := os.MkdirAll(dbDir, 0755); err != nil {
-			return models.NewZammErrorWithCause(models.ErrTypeSystem, fmt.Sprintf("failed to create database directory: %s", dbDir), err)
+	// Ensure storage directory exists
+	if config.Storage.Path != "" {
+		if err := os.MkdirAll(config.Storage.Path, 0755); err != nil {
+			return models.NewZammErrorWithCause(models.ErrTypeSystem, fmt.Sprintf("failed to create storage directory: %s", config.Storage.Path), err)
 		}
 	}
 
@@ -208,9 +204,8 @@ func WriteDefaultConfig() error {
 	}
 
 	// Default config content
-	configContent := `database:
-  path: ~/.zamm/zamm.db
-  timeout: 30s
+	configContent := `storage:
+  path: ~/.zamm
 
 git:
   default_repo: .

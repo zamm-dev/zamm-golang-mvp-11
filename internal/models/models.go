@@ -14,38 +14,38 @@ const (
 
 // SpecNode represents a specification node in the system
 type SpecNode struct {
-	ID        string    `json:"id" db:"id"`
-	Title     string    `json:"title" db:"title"`
-	Content   string    `json:"content" db:"content"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	ID        string    `json:"id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // SpecCommitLink represents a link between a spec and a git commit
 type SpecCommitLink struct {
-	ID        string    `json:"id" db:"id"`
-	SpecID    string    `json:"spec_id" db:"spec_id"`
-	CommitID  string    `json:"commit_id" db:"commit_id"`
-	RepoPath  string    `json:"repo_path" db:"repo_path"`
-	LinkType  string    `json:"link_type" db:"link_type"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	ID        string    `json:"id"`
+	SpecID    string    `json:"spec_id"`
+	CommitID  string    `json:"commit_id"`
+	RepoPath  string    `json:"repo_path"`
+	LinkType  string    `json:"link_type"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // SpecSpecLink represents a hierarchical link between two specifications (forms a DAG)
 type SpecSpecLink struct {
-	ID         string    `json:"id" db:"id"`
-	FromSpecID string    `json:"from_spec_id" db:"from_spec_id"`
-	ToSpecID   string    `json:"to_spec_id" db:"to_spec_id"`
-	LinkType   string    `json:"link_type" db:"link_type"` // "child", "fixes", "implements", etc.
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+	ID         string    `json:"id"`
+	FromSpecID string    `json:"from_spec_id"`
+	ToSpecID   string    `json:"to_spec_id"`
+	LinkType   string    `json:"link_type"` // "child", "fixes", "implements", etc.
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // ProjectMetadata represents project-level metadata and configuration
 type ProjectMetadata struct {
-	ID         int       `json:"id" db:"id"`
-	RootSpecID *string   `json:"root_spec_id" db:"root_spec_id"` // Nullable foreign key to specs
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
+	ID         int       `json:"id"`
+	RootSpecID *string   `json:"root_spec_id"` // Nullable foreign key to specs
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // ErrorType represents different categories of errors in the system

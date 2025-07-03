@@ -39,7 +39,7 @@ func (s *linkService) LinkSpecToCommit(specID, commitID, repoPath, linkType stri
 	}
 
 	// Verify spec exists
-	_, err := s.storage.GetSpec(specID)
+	_, err := s.storage.GetSpecNode(specID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (s *linkService) LinkSpecToCommit(specID, commitID, repoPath, linkType stri
 		LinkType: strings.TrimSpace(linkType),
 	}
 
-	if err := s.storage.CreateLink(link); err != nil {
+	if err := s.storage.CreateSpecCommitLink(link); err != nil {
 		return nil, err
 	}
 
@@ -79,7 +79,7 @@ func (s *linkService) GetSpecsForCommit(commitID, repoPath string) ([]*models.Sp
 	// Get specs for each link
 	var specs []*models.SpecNode
 	for _, link := range links {
-		spec, err := s.storage.GetSpec(link.SpecID)
+		spec, err := s.storage.GetSpecNode(link.SpecID)
 		if err != nil {
 			// Skip if spec not found (orphaned link)
 			if zammErr, ok := err.(*models.ZammError); ok && zammErr.Type == models.ErrTypeNotFound {
@@ -100,7 +100,7 @@ func (s *linkService) GetCommitsForSpec(specID string) ([]*models.SpecCommitLink
 	}
 
 	// Verify spec exists
-	_, err := s.storage.GetSpec(specID)
+	_, err := s.storage.GetSpecNode(specID)
 	if err != nil {
 		return nil, err
 	}

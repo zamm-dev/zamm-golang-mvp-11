@@ -20,15 +20,15 @@ func (a *App) createInitCommand() *cobra.Command {
 				return err
 			}
 
-			// Run database migrations
-			if err := a.runMigrations(); err != nil {
+			// Initialize file-based storage
+			if err := a.storage.InitializeStorage(); err != nil {
 				return err
 			}
 
 			fmt.Println("Initialized zamm successfully")
 			configPath, _ := config.GetConfigPath()
 			fmt.Printf("Config file: %s\n", configPath)
-			fmt.Printf("Database: %s\n", a.config.Database.Path)
+			fmt.Printf("Storage directory: %s\n", a.config.Storage.Path)
 			return nil
 		},
 	}
@@ -46,8 +46,8 @@ func (a *App) createStatusCommand(jsonOutput bool) *cobra.Command {
 			}
 
 			status := map[string]interface{}{
-				"config_path":   a.config.Database.Path,
-				"database_path": a.config.Database.Path,
+				"config_path":   a.config.Storage.Path,
+				"storage_path":  a.config.Storage.Path,
 				"spec_count":    len(specs),
 			}
 
@@ -57,7 +57,7 @@ func (a *App) createStatusCommand(jsonOutput bool) *cobra.Command {
 
 			fmt.Printf("ZAMM Status\n")
 			fmt.Printf("===========\n")
-			fmt.Printf("Database: %s\n", a.config.Database.Path)
+			fmt.Printf("Storage: %s\n", a.config.Storage.Path)
 			fmt.Printf("Specifications: %d\n", len(specs))
 			return nil
 		},
@@ -79,8 +79,8 @@ func (a *App) createVersionCommand() *cobra.Command {
 func (a *App) createBackupCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "backup <destination>",
-		Short: "Backup the database to a specified location",
-		Long:  "Creates a backup of the ZAMM database to the specified file path. The backup is a complete copy of the database that can be restored later.",
+		Short: "Backup the storage directory to a specified location",
+		Long:  "Creates a backup of the ZAMM storage directory to the specified file path. The backup is a complete copy of all specs and links.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			backupPath := args[0]
@@ -105,118 +105,18 @@ func (a *App) createBackupCommand() *cobra.Command {
 				fmt.Printf("Warning: File %s already exists and will be overwritten.\n", backupPath)
 			}
 
-			// Perform the backup
-			if err := a.storage.BackupDatabase(backupPath); err != nil {
-				return err
+			// Copy storage directory to backup location
+			if err := copyDir(a.config.Storage.Path, backupPath); err != nil {
+				return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to backup storage directory", err)
 			}
 
-			// Get file info to show backup size
-			fileInfo, err := os.Stat(backupPath)
-			if err != nil {
-				fmt.Printf("Database successfully backed up to: %s\n", backupPath)
-			} else {
-				size := fileInfo.Size()
-				sizeStr := formatBytes(size)
-				fmt.Printf("Database successfully backed up to: %s (%s)\n", backupPath, sizeStr)
-			}
-
+			fmt.Printf("Storage directory successfully backed up to: %s\n", backupPath)
 			return nil
 		},
 	}
 }
 
-// createMigrationCommand creates the migration management command
-func (a *App) createMigrationCommand() *cobra.Command {
-	migrationCmd := &cobra.Command{
-		Use:   "migration",
-		Short: "Manage database migrations",
-		Long:  "Commands to manage database migrations including status and force operations",
-	}
 
-	// Migration status subcommand
-	statusCmd := &cobra.Command{
-		Use:   "status",
-		Short: "Show current migration status",
-		Long:  "Display the current migration version and whether the database is in a dirty state",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			version, dirty, err := a.storage.GetMigrationVersion()
-			if err != nil {
-				return err
-			}
-
-			if version == 0 {
-				fmt.Println("No migrations have been applied")
-			} else {
-				fmt.Printf("Current migration version: %d\n", version)
-			}
-
-			if dirty {
-				fmt.Println("Database is in dirty state - manual intervention may be required")
-			} else {
-				fmt.Println("Database is clean")
-			}
-
-			return nil
-		},
-	}
-
-	// Migration force subcommand
-	forceCmd := &cobra.Command{
-		Use:   "force <version>",
-		Short: "Force migration version (for recovery)",
-		Long:  "Force the migration version to a specific value. Use with caution - this is for recovery purposes only.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			version := uint(0)
-			if _, err := fmt.Sscanf(args[0], "%d", &version); err != nil {
-				return fmt.Errorf("invalid version number: %s", args[0])
-			}
-
-			fmt.Printf("Forcing migration version to %d...\n", version)
-			if err := a.storage.ForceMigrationVersion(version); err != nil {
-				return err
-			}
-
-			fmt.Println("Migration version forced successfully")
-			return nil
-		},
-	}
-
-	// Migration up subcommand
-	upCmd := &cobra.Command{
-		Use:   "up",
-		Short: "Run pending migrations",
-		Long:  "Check for and run any pending database migrations",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.storage.RunMigrationsIfNeeded()
-		},
-	}
-
-	// Migration down subcommand
-	downCmd := &cobra.Command{
-		Use:   "down <version>",
-		Short: "Run down migrations to specific version",
-		Long:  "Run down migrations to the specified version. Use with caution - this will remove data.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			version := uint(0)
-			if _, err := fmt.Sscanf(args[0], "%d", &version); err != nil {
-				return fmt.Errorf("invalid version number: %s", args[0])
-			}
-
-			fmt.Printf("Running down migrations to version %d...\n", version)
-			if err := a.storage.MigrateDown(version); err != nil {
-				return err
-			}
-
-			fmt.Println("Down migrations completed successfully")
-			return nil
-		},
-	}
-
-	migrationCmd.AddCommand(statusCmd, forceCmd, upCmd, downCmd)
-	return migrationCmd
-}
 
 // formatBytes formats byte count as human readable string
 func formatBytes(bytes int64) string {
@@ -232,12 +132,54 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
-// runMigrations runs database migrations
-func (a *App) runMigrations() error {
-	// Use the new migration system
-	if err := a.storage.RunMigrationsIfNeeded(); err != nil {
-		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to run migrations", err)
+// copyDir copies a directory from src to dst
+func copyDir(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Calculate the relative path from src
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+
+		// Create the destination path
+		destPath := filepath.Join(dst, relPath)
+
+		if info.IsDir() {
+			// Create directory
+			return os.MkdirAll(destPath, info.Mode())
+		} else {
+			// Copy file
+			return copyFile(path, destPath)
+		}
+	})
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	// Create destination directory if it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
 	}
 
-	return nil
+	// Open source file
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	// Create destination file
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	// Copy content
+	_, err = dstFile.ReadFrom(srcFile)
+	return err
 }
