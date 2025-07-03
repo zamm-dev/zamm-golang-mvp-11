@@ -169,7 +169,7 @@ func (s *specService) GetParents(specID string) ([]*models.SpecNode, error) {
 		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
 
-	return s.storage.GetLinkedSpecs(specID, models.Incoming)
+	return s.storage.GetLinkedSpecs(specID, models.Outgoing)
 }
 
 // GetChildren retrieves all child specs for a given spec
@@ -178,7 +178,7 @@ func (s *specService) GetChildren(specID string) ([]*models.SpecNode, error) {
 		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
 
-	return s.storage.GetLinkedSpecs(specID, models.Outgoing)
+	return s.storage.GetLinkedSpecs(specID, models.Incoming)
 }
 
 // InitializeRootSpec creates the root specification if it doesn't exist

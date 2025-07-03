@@ -403,17 +403,18 @@ func (s *SQLiteStorage) GetSpecLink(id string) (*models.SpecSpecLink, error) {
 	return &link, nil
 }
 
-// GetLinkedSpecs retrieves all related specs (parents or children) for a given spec ID
+// GetLinkedSpecs retrieves all related specs in a given direction relative to the specified spec
+// ID
 func (s *SQLiteStorage) GetLinkedSpecs(specID string, direction models.Direction) ([]*models.SpecNode, error) {
 	var desiredMatch, retrievedNode string
 
 	switch direction {
-	case models.Incoming: // Get parents
-		desiredMatch = "from_spec_id"
-		retrievedNode = "to_spec_id"
-	case models.Outgoing: // Get children
+	case models.Incoming: // we're matching on links "to" this spec and retrieving the "from" specs
 		desiredMatch = "to_spec_id"
 		retrievedNode = "from_spec_id"
+	case models.Outgoing: // we're matching on links "from" this spec and retrieving the "to" specs
+		desiredMatch = "from_spec_id"
+		retrievedNode = "to_spec_id"
 	default:
 		return nil, models.NewZammError(models.ErrTypeValidation, "invalid direction")
 	}
