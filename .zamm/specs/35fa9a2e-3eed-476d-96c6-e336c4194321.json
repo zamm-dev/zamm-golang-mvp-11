@@ -1,0 +1,5 @@
+{
+  "id": "35fa9a2e-3eed-476d-96c6-e336c4194321",
+  "title": "There should be a unified function for getting top-level and child specs",
+  "content": "Top-level specs are just specs without a parent. Use `GetChildSpecs` instead of both `GetChildSpecs` and `GetTopLevelSpecs`"
+}

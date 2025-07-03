@@ -1,0 +1,5 @@
+{
+  "id": "40df6389-ec28-4779-9675-d91b6b3c26c4",
+  "title": "Pressing `q` should quit the program",
+  "content": "This should be decoupled from the Esc key, which is used for hierarchical navigation"
+}

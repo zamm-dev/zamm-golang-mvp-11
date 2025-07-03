@@ -1,0 +1,5 @@
+{
+  "id": "22703eef-9164-436b-9b3b-8c95fa8d46e8",
+  "title": "Storage Layer",
+  "content": "A storage layer should exist in the form of a local SQLite database"
+}

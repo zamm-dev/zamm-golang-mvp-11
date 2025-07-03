@@ -1,0 +1,5 @@
+{
+  "id": "56f14b98-15b6-4872-bb52-524354c67b5a",
+  "title": "Export Data",
+  "content": "The CLI should support a command to export data.\n\nIt should export all data except for timestamps into a `.zamm` folder in the current directory. The exported folder should contain a `specs/` folder with a separate JSON file for each spec, a `spec-links.csv` file with links between specs (no link IDs needed), a `commit-links.csv` file with links between specs and commits (no link IDs needed), and a `project_metadata.json` file with project metadata (no `project_metadata.id` is needed, only the `root_spec_id`)."
+}

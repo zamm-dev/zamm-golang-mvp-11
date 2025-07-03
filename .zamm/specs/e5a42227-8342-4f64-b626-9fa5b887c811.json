@@ -1,0 +1,5 @@
+{
+  "id": "e5a42227-8342-4f64-b626-9fa5b887c811",
+  "title": "There should be a common spec selector element",
+  "content": "All spec selection logic, including that in the main spec list, should make use of this common element"
+}

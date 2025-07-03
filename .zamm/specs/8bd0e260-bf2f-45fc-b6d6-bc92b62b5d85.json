@@ -1,0 +1,5 @@
+{
+  "id": "8bd0e260-bf2f-45fc-b6d6-bc92b62b5d85",
+  "title": "Both panes should be the same constant width",
+  "content": "Their width should be independent of their content. If the content is too long, it should wrap. If the content is too short, it should be padded"
+}

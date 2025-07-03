@@ -1,0 +1,5 @@
+{
+  "id": "d6963cd6-6ef4-48fa-adcb-6371102f09fd",
+  "title": "Should be constrained to terminal height",
+  "content": "Otherwise, left side gets cut off as well"
+}

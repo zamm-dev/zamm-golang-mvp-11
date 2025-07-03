@@ -1,0 +1,5 @@
+{
+  "id": "67eddda3-767e-4b6d-8020-ae8451577c4e",
+  "title": "Child specs should be shown in the details for each spec",
+  "content": "This should show child spec names rather than their IDs"
+}
