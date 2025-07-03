@@ -19,15 +19,16 @@ type Storage interface {
 	// SpecCommitLink operations
 	CreateSpecCommitLink(link *models.SpecCommitLink) error
 	GetSpecCommitLinks(specID string) ([]*models.SpecCommitLink, error)
-	DeleteSpecCommitLink(id string) error
+	DeleteSpecCommitLink(specID string) error
+	DeleteSpecCommitLinkByFields(specID, commitID, repoPath string) error
 	GetLinksByCommit(commitID, repoPath string) ([]*models.SpecCommitLink, error)
 	GetLinksBySpec(specID string) ([]*models.SpecCommitLink, error)
-	DeleteLink(id string) error
+	DeleteLink(specID string) error
 
 	// SpecSpecLink operations
 	CreateSpecSpecLink(link *models.SpecSpecLink) error
 	GetSpecSpecLinks(specID string, direction models.Direction) ([]*models.SpecSpecLink, error)
-	DeleteSpecSpecLink(id string) error
+	DeleteSpecSpecLink(fromSpecID, toSpecID string) error
 	DeleteSpecLinkBySpecs(fromSpecID, toSpecID string) error
 
 	// Hierarchical operations

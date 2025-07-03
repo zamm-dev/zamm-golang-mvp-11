@@ -141,7 +141,6 @@ func (s *specService) AddChildToParent(childSpecID, parentSpecID string) (*model
 		LinkType:   "child",
 	}
 
-	link.ID = uuid.New().String()
 	if err := s.storage.CreateSpecSpecLink(link); err != nil {
 		return nil, err
 	}

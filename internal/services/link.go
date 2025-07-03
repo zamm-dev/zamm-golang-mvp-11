@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/yourorg/zamm-mvp/internal/models"
 	"github.com/yourorg/zamm-mvp/internal/storage"
 )
@@ -50,7 +49,6 @@ func (s *linkService) LinkSpecToCommit(specID, commitID, repoPath, linkType stri
 	}
 
 	link := &models.SpecCommitLink{
-		ID:       uuid.New().String(),
 		SpecID:   specID,
 		CommitID: strings.TrimSpace(commitID),
 		RepoPath: strings.TrimSpace(repoPath),
@@ -114,25 +112,7 @@ func (s *linkService) UnlinkSpecFromCommit(specID, commitID, repoPath string) er
 		return err
 	}
 
-	// Find the link to delete
-	links, err := s.storage.GetLinksBySpec(specID)
-	if err != nil {
-		return err
-	}
-
-	var linkToDelete *models.SpecCommitLink
-	for _, link := range links {
-		if link.CommitID == commitID && link.RepoPath == repoPath {
-			linkToDelete = link
-			break
-		}
-	}
-
-	if linkToDelete == nil {
-		return models.NewZammError(models.ErrTypeNotFound, fmt.Sprintf("no link found between spec %s and commit %s in repo %s", specID, commitID, repoPath))
-	}
-
-	return s.storage.DeleteLink(linkToDelete.ID)
+	return s.storage.DeleteSpecCommitLinkByFields(specID, commitID, repoPath)
 }
 
 // validateLinkInput validates input for link operations

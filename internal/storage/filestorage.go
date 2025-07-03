@@ -57,11 +57,11 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 	switch filename {
 	case "spec-links.csv":
 		return fs.writeCSVFile(path, [][]string{
-			{"id", "from_spec_id", "to_spec_id", "link_type", "created_at"},
+			{"from_spec_id", "to_spec_id", "link_type"},
 		})
 	case "commit-links.csv":
 		return fs.writeCSVFile(path, [][]string{
-			{"id", "spec_id", "commit_id", "repo_path", "link_type", "created_at"},
+			{"spec_id", "commit_id", "repo_path", "link_type"},
 		})
 	case "project_metadata.json":
 		metadata := models.ProjectMetadata{
@@ -175,12 +175,6 @@ func (fs *FileStorage) ListSpecNodes() ([]*models.SpecNode, error) {
 
 // CreateSpecCommitLink creates a new spec-commit link
 func (fs *FileStorage) CreateSpecCommitLink(link *models.SpecCommitLink) error {
-	if link.ID == "" {
-		return fmt.Errorf("link ID cannot be empty")
-	}
-
-	link.CreatedAt = time.Now()
-
 	links, err := fs.getAllSpecCommitLinks()
 	if err != nil {
 		return err
@@ -207,8 +201,8 @@ func (fs *FileStorage) GetSpecCommitLinks(specID string) ([]*models.SpecCommitLi
 	return links, nil
 }
 
-// DeleteSpecCommitLink deletes a spec-commit link
-func (fs *FileStorage) DeleteSpecCommitLink(id string) error {
+// DeleteSpecCommitLink deletes a spec-commit link by matching fields
+func (fs *FileStorage) DeleteSpecCommitLink(specID string) error {
 	links, err := fs.getAllSpecCommitLinks()
 	if err != nil {
 		return err
@@ -217,7 +211,31 @@ func (fs *FileStorage) DeleteSpecCommitLink(id string) error {
 	found := false
 	var filtered []*models.SpecCommitLink
 	for _, link := range links {
-		if link.ID != id {
+		if link.SpecID != specID {
+			filtered = append(filtered, link)
+		} else {
+			found = true
+		}
+	}
+
+	if !found {
+		return models.NewZammError(models.ErrTypeNotFound, "spec-commit link not found")
+	}
+
+	return fs.writeSpecCommitLinks(filtered)
+}
+
+// DeleteSpecCommitLinkByFields deletes a spec-commit link by matching all fields
+func (fs *FileStorage) DeleteSpecCommitLinkByFields(specID, commitID, repoPath string) error {
+	links, err := fs.getAllSpecCommitLinks()
+	if err != nil {
+		return err
+	}
+
+	found := false
+	var filtered []*models.SpecCommitLink
+	for _, link := range links {
+		if link.SpecID != specID || link.CommitID != commitID || link.RepoPath != repoPath {
 			filtered = append(filtered, link)
 		} else {
 			found = true
@@ -253,21 +271,15 @@ func (fs *FileStorage) GetLinksBySpec(specID string) ([]*models.SpecCommitLink, 
 	return fs.GetSpecCommitLinks(specID)
 }
 
-// DeleteLink deletes a spec-commit link by ID (alias for DeleteSpecCommitLink)
-func (fs *FileStorage) DeleteLink(id string) error {
-	return fs.DeleteSpecCommitLink(id)
+// DeleteLink deletes a spec-commit link by specID (alias for DeleteSpecCommitLink)
+func (fs *FileStorage) DeleteLink(specID string) error {
+	return fs.DeleteSpecCommitLink(specID)
 }
 
 // SpecSpecLink operations
 
 // CreateSpecSpecLink creates a new spec-spec link
 func (fs *FileStorage) CreateSpecSpecLink(link *models.SpecSpecLink) error {
-	if link.ID == "" {
-		return fmt.Errorf("link ID cannot be empty")
-	}
-
-	link.CreatedAt = time.Now()
-
 	links, err := fs.getAllSpecSpecLinks()
 	if err != nil {
 		return err
@@ -296,8 +308,8 @@ func (fs *FileStorage) GetSpecSpecLinks(specID string, direction models.Directio
 	return links, nil
 }
 
-// DeleteSpecSpecLink deletes a spec-spec link
-func (fs *FileStorage) DeleteSpecSpecLink(id string) error {
+// DeleteSpecSpecLink deletes a spec-spec link by matching fields
+func (fs *FileStorage) DeleteSpecSpecLink(fromSpecID, toSpecID string) error {
 	links, err := fs.getAllSpecSpecLinks()
 	if err != nil {
 		return err
@@ -306,7 +318,7 @@ func (fs *FileStorage) DeleteSpecSpecLink(id string) error {
 	found := false
 	var filtered []*models.SpecSpecLink
 	for _, link := range links {
-		if link.ID != id {
+		if link.FromSpecID != fromSpecID || link.ToSpecID != toSpecID {
 			filtered = append(filtered, link)
 		} else {
 			found = true
@@ -454,18 +466,15 @@ func (fs *FileStorage) getAllSpecCommitLinks() ([]*models.SpecCommitLink, error)
 			continue // Skip header
 		}
 
-		if len(record) < 6 {
+		if len(record) < 4 {
 			continue // Skip invalid records
 		}
 
-		createdAt, _ := time.Parse(time.RFC3339, record[5])
 		link := &models.SpecCommitLink{
-			ID:        record[0],
-			SpecID:    record[1],
-			CommitID:  record[2],
-			RepoPath:  record[3],
-			LinkType:  record[4],
-			CreatedAt: createdAt,
+			SpecID:   record[0],
+			CommitID: record[1],
+			RepoPath: record[2],
+			LinkType: record[3],
 		}
 		links = append(links, link)
 	}
@@ -478,17 +487,15 @@ func (fs *FileStorage) writeSpecCommitLinks(links []*models.SpecCommitLink) erro
 	path := filepath.Join(fs.baseDir, "commit-links.csv")
 	
 	records := [][]string{
-		{"id", "spec_id", "commit_id", "repo_path", "link_type", "created_at"},
+		{"spec_id", "commit_id", "repo_path", "link_type"},
 	}
 
 	for _, link := range links {
 		records = append(records, []string{
-			link.ID,
 			link.SpecID,
 			link.CommitID,
 			link.RepoPath,
 			link.LinkType,
-			link.CreatedAt.Format(time.RFC3339),
 		})
 	}
 
@@ -509,17 +516,14 @@ func (fs *FileStorage) getAllSpecSpecLinks() ([]*models.SpecSpecLink, error) {
 			continue // Skip header
 		}
 
-		if len(record) < 5 {
+		if len(record) < 3 {
 			continue // Skip invalid records
 		}
 
-		createdAt, _ := time.Parse(time.RFC3339, record[4])
 		link := &models.SpecSpecLink{
-			ID:         record[0],
-			FromSpecID: record[1],
-			ToSpecID:   record[2],
-			LinkType:   record[3],
-			CreatedAt:  createdAt,
+			FromSpecID: record[0],
+			ToSpecID:   record[1],
+			LinkType:   record[2],
 		}
 		links = append(links, link)
 	}
@@ -532,16 +536,14 @@ func (fs *FileStorage) writeSpecSpecLinks(links []*models.SpecSpecLink) error {
 	path := filepath.Join(fs.baseDir, "spec-links.csv")
 	
 	records := [][]string{
-		{"id", "from_spec_id", "to_spec_id", "link_type", "created_at"},
+		{"from_spec_id", "to_spec_id", "link_type"},
 	}
 
 	for _, link := range links {
 		records = append(records, []string{
-			link.ID,
 			link.FromSpecID,
 			link.ToSpecID,
 			link.LinkType,
-			link.CreatedAt.Format(time.RFC3339),
 		})
 	}
 
