@@ -145,9 +145,9 @@ func New(linkService LinkService) Model {
 
 	// Initialize table for commits
 	columns := []table.Column{
-		{Title: "COMMIT", Width: 16},
+		{Title: "TYPE", Width: 4},
+		{Title: "COMMIT", Width: 8},
 		{Title: "REPO", Width: 16},
-		{Title: "TYPE", Width: 12},
 		{Title: "CREATED", Width: 16},
 	}
 
@@ -155,7 +155,7 @@ func New(linkService LinkService) Model {
 		table.WithColumns(columns),
 		table.WithRows([]table.Row{}),
 		table.WithFocused(false),
-		table.WithHeight(7),
+		table.WithHeight(5),
 	)
 
 	// Set table styles
@@ -166,8 +166,7 @@ func New(linkService LinkService) Model {
 		BorderBottom(true).
 		Bold(false)
 	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
+		Foreground(lipgloss.Color("0")).
 		Bold(false)
 	commitsTable.SetStyles(s)
 
@@ -204,19 +203,12 @@ func (m *Model) SetSize(width, height int) {
 	m.viewport.Width = m.paneWidth()
 	m.viewport.Height = m.height
 
-	// Update table column widths based on pane width
-	paneWidth := m.paneWidth()
-	// Account for table borders, padding, and margins (approximately 6-8 chars total)
-	availableWidth := paneWidth - 8
-	if availableWidth < 40 {
-		availableWidth = 40 // minimum usable width
-	}
-
+	tableWidth := m.paneWidth()
 	columns := []table.Column{
-		{Title: "COMMIT", Width: max(12, availableWidth/4)},
-		{Title: "REPO", Width: max(12, availableWidth/4)},
-		{Title: "TYPE", Width: max(8, availableWidth/6)},
-		{Title: "CREATED", Width: max(12, availableWidth/4)},
+		{Title: "TYPE", Width: 4},
+		{Title: "COMMIT", Width: 8},
+		{Title: "REPO", Width: tableWidth - 28 - 9},
+		{Title: "CREATED", Width: 16},
 	}
 	m.table.SetColumns(columns)
 }
@@ -458,23 +450,23 @@ func (m *Model) updateCommitsTable() {
 	rows := make([]table.Row, len(m.links))
 	for i, link := range m.links {
 		commitID := link.CommitID
-		if len(commitID) > 12 {
-			commitID = commitID[:12] + "..."
-		}
 		repo := link.RepoPath
-		if len(repo) > 14 {
-			repo = repo[:11] + "..."
-		}
-		linkType := link.LinkType
-		if len(linkType) > 10 {
-			linkType = linkType[:7] + "..."
+		var linkType string
+		switch link.LinkType {
+		case "implements":
+			linkType = "IMPL"
+		case "fixes":
+			linkType = "FIX"
+		default:
+			linkType = link.LinkType
 		}
 		created := link.CreatedAt.Format("2006-01-02 15:04")
 
-		rows[i] = table.Row{commitID, repo, linkType, created}
+		rows[i] = table.Row{linkType, commitID, repo, created}
 	}
 
 	m.table.SetRows(rows)
+	m.table.SetHeight(len(rows) + 2) // +2 for header and separator
 }
 
 // generateRightPaneContent generates the content for the right pane viewport
@@ -488,18 +480,14 @@ func (m *Model) generateRightPaneContent() string {
 	if isCurrentNodeActive {
 		contentBuilder.WriteString("Select a child specification to view its details\n\n")
 	} else {
-		contentBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth)))
-		contentBuilder.WriteString(m.activeSpec.Content)
-		contentBuilder.WriteString("\n\nLinked Commits:\n")
+		contentBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n%s\n\n", m.activeSpec.Title, strings.Repeat("=", paneWidth), m.activeSpec.Content))
+
 		if len(m.links) == 0 {
-			contentBuilder.WriteString("  (none)\n")
+			contentBuilder.WriteString("[No linked commits found]\n")
 		} else {
 			// Use the table component for displaying commits
 			// The table already has its own borders, so we don't need to add additional styling
-			// Just add some left margin to align with the content
-			tableView := m.table.View()
-			tableWithMargin := lipgloss.NewStyle().MarginLeft(1).Render(tableView)
-			contentBuilder.WriteString(tableWithMargin)
+			contentBuilder.WriteString(m.table.View())
 		}
 
 		contentBuilder.WriteString("\n\nChild Specifications:\n")
