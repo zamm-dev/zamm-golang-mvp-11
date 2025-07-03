@@ -15,11 +15,8 @@ const (
 // SpecNode represents a specification node in the system
 type SpecNode struct {
 	ID        string    `json:"id" db:"id"`
-	StableID  string    `json:"stable_id" db:"stable_id"`
-	Version   int       `json:"version" db:"version"`
 	Title     string    `json:"title" db:"title"`
 	Content   string    `json:"content" db:"content"`
-	NodeType  string    `json:"node_type" db:"node_type"` // Always "spec" for MVP
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }

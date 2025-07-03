@@ -31,6 +31,7 @@ func (m *MigrationService) RunMigrationsIfNeeded() error {
 	// Get database path from the connection string
 	rows, err := m.db.Query("PRAGMA database_list")
 	if err != nil {
+		fmt.Printf("[ERROR] Failed to get database info: %v\n", err)
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get database info", err)
 	}
 	defer rows.Close()
@@ -39,6 +40,7 @@ func (m *MigrationService) RunMigrationsIfNeeded() error {
 	var name, file string
 	if rows.Next() {
 		if err := rows.Scan(&seq, &name, &file); err != nil {
+			fmt.Printf("[ERROR] Failed to scan database info: %v\n", err)
 			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to scan database info", err)
 		}
 	}
@@ -47,6 +49,7 @@ func (m *MigrationService) RunMigrationsIfNeeded() error {
 	// Create source driver from embedded files
 	sourceDriver, err := iofs.New(migrationFiles, "migrations")
 	if err != nil {
+		fmt.Printf("[ERROR] Failed to create source driver: %v\n", err)
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create source driver", err)
 	}
 
@@ -54,6 +57,7 @@ func (m *MigrationService) RunMigrationsIfNeeded() error {
 	databaseURL := fmt.Sprintf("sqlite3://%s", file)
 	migrateInstance, err := migrate.NewWithSourceInstance("iofs", sourceDriver, databaseURL)
 	if err != nil {
+		fmt.Printf("[ERROR] Failed to create migrate instance: %v\n", err)
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create migrate instance", err)
 	}
 	defer migrateInstance.Close()
@@ -61,22 +65,29 @@ func (m *MigrationService) RunMigrationsIfNeeded() error {
 	// Get current version
 	currentVersion, dirty, err := migrateInstance.Version()
 	if err != nil && err != migrate.ErrNilVersion {
+		fmt.Printf("[ERROR] Failed to get migration version: %v\n", err)
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get migration version", err)
 	}
 
 	if dirty {
+		fmt.Printf("[ERROR] Database is in dirty state, manual intervention required\n")
 		return models.NewZammError(models.ErrTypeStorage, "database is in dirty state, manual intervention required")
 	}
 
 	// Run migrations to latest version
 	err = migrateInstance.Up()
 	if err != nil && err != migrate.ErrNoChange {
+		fmt.Printf("[ERROR] Migration error: %T: %v\n", err, err)
+		if serr, ok := err.(interface{ Unwrap() error }); ok {
+			fmt.Printf("[ERROR] Migration underlying error: %v\n", serr.Unwrap())
+		}
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to run migrations", err)
 	}
 
 	// Get new version to report what happened
 	newVersion, _, err := migrateInstance.Version()
 	if err != nil && err != migrate.ErrNilVersion {
+		fmt.Printf("[ERROR] Failed to get new migration version: %v\n", err)
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get new migration version", err)
 	}
 

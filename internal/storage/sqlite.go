@@ -47,26 +47,17 @@ func (s *SQLiteStorage) CreateSpec(spec *models.SpecNode) error {
 	if spec.ID == "" {
 		spec.ID = uuid.New().String()
 	}
-	if spec.StableID == "" {
-		spec.StableID = uuid.New().String()
-	}
-	if spec.Version == 0 {
-		spec.Version = 1
-	}
-	if spec.NodeType == "" {
-		spec.NodeType = "spec"
-	}
 
 	now := time.Now()
 	spec.CreatedAt = now
 	spec.UpdatedAt = now
 
 	query := `
-		INSERT INTO spec_nodes (id, stable_id, version, title, content, node_type, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO spec_nodes (id, title, content, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?)
 	`
 
-	_, err := s.db.Exec(query, spec.ID, spec.StableID, spec.Version, spec.Title, spec.Content, spec.NodeType, spec.CreatedAt, spec.UpdatedAt)
+	_, err := s.db.Exec(query, spec.ID, spec.Title, spec.Content, spec.CreatedAt, spec.UpdatedAt)
 	if err != nil {
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create spec", err)
 	}
@@ -77,14 +68,13 @@ func (s *SQLiteStorage) CreateSpec(spec *models.SpecNode) error {
 // GetSpec retrieves a specification by ID
 func (s *SQLiteStorage) GetSpec(id string) (*models.SpecNode, error) {
 	query := `
-		SELECT id, stable_id, version, title, content, node_type, created_at, updated_at
+		SELECT id, title, content, created_at, updated_at
 		FROM spec_nodes WHERE id = ?
 	`
 
 	var spec models.SpecNode
 	err := s.db.QueryRow(query, id).Scan(
-		&spec.ID, &spec.StableID, &spec.Version, &spec.Title,
-		&spec.Content, &spec.NodeType, &spec.CreatedAt, &spec.UpdatedAt,
+		&spec.ID, &spec.Title, &spec.Content, &spec.CreatedAt, &spec.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -97,56 +87,10 @@ func (s *SQLiteStorage) GetSpec(id string) (*models.SpecNode, error) {
 	return &spec, nil
 }
 
-// GetSpecByStableID retrieves a specification by stable ID and version
-func (s *SQLiteStorage) GetSpecByStableID(stableID string, version int) (*models.SpecNode, error) {
-	query := `
-		SELECT id, stable_id, version, title, content, node_type, created_at, updated_at
-		FROM spec_nodes WHERE stable_id = ? AND version = ?
-	`
-
-	var spec models.SpecNode
-	err := s.db.QueryRow(query, stableID, version).Scan(
-		&spec.ID, &spec.StableID, &spec.Version, &spec.Title,
-		&spec.Content, &spec.NodeType, &spec.CreatedAt, &spec.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, models.NewZammError(models.ErrTypeNotFound, fmt.Sprintf("spec with stable ID %s version %d not found", stableID, version))
-	}
-	if err != nil {
-		return nil, models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get spec by stable ID", err)
-	}
-
-	return &spec, nil
-}
-
-// GetLatestSpecByStableID retrieves the latest version of a specification by stable ID
-func (s *SQLiteStorage) GetLatestSpecByStableID(stableID string) (*models.SpecNode, error) {
-	query := `
-		SELECT id, stable_id, version, title, content, node_type, created_at, updated_at
-		FROM spec_nodes WHERE stable_id = ? ORDER BY version DESC LIMIT 1
-	`
-
-	var spec models.SpecNode
-	err := s.db.QueryRow(query, stableID).Scan(
-		&spec.ID, &spec.StableID, &spec.Version, &spec.Title,
-		&spec.Content, &spec.NodeType, &spec.CreatedAt, &spec.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, models.NewZammError(models.ErrTypeNotFound, fmt.Sprintf("spec with stable ID %s not found", stableID))
-	}
-	if err != nil {
-		return nil, models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get latest spec by stable ID", err)
-	}
-
-	return &spec, nil
-}
-
 // ListSpecs retrieves all specifications
 func (s *SQLiteStorage) ListSpecs() ([]*models.SpecNode, error) {
 	query := `
-		SELECT id, stable_id, version, title, content, node_type, created_at, updated_at
+		SELECT id, title, content, created_at, updated_at
 		FROM spec_nodes ORDER BY created_at DESC
 	`
 
@@ -160,8 +104,7 @@ func (s *SQLiteStorage) ListSpecs() ([]*models.SpecNode, error) {
 	for rows.Next() {
 		var spec models.SpecNode
 		err := rows.Scan(
-			&spec.ID, &spec.StableID, &spec.Version, &spec.Title,
-			&spec.Content, &spec.NodeType, &spec.CreatedAt, &spec.UpdatedAt,
+			&spec.ID, &spec.Title, &spec.Content, &spec.CreatedAt, &spec.UpdatedAt,
 		)
 		if err != nil {
 			return nil, models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to scan spec row", err)
@@ -378,6 +321,7 @@ func (s *SQLiteStorage) CreateSpecLink(link *models.SpecSpecLink) error {
 
 	_, err = s.db.Exec(query, link.ID, link.FromSpecID, link.ToSpecID, link.LinkType, link.CreatedAt)
 	if err != nil {
+		fmt.Println("[DEBUG] Error creating spec link:", err)
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create spec link", err)
 	}
 
@@ -420,7 +364,7 @@ func (s *SQLiteStorage) GetLinkedSpecs(specID string, direction models.Direction
 	}
 
 	query := fmt.Sprintf(`
-		SELECT sn.id, sn.stable_id, sn.version, sn.title, sn.content, sn.node_type, sn.created_at, sn.updated_at
+		SELECT sn.id, sn.title, sn.content, sn.created_at, sn.updated_at
 		FROM spec_nodes sn
 		INNER JOIN spec_spec_links ssl ON sn.id = ssl.%s
 		WHERE ssl.%s = ? AND ssl.link_type = 'child'
@@ -436,8 +380,7 @@ func (s *SQLiteStorage) GetLinkedSpecs(specID string, direction models.Direction
 	for rows.Next() {
 		var spec models.SpecNode
 		err := rows.Scan(
-			&spec.ID, &spec.StableID, &spec.Version, &spec.Title,
-			&spec.Content, &spec.NodeType, &spec.CreatedAt, &spec.UpdatedAt,
+			&spec.ID, &spec.Title, &spec.Content, &spec.CreatedAt, &spec.UpdatedAt,
 		)
 		if err != nil {
 			return nil, models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to scan spec row", err)
@@ -620,7 +563,7 @@ func (s *SQLiteStorage) Close() error {
 // (i.e., specs that are not children of any parent)
 func (s *SQLiteStorage) GetOrphanSpecs() ([]*models.SpecNode, error) {
 	query := `
-		SELECT s.id, s.stable_id, s.version, s.title, s.content, s.node_type, s.created_at, s.updated_at
+		SELECT s.id, s.title, s.content, s.created_at, s.updated_at
 		FROM spec_nodes s
 		LEFT JOIN spec_spec_links ssl ON s.id = ssl.from_spec_id AND ssl.link_type = 'child'
 		WHERE ssl.from_spec_id IS NULL
@@ -638,11 +581,8 @@ func (s *SQLiteStorage) GetOrphanSpecs() ([]*models.SpecNode, error) {
 		spec := &models.SpecNode{}
 		err := rows.Scan(
 			&spec.ID,
-			&spec.StableID,
-			&spec.Version,
 			&spec.Title,
 			&spec.Content,
-			&spec.NodeType,
 			&spec.CreatedAt,
 			&spec.UpdatedAt,
 		)

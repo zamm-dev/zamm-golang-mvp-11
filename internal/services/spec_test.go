@@ -43,12 +43,9 @@ func setupTestService(t *testing.T) (SpecService, func()) {
 // createTestSpec creates a test specification
 func createTestSpec(title, content string) *models.SpecNode {
 	return &models.SpecNode{
-		ID:       uuid.New().String(),
-		StableID: uuid.New().String(),
-		Version:  1,
-		Title:    title,
-		Content:  content,
-		NodeType: "spec",
+		ID:      uuid.New().String(),
+		Title:   title,
+		Content: content,
 	}
 }
 

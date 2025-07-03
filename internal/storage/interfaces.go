@@ -7,8 +7,6 @@ type Storage interface {
 	// Spec operations
 	CreateSpec(spec *models.SpecNode) error
 	GetSpec(id string) (*models.SpecNode, error)
-	GetSpecByStableID(stableID string, version int) (*models.SpecNode, error)
-	GetLatestSpecByStableID(stableID string) (*models.SpecNode, error)
 	ListSpecs() ([]*models.SpecNode, error)
 	UpdateSpec(spec *models.SpecNode) error
 	DeleteSpec(id string) error

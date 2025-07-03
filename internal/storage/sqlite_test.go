@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"database/sql"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -11,102 +11,36 @@ import (
 	"github.com/yourorg/zamm-mvp/internal/models"
 )
 
-// TestSuite holds common test setup
-type TestSuite struct {
-	storage *SQLiteStorage
-	db      *sql.DB
-}
-
-// setupTestDB creates a new in-memory SQLite database for testing
-func setupTestDB(t *testing.T) *TestSuite {
+// setupTestService creates a new test storage with temporary database
+func setupTestService(t *testing.T) (*SQLiteStorage, func()) {
 	t.Helper()
 
-	// Use in-memory database for tests
-	storage, err := NewSQLiteStorage(":memory:")
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	storage, err := NewSQLiteStorage(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create test storage: %v", err)
 	}
 
-	// Run migrations
-	err = runMigrations(storage.db)
+	err = storage.RunMigrationsIfNeeded()
 	if err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	return &TestSuite{
-		storage: storage,
-		db:      storage.db,
+	cleanup := func() {
+		storage.Close()
+		// os.RemoveAll(tmpDir)
 	}
-}
 
-// runMigrations applies the database schema
-func runMigrations(db *sql.DB) error {
-	schema := `
-	CREATE TABLE spec_nodes (
-		id TEXT PRIMARY KEY,
-		stable_id TEXT NOT NULL,
-		version INTEGER NOT NULL,
-		title TEXT NOT NULL,
-		content TEXT NOT NULL,
-		node_type TEXT NOT NULL DEFAULT 'spec',
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		UNIQUE(stable_id, version)
-	);
-
-	CREATE INDEX idx_spec_nodes_stable_id ON spec_nodes(stable_id);
-	CREATE INDEX idx_spec_nodes_created_at ON spec_nodes(created_at);
-
-	CREATE TABLE spec_commit_links (
-		id TEXT PRIMARY KEY,
-		spec_id TEXT NOT NULL,
-		commit_id TEXT NOT NULL,
-		repo_path TEXT NOT NULL,
-		link_type TEXT NOT NULL DEFAULT 'implements',
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (spec_id) REFERENCES spec_nodes(id) ON DELETE CASCADE,
-		UNIQUE(spec_id, commit_id, repo_path)
-	);
-
-	CREATE INDEX idx_links_spec_id ON spec_commit_links(spec_id);
-	CREATE INDEX idx_links_commit_id ON spec_commit_links(commit_id);
-	CREATE INDEX idx_links_repo_path ON spec_commit_links(repo_path);
-
-	CREATE TABLE spec_spec_links (
-		id TEXT PRIMARY KEY,
-		from_spec_id TEXT NOT NULL,
-		to_spec_id TEXT NOT NULL,
-		link_type TEXT NOT NULL DEFAULT 'child',
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (from_spec_id) REFERENCES spec_nodes(id) ON DELETE CASCADE,
-		FOREIGN KEY (to_spec_id) REFERENCES spec_nodes(id) ON DELETE CASCADE,
-		UNIQUE(from_spec_id, to_spec_id),
-		CHECK(from_spec_id != to_spec_id)
-	);
-
-	CREATE INDEX idx_spec_spec_links_from ON spec_spec_links(from_spec_id);
-	CREATE INDEX idx_spec_spec_links_to ON spec_spec_links(to_spec_id);
-	CREATE INDEX idx_spec_spec_links_type ON spec_spec_links(link_type);
-	`
-
-	_, err := db.Exec(schema)
-	return err
-}
-
-// teardownTestDB cleans up the test database
-func (ts *TestSuite) teardown(t *testing.T) {
-	t.Helper()
-	if err := ts.storage.Close(); err != nil {
-		t.Errorf("Failed to close test storage: %v", err)
-	}
+	return storage, cleanup
 }
 
 // createTestSpec creates a test specification with default values
 func createTestSpec() *models.SpecNode {
 	return &models.SpecNode{
-		Title:    "Test Spec",
-		Content:  "This is a test specification",
-		NodeType: "spec",
+		Title:   "Test Spec",
+		Content: "This is a test specification",
 	}
 }
 
@@ -151,11 +85,11 @@ func TestNewSQLiteStorage(t *testing.T) {
 // Test CreateSpec
 func TestCreateSpec(t *testing.T) {
 	t.Run("success with valid spec", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -163,15 +97,6 @@ func TestCreateSpec(t *testing.T) {
 		// Verify spec was created with auto-generated fields
 		if spec.ID == "" {
 			t.Error("Expected ID to be generated")
-		}
-		if spec.StableID == "" {
-			t.Error("Expected StableID to be generated")
-		}
-		if spec.Version != 1 {
-			t.Errorf("Expected version 1, got %d", spec.Version)
-		}
-		if spec.NodeType != "spec" {
-			t.Errorf("Expected node_type 'spec', got %s", spec.NodeType)
 		}
 		if spec.CreatedAt.IsZero() {
 			t.Error("Expected CreatedAt to be set")
@@ -182,67 +107,23 @@ func TestCreateSpec(t *testing.T) {
 	})
 
 	t.Run("success with pre-filled fields", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		spec := &models.SpecNode{
-			ID:       uuid.New().String(),
-			StableID: uuid.New().String(),
-			Version:  2,
-			Title:    "Pre-filled Spec",
-			Content:  "Content",
-			NodeType: "spec",
+			ID:      uuid.New().String(),
+			Title:   "Pre-filled Spec",
+			Content: "Content",
 		}
 
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		// Verify original values were preserved
-		if spec.Version != 2 {
-			t.Errorf("Expected version 2, got %d", spec.Version)
-		}
-	})
-
-	t.Run("error with duplicate stable_id and version", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
-
-		stableID := uuid.New().String()
-
-		spec1 := &models.SpecNode{
-			StableID: stableID,
-			Version:  1,
-			Title:    "First Spec",
-			Content:  "Content 1",
-		}
-
-		spec2 := &models.SpecNode{
-			StableID: stableID,
-			Version:  1,
-			Title:    "Second Spec",
-			Content:  "Content 2",
-		}
-
-		// First create should succeed
-		err := ts.storage.CreateSpec(spec1)
-		if err != nil {
-			t.Fatalf("Expected no error for first spec, got %v", err)
-		}
-
-		// Second create with same stable_id and version should fail
-		err = ts.storage.CreateSpec(spec2)
-		if err == nil {
-			t.Fatal("Expected error for duplicate stable_id and version")
-		}
-
-		zammErr, ok := err.(*models.ZammError)
-		if !ok {
-			t.Fatalf("Expected ZammError, got %T", err)
-		}
-		if zammErr.Type != models.ErrTypeStorage {
-			t.Errorf("Expected storage error, got %v", zammErr.Type)
+		if spec.Title != "Pre-filled Spec" {
+			t.Errorf("Expected title 'Pre-filled Spec', got %s", spec.Title)
 		}
 	})
 }
@@ -250,18 +131,18 @@ func TestCreateSpec(t *testing.T) {
 // Test GetSpec
 func TestGetSpec(t *testing.T) {
 	t.Run("success with existing spec", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create test spec
 		original := createTestSpec()
-		err := ts.storage.CreateSpec(original)
+		err := storage.CreateSpec(original)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
 
 		// Retrieve spec
-		retrieved, err := ts.storage.GetSpec(original.ID)
+		retrieved, err := storage.GetSpec(original.ID)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -269,9 +150,6 @@ func TestGetSpec(t *testing.T) {
 		// Verify all fields match
 		if retrieved.ID != original.ID {
 			t.Errorf("Expected ID %s, got %s", original.ID, retrieved.ID)
-		}
-		if retrieved.StableID != original.StableID {
-			t.Errorf("Expected StableID %s, got %s", original.StableID, retrieved.StableID)
 		}
 		if retrieved.Title != original.Title {
 			t.Errorf("Expected title %s, got %s", original.Title, retrieved.Title)
@@ -282,181 +160,13 @@ func TestGetSpec(t *testing.T) {
 	})
 
 	t.Run("error with non-existent spec", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		nonExistentID := uuid.New().String()
-		_, err := ts.storage.GetSpec(nonExistentID)
+		_, err := storage.GetSpec(nonExistentID)
 		if err == nil {
 			t.Fatal("Expected error for non-existent spec")
-		}
-
-		zammErr, ok := err.(*models.ZammError)
-		if !ok {
-			t.Fatalf("Expected ZammError, got %T", err)
-		}
-		if zammErr.Type != models.ErrTypeNotFound {
-			t.Errorf("Expected not found error, got %v", zammErr.Type)
-		}
-	})
-}
-
-// Test GetSpecByStableID
-func TestGetSpecByStableID(t *testing.T) {
-	t.Run("success with existing spec", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
-
-		// Create test spec with specific stable ID
-		stableID := uuid.New().String()
-		original := &models.SpecNode{
-			StableID: stableID,
-			Version:  1,
-			Title:    "Version 1 Spec",
-			Content:  "Version 1 content",
-		}
-		err := ts.storage.CreateSpec(original)
-		if err != nil {
-			t.Fatalf("Failed to create test spec: %v", err)
-		}
-
-		// Retrieve by stable ID and version
-		retrieved, err := ts.storage.GetSpecByStableID(stableID, 1)
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-
-		if retrieved.StableID != stableID {
-			t.Errorf("Expected StableID %s, got %s", stableID, retrieved.StableID)
-		}
-		if retrieved.Version != 1 {
-			t.Errorf("Expected version 1, got %d", retrieved.Version)
-		}
-	})
-
-	t.Run("error with non-existent stable ID", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
-
-		nonExistentID := uuid.New().String()
-		_, err := ts.storage.GetSpecByStableID(nonExistentID, 1)
-		if err == nil {
-			t.Fatal("Expected error for non-existent stable ID")
-		}
-
-		zammErr, ok := err.(*models.ZammError)
-		if !ok {
-			t.Fatalf("Expected ZammError, got %T", err)
-		}
-		if zammErr.Type != models.ErrTypeNotFound {
-			t.Errorf("Expected not found error, got %v", zammErr.Type)
-		}
-	})
-
-	t.Run("error with non-existent version", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
-
-		// Create spec with version 1
-		stableID := uuid.New().String()
-		spec := &models.SpecNode{
-			StableID: stableID,
-			Version:  1,
-			Title:    "Version 1 Spec",
-			Content:  "Content",
-		}
-		err := ts.storage.CreateSpec(spec)
-		if err != nil {
-			t.Fatalf("Failed to create test spec: %v", err)
-		}
-
-		// Try to get version 2 (doesn't exist)
-		_, err = ts.storage.GetSpecByStableID(stableID, 2)
-		if err == nil {
-			t.Fatal("Expected error for non-existent version")
-		}
-
-		zammErr, ok := err.(*models.ZammError)
-		if !ok {
-			t.Fatalf("Expected ZammError, got %T", err)
-		}
-		if zammErr.Type != models.ErrTypeNotFound {
-			t.Errorf("Expected not found error, got %v", zammErr.Type)
-		}
-	})
-}
-
-// Test GetLatestSpecByStableID
-func TestGetLatestSpecByStableID(t *testing.T) {
-	t.Run("success with single version", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
-
-		stableID := uuid.New().String()
-		spec := &models.SpecNode{
-			StableID: stableID,
-			Version:  1,
-			Title:    "Only Version",
-			Content:  "Content",
-		}
-		err := ts.storage.CreateSpec(spec)
-		if err != nil {
-			t.Fatalf("Failed to create test spec: %v", err)
-		}
-
-		latest, err := ts.storage.GetLatestSpecByStableID(stableID)
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-
-		if latest.Version != 1 {
-			t.Errorf("Expected version 1, got %d", latest.Version)
-		}
-	})
-
-	t.Run("success with multiple versions", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
-
-		stableID := uuid.New().String()
-
-		// Create multiple versions
-		for i := 1; i <= 3; i++ {
-			spec := &models.SpecNode{
-				StableID: stableID,
-				Version:  i,
-				Title:    fmt.Sprintf("Version %d", i),
-				Content:  fmt.Sprintf("Content %d", i),
-			}
-			err := ts.storage.CreateSpec(spec)
-			if err != nil {
-				t.Fatalf("Failed to create spec version %d: %v", i, err)
-			}
-			// Add small delay to ensure created_at ordering
-			time.Sleep(time.Millisecond)
-		}
-
-		latest, err := ts.storage.GetLatestSpecByStableID(stableID)
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-
-		if latest.Version != 3 {
-			t.Errorf("Expected version 3, got %d", latest.Version)
-		}
-		if latest.Title != "Version 3" {
-			t.Errorf("Expected title 'Version 3', got %s", latest.Title)
-		}
-	})
-
-	t.Run("error with non-existent stable ID", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
-
-		nonExistentID := uuid.New().String()
-		_, err := ts.storage.GetLatestSpecByStableID(nonExistentID)
-		if err == nil {
-			t.Fatal("Expected error for non-existent stable ID")
 		}
 
 		zammErr, ok := err.(*models.ZammError)
@@ -472,10 +182,10 @@ func TestGetLatestSpecByStableID(t *testing.T) {
 // Test ListSpecs
 func TestListSpecs(t *testing.T) {
 	t.Run("success with empty database", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
-		specs, err := ts.storage.ListSpecs()
+		specs, err := storage.ListSpecs()
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -486,8 +196,8 @@ func TestListSpecs(t *testing.T) {
 	})
 
 	t.Run("success with multiple specs", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create multiple specs
 		expectedCount := 3
@@ -496,14 +206,14 @@ func TestListSpecs(t *testing.T) {
 				Title:   fmt.Sprintf("Spec %d", i),
 				Content: fmt.Sprintf("Content %d", i),
 			}
-			err := ts.storage.CreateSpec(spec)
+			err := storage.CreateSpec(spec)
 			if err != nil {
 				t.Fatalf("Failed to create spec %d: %v", i, err)
 			}
 			time.Sleep(time.Millisecond) // Ensure different created_at times
 		}
 
-		specs, err := ts.storage.ListSpecs()
+		specs, err := storage.ListSpecs()
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -524,12 +234,12 @@ func TestListSpecs(t *testing.T) {
 // Test UpdateSpec
 func TestUpdateSpec(t *testing.T) {
 	t.Run("success with existing spec", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create original spec
 		original := createTestSpec()
-		err := ts.storage.CreateSpec(original)
+		err := storage.CreateSpec(original)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
@@ -539,7 +249,7 @@ func TestUpdateSpec(t *testing.T) {
 		original.Content = "Updated Content"
 		originalUpdatedAt := original.UpdatedAt
 
-		err = ts.storage.UpdateSpec(original)
+		err = storage.UpdateSpec(original)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -550,7 +260,7 @@ func TestUpdateSpec(t *testing.T) {
 		}
 
 		// Retrieve and verify changes
-		retrieved, err := ts.storage.GetSpec(original.ID)
+		retrieved, err := storage.GetSpec(original.ID)
 		if err != nil {
 			t.Fatalf("Failed to retrieve updated spec: %v", err)
 		}
@@ -564,8 +274,8 @@ func TestUpdateSpec(t *testing.T) {
 	})
 
 	t.Run("error with non-existent spec", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		nonExistentSpec := &models.SpecNode{
 			ID:      uuid.New().String(),
@@ -573,7 +283,7 @@ func TestUpdateSpec(t *testing.T) {
 			Content: "Content",
 		}
 
-		err := ts.storage.UpdateSpec(nonExistentSpec)
+		err := storage.UpdateSpec(nonExistentSpec)
 		if err == nil {
 			t.Fatal("Expected error for non-existent spec")
 		}
@@ -591,24 +301,24 @@ func TestUpdateSpec(t *testing.T) {
 // Test DeleteSpec
 func TestDeleteSpec(t *testing.T) {
 	t.Run("success with existing spec", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create test spec
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
 
 		// Delete spec
-		err = ts.storage.DeleteSpec(spec.ID)
+		err = storage.DeleteSpec(spec.ID)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		// Verify spec is gone
-		_, err = ts.storage.GetSpec(spec.ID)
+		_, err = storage.GetSpec(spec.ID)
 		if err == nil {
 			t.Fatal("Expected error when getting deleted spec")
 		}
@@ -623,41 +333,41 @@ func TestDeleteSpec(t *testing.T) {
 	})
 
 	t.Run("success cascades to links", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create spec and link
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
 
 		link := createTestLink(spec.ID)
-		err = ts.storage.CreateLink(link)
+		err = storage.CreateLink(link)
 		if err != nil {
 			t.Fatalf("Failed to create test link: %v", err)
 		}
 
 		// Delete spec
-		err = ts.storage.DeleteSpec(spec.ID)
+		err = storage.DeleteSpec(spec.ID)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		// Verify link is also gone (cascade delete)
-		_, err = ts.storage.GetLink(link.ID)
+		_, err = storage.GetLink(link.ID)
 		if err == nil {
 			t.Fatal("Expected error when getting link for deleted spec")
 		}
 	})
 
 	t.Run("error with non-existent spec", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		nonExistentID := uuid.New().String()
-		err := ts.storage.DeleteSpec(nonExistentID)
+		err := storage.DeleteSpec(nonExistentID)
 		if err == nil {
 			t.Fatal("Expected error for non-existent spec")
 		}
@@ -675,19 +385,19 @@ func TestDeleteSpec(t *testing.T) {
 // Test CreateLink
 func TestCreateLink(t *testing.T) {
 	t.Run("success with valid link", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create spec first
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
 
 		// Create link
 		link := createTestLink(spec.ID)
-		err = ts.storage.CreateLink(link)
+		err = storage.CreateLink(link)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -705,12 +415,12 @@ func TestCreateLink(t *testing.T) {
 	})
 
 	t.Run("success with pre-filled fields", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create spec first
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
@@ -724,7 +434,7 @@ func TestCreateLink(t *testing.T) {
 			LinkType: "fixes",
 		}
 
-		err = ts.storage.CreateLink(link)
+		err = storage.CreateLink(link)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -736,13 +446,13 @@ func TestCreateLink(t *testing.T) {
 	})
 
 	t.Run("error with non-existent spec", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		nonExistentSpecID := uuid.New().String()
 		link := createTestLink(nonExistentSpecID)
 
-		err := ts.storage.CreateLink(link)
+		err := storage.CreateLink(link)
 		if err == nil {
 			t.Fatal("Expected error for non-existent spec")
 		}
@@ -757,26 +467,26 @@ func TestCreateLink(t *testing.T) {
 	})
 
 	t.Run("error with duplicate link", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create spec first
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
 
 		// Create first link
 		link1 := createTestLink(spec.ID)
-		err = ts.storage.CreateLink(link1)
+		err = storage.CreateLink(link1)
 		if err != nil {
 			t.Fatalf("Expected no error for first link, got %v", err)
 		}
 
 		// Try to create duplicate link (same spec_id, commit_id, repo_path)
 		link2 := createTestLink(spec.ID)
-		err = ts.storage.CreateLink(link2)
+		err = storage.CreateLink(link2)
 		if err == nil {
 			t.Fatal("Expected error for duplicate link")
 		}
@@ -794,24 +504,24 @@ func TestCreateLink(t *testing.T) {
 // Test GetLink
 func TestGetLink(t *testing.T) {
 	t.Run("success with existing link", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create spec and link
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
 
 		original := createTestLink(spec.ID)
-		err = ts.storage.CreateLink(original)
+		err = storage.CreateLink(original)
 		if err != nil {
 			t.Fatalf("Failed to create test link: %v", err)
 		}
 
 		// Retrieve link
-		retrieved, err := ts.storage.GetLink(original.ID)
+		retrieved, err := storage.GetLink(original.ID)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -835,11 +545,11 @@ func TestGetLink(t *testing.T) {
 	})
 
 	t.Run("error with non-existent link", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		nonExistentID := uuid.New().String()
-		_, err := ts.storage.GetLink(nonExistentID)
+		_, err := storage.GetLink(nonExistentID)
 		if err == nil {
 			t.Fatal("Expected error for non-existent link")
 		}
@@ -857,12 +567,12 @@ func TestGetLink(t *testing.T) {
 // Test GetLinksBySpec
 func TestGetLinksBySpec(t *testing.T) {
 	t.Run("success with existing links", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create spec
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
@@ -876,7 +586,7 @@ func TestGetLinksBySpec(t *testing.T) {
 				RepoPath: fmt.Sprintf("/repo/%d", i),
 				LinkType: "implements",
 			}
-			err = ts.storage.CreateLink(link)
+			err = storage.CreateLink(link)
 			if err != nil {
 				t.Fatalf("Failed to create link %d: %v", i, err)
 			}
@@ -884,7 +594,7 @@ func TestGetLinksBySpec(t *testing.T) {
 		}
 
 		// Retrieve links
-		links, err := ts.storage.GetLinksBySpec(spec.ID)
+		links, err := storage.GetLinksBySpec(spec.ID)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -909,17 +619,17 @@ func TestGetLinksBySpec(t *testing.T) {
 	})
 
 	t.Run("success with no links", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create spec without links
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
 
-		links, err := ts.storage.GetLinksBySpec(spec.ID)
+		links, err := storage.GetLinksBySpec(spec.ID)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -933,8 +643,8 @@ func TestGetLinksBySpec(t *testing.T) {
 // Test GetLinksByCommit
 func TestGetLinksByCommit(t *testing.T) {
 	t.Run("success with existing links", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		commitID := "abcdef1234567890abcdef1234567890abcdef12"
 		repoPath := "/test/repo"
@@ -946,7 +656,7 @@ func TestGetLinksByCommit(t *testing.T) {
 				Title:   fmt.Sprintf("Spec %d", i),
 				Content: fmt.Sprintf("Content %d", i),
 			}
-			err := ts.storage.CreateSpec(spec)
+			err := storage.CreateSpec(spec)
 			if err != nil {
 				t.Fatalf("Failed to create spec %d: %v", i, err)
 			}
@@ -957,7 +667,7 @@ func TestGetLinksByCommit(t *testing.T) {
 				RepoPath: repoPath,
 				LinkType: "implements",
 			}
-			err = ts.storage.CreateLink(link)
+			err = storage.CreateLink(link)
 			if err != nil {
 				t.Fatalf("Failed to create link %d: %v", i, err)
 			}
@@ -965,7 +675,7 @@ func TestGetLinksByCommit(t *testing.T) {
 		}
 
 		// Retrieve links
-		links, err := ts.storage.GetLinksByCommit(commitID, repoPath)
+		links, err := storage.GetLinksByCommit(commitID, repoPath)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -993,11 +703,11 @@ func TestGetLinksByCommit(t *testing.T) {
 	})
 
 	t.Run("success with no links", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		nonExistentCommit := "nonexistent1234567890abcdef1234567890abcdef"
-		links, err := ts.storage.GetLinksByCommit(nonExistentCommit, "/test/repo")
+		links, err := storage.GetLinksByCommit(nonExistentCommit, "/test/repo")
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
@@ -1008,8 +718,8 @@ func TestGetLinksByCommit(t *testing.T) {
 	})
 
 	t.Run("different repo paths return different results", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		commitID := "abcdef1234567890abcdef1234567890abcdef12"
 		repoPath1 := "/repo/path1"
@@ -1017,7 +727,7 @@ func TestGetLinksByCommit(t *testing.T) {
 
 		// Create spec and links to same commit but different repo paths
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
@@ -1028,13 +738,13 @@ func TestGetLinksByCommit(t *testing.T) {
 			RepoPath: repoPath1,
 			LinkType: "implements",
 		}
-		err = ts.storage.CreateLink(link1)
+		err = storage.CreateLink(link1)
 		if err != nil {
 			t.Fatalf("Failed to create link1: %v", err)
 		}
 
 		// Query for repo path 1 should return 1 link
-		links1, err := ts.storage.GetLinksByCommit(commitID, repoPath1)
+		links1, err := storage.GetLinksByCommit(commitID, repoPath1)
 		if err != nil {
 			t.Fatalf("Expected no error for repo1, got %v", err)
 		}
@@ -1043,7 +753,7 @@ func TestGetLinksByCommit(t *testing.T) {
 		}
 
 		// Query for repo path 2 should return 0 links
-		links2, err := ts.storage.GetLinksByCommit(commitID, repoPath2)
+		links2, err := storage.GetLinksByCommit(commitID, repoPath2)
 		if err != nil {
 			t.Fatalf("Expected no error for repo2, got %v", err)
 		}
@@ -1056,30 +766,30 @@ func TestGetLinksByCommit(t *testing.T) {
 // Test DeleteLink
 func TestDeleteLink(t *testing.T) {
 	t.Run("success with existing link", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		// Create spec and link
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
 
 		link := createTestLink(spec.ID)
-		err = ts.storage.CreateLink(link)
+		err = storage.CreateLink(link)
 		if err != nil {
 			t.Fatalf("Failed to create test link: %v", err)
 		}
 
 		// Delete link
-		err = ts.storage.DeleteLink(link.ID)
+		err = storage.DeleteLink(link.ID)
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
 		// Verify link is gone
-		_, err = ts.storage.GetLink(link.ID)
+		_, err = storage.GetLink(link.ID)
 		if err == nil {
 			t.Fatal("Expected error when getting deleted link")
 		}
@@ -1094,11 +804,11 @@ func TestDeleteLink(t *testing.T) {
 	})
 
 	t.Run("error with non-existent link", func(t *testing.T) {
-		ts := setupTestDB(t)
-		defer ts.teardown(t)
+		storage, cleanup := setupTestService(t)
+		defer cleanup()
 
 		nonExistentID := uuid.New().String()
-		err := ts.storage.DeleteLink(nonExistentID)
+		err := storage.DeleteLink(nonExistentID)
 		if err == nil {
 			t.Fatal("Expected error for non-existent link")
 		}
@@ -1157,8 +867,8 @@ func TestClose(t *testing.T) {
 
 // Benchmark tests for performance requirements
 func BenchmarkCreateSpec(b *testing.B) {
-	ts := setupTestDB(&testing.T{})
-	defer ts.teardown(&testing.T{})
+	storage, cleanup := setupTestService(new(testing.T))
+	defer cleanup()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1166,7 +876,7 @@ func BenchmarkCreateSpec(b *testing.B) {
 			Title:   fmt.Sprintf("Benchmark Spec %d", i),
 			Content: "Benchmark content",
 		}
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			b.Fatalf("Failed to create spec: %v", err)
 		}
@@ -1174,19 +884,19 @@ func BenchmarkCreateSpec(b *testing.B) {
 }
 
 func BenchmarkGetSpec(b *testing.B) {
-	ts := setupTestDB(&testing.T{})
-	defer ts.teardown(&testing.T{})
+	storage, cleanup := setupTestService(new(testing.T))
+	defer cleanup()
 
 	// Create test spec
 	spec := createTestSpec()
-	err := ts.storage.CreateSpec(spec)
+	err := storage.CreateSpec(spec)
 	if err != nil {
 		b.Fatalf("Failed to create test spec: %v", err)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := ts.storage.GetSpec(spec.ID)
+		_, err := storage.GetSpec(spec.ID)
 		if err != nil {
 			b.Fatalf("Failed to get spec: %v", err)
 		}
@@ -1194,8 +904,8 @@ func BenchmarkGetSpec(b *testing.B) {
 }
 
 func BenchmarkListSpecs(b *testing.B) {
-	ts := setupTestDB(&testing.T{})
-	defer ts.teardown(&testing.T{})
+	storage, cleanup := setupTestService(new(testing.T))
+	defer cleanup()
 
 	// Create multiple specs
 	for i := 0; i < 100; i++ {
@@ -1203,7 +913,7 @@ func BenchmarkListSpecs(b *testing.B) {
 			Title:   fmt.Sprintf("Spec %d", i),
 			Content: "Content",
 		}
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			b.Fatalf("Failed to create spec %d: %v", i, err)
 		}
@@ -1211,7 +921,7 @@ func BenchmarkListSpecs(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := ts.storage.ListSpecs()
+		_, err := storage.ListSpecs()
 		if err != nil {
 			b.Fatalf("Failed to list specs: %v", err)
 		}
@@ -1224,18 +934,18 @@ func TestPerformanceRequirements(t *testing.T) {
 		t.Skip("Skipping performance tests in short mode")
 	}
 
-	ts := setupTestDB(t)
-	defer ts.teardown(t)
+	storage, cleanup := setupTestService(t)
+	defer cleanup()
 
 	// Create test data
 	spec := createTestSpec()
-	err := ts.storage.CreateSpec(spec)
+	err := storage.CreateSpec(spec)
 	if err != nil {
 		t.Fatalf("Failed to create test spec: %v", err)
 	}
 
 	link := createTestLink(spec.ID)
-	err = ts.storage.CreateLink(link)
+	err = storage.CreateLink(link)
 	if err != nil {
 		t.Fatalf("Failed to create test link: %v", err)
 	}
@@ -1243,7 +953,7 @@ func TestPerformanceRequirements(t *testing.T) {
 	// Test GetSpec performance
 	t.Run("GetSpec under 100ms", func(t *testing.T) {
 		start := time.Now()
-		_, err := ts.storage.GetSpec(spec.ID)
+		_, err := storage.GetSpec(spec.ID)
 		duration := time.Since(start)
 
 		if err != nil {
@@ -1257,7 +967,7 @@ func TestPerformanceRequirements(t *testing.T) {
 	// Test GetLink performance
 	t.Run("GetLink under 100ms", func(t *testing.T) {
 		start := time.Now()
-		_, err := ts.storage.GetLink(link.ID)
+		_, err := storage.GetLink(link.ID)
 		duration := time.Since(start)
 
 		if err != nil {
@@ -1275,8 +985,8 @@ func TestConcurrentAccess(t *testing.T) {
 		t.Skip("Skipping concurrent access tests in short mode")
 	}
 
-	ts := setupTestDB(t)
-	defer ts.teardown(t)
+	storage, cleanup := setupTestService(t)
+	defer cleanup()
 
 	t.Run("concurrent spec creation", func(t *testing.T) {
 		const numGoroutines = 5
@@ -1300,7 +1010,7 @@ func TestConcurrentAccess(t *testing.T) {
 						Title:   fmt.Sprintf("Concurrent Spec %d-%d", routineID, j),
 						Content: fmt.Sprintf("Content from routine %d, spec %d", routineID, j),
 					}
-					err := ts.storage.CreateSpec(spec)
+					err := storage.CreateSpec(spec)
 					if err != nil {
 						lastErr = err
 						break
@@ -1337,7 +1047,7 @@ func TestConcurrentAccess(t *testing.T) {
 		var specs []*models.SpecNode
 		var listErr error
 		for attempt := 0; attempt < 3; attempt++ {
-			specs, listErr = ts.storage.ListSpecs()
+			specs, listErr = storage.ListSpecs()
 			if listErr == nil {
 				break
 			}
@@ -1361,41 +1071,39 @@ func TestConcurrentAccess(t *testing.T) {
 
 // Test storage interface compliance
 func TestStorageInterfaceCompliance(t *testing.T) {
-	ts := setupTestDB(t)
-	defer ts.teardown(t)
+	storage, cleanup := setupTestService(t)
+	defer cleanup()
 
 	// Verify the storage implements the Storage interface
-	var _ Storage = ts.storage
+	var _ Storage = storage
 
 	t.Run("all interface methods exist", func(t *testing.T) {
 		// This test ensures all interface methods are implemented
 		// If any method is missing, this won't compile
 
 		// Spec operations
-		_ = ts.storage.CreateSpec
-		_ = ts.storage.GetSpec
-		_ = ts.storage.GetSpecByStableID
-		_ = ts.storage.GetLatestSpecByStableID
-		_ = ts.storage.ListSpecs
-		_ = ts.storage.UpdateSpec
-		_ = ts.storage.DeleteSpec
+		_ = storage.CreateSpec
+		_ = storage.GetSpec
+		_ = storage.ListSpecs
+		_ = storage.UpdateSpec
+		_ = storage.DeleteSpec
 
 		// Link operations
-		_ = ts.storage.CreateLink
-		_ = ts.storage.GetLink
-		_ = ts.storage.GetLinksBySpec
-		_ = ts.storage.GetLinksByCommit
-		_ = ts.storage.DeleteLink
+		_ = storage.CreateLink
+		_ = storage.GetLink
+		_ = storage.GetLinksBySpec
+		_ = storage.GetLinksByCommit
+		_ = storage.DeleteLink
 
 		// Utility
-		_ = ts.storage.Close
+		_ = storage.Close
 	})
 }
 
 // Test edge cases and validation
 func TestEdgeCases(t *testing.T) {
-	ts := setupTestDB(t)
-	defer ts.teardown(t)
+	storage, cleanup := setupTestService(t)
+	defer cleanup()
 
 	t.Run("spec with maximum content length", func(t *testing.T) {
 		// Create spec with 50KB content (spec limit)
@@ -1405,13 +1113,13 @@ func TestEdgeCases(t *testing.T) {
 			Content: maxContent,
 		}
 
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create spec with max content: %v", err)
 		}
 
 		// Verify content was stored correctly
-		retrieved, err := ts.storage.GetSpec(spec.ID)
+		retrieved, err := storage.GetSpec(spec.ID)
 		if err != nil {
 			t.Fatalf("Failed to retrieve spec: %v", err)
 		}
@@ -1429,13 +1137,13 @@ func TestEdgeCases(t *testing.T) {
 			Content: "Content",
 		}
 
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create spec with max title: %v", err)
 		}
 
 		// Verify title was stored correctly
-		retrieved, err := ts.storage.GetSpec(spec.ID)
+		retrieved, err := storage.GetSpec(spec.ID)
 		if err != nil {
 			t.Fatalf("Failed to retrieve spec: %v", err)
 		}
@@ -1447,7 +1155,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("link with valid commit hash format", func(t *testing.T) {
 		spec := createTestSpec()
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create test spec: %v", err)
 		}
@@ -1461,12 +1169,12 @@ func TestEdgeCases(t *testing.T) {
 			LinkType: "implements",
 		}
 
-		err = ts.storage.CreateLink(link)
+		err = storage.CreateLink(link)
 		if err != nil {
 			t.Fatalf("Failed to create link with valid commit hash: %v", err)
 		}
 
-		retrieved, err := ts.storage.GetLink(link.ID)
+		retrieved, err := storage.GetLink(link.ID)
 		if err != nil {
 			t.Fatalf("Failed to retrieve link: %v", err)
 		}
@@ -1483,12 +1191,12 @@ func TestEdgeCases(t *testing.T) {
 			Content: "Content with empty title",
 		}
 
-		err := ts.storage.CreateSpec(spec)
+		err := storage.CreateSpec(spec)
 		if err != nil {
 			t.Fatalf("Failed to create spec with empty title: %v", err)
 		}
 
-		retrieved, err := ts.storage.GetSpec(spec.ID)
+		retrieved, err := storage.GetSpec(spec.ID)
 		if err != nil {
 			t.Fatalf("Failed to retrieve spec: %v", err)
 		}
@@ -1501,35 +1209,29 @@ func TestEdgeCases(t *testing.T) {
 
 // TestSpecHierarchy tests spec-to-spec linking functionality
 func TestSpecHierarchy(t *testing.T) {
-	ts := setupTestDB(t)
-	defer ts.storage.Close()
+	storage, cleanup := setupTestService(t)
+	defer cleanup()
 
 	// Create test specs
 	fromSpec := &models.SpecNode{
-		ID:       uuid.New().String(),
-		StableID: uuid.New().String(),
-		Version:  1,
-		Title:    "From Specification",
-		Content:  "From content",
-		NodeType: "spec",
+		ID:      uuid.New().String(),
+		Title:   "From Specification",
+		Content: "From content",
 	}
 
 	toSpec := &models.SpecNode{
-		ID:       uuid.New().String(),
-		StableID: uuid.New().String(),
-		Version:  1,
-		Title:    "To Specification",
-		Content:  "To content",
-		NodeType: "spec",
+		ID:      uuid.New().String(),
+		Title:   "To Specification",
+		Content: "To content",
 	}
 
 	// Create the specs
-	err := ts.storage.CreateSpec(fromSpec)
+	err := storage.CreateSpec(fromSpec)
 	if err != nil {
 		t.Fatalf("Failed to create from spec: %v", err)
 	}
 
-	err = ts.storage.CreateSpec(toSpec)
+	err = storage.CreateSpec(toSpec)
 	if err != nil {
 		t.Fatalf("Failed to create to spec: %v", err)
 	}
@@ -1541,7 +1243,7 @@ func TestSpecHierarchy(t *testing.T) {
 			LinkType:   "child",
 		}
 
-		err := ts.storage.CreateSpecLink(link)
+		err := storage.CreateSpecLink(link)
 		if err != nil {
 			t.Fatalf("Failed to create spec link: %v", err)
 		}
@@ -1557,7 +1259,7 @@ func TestSpecHierarchy(t *testing.T) {
 
 	t.Run("GetLinkedSpecs", func(t *testing.T) {
 		// Test getting outgoing links (from fromSpec to toSpec)
-		outgoing, err := ts.storage.GetLinkedSpecs(fromSpec.ID, models.Outgoing)
+		outgoing, err := storage.GetLinkedSpecs(fromSpec.ID, models.Outgoing)
 		if err != nil {
 			t.Fatalf("Failed to get outgoing links: %v", err)
 		}
@@ -1571,7 +1273,7 @@ func TestSpecHierarchy(t *testing.T) {
 		}
 
 		// Test getting incoming links (to toSpec from fromSpec)
-		incoming, err := ts.storage.GetLinkedSpecs(toSpec.ID, models.Incoming)
+		incoming, err := storage.GetLinkedSpecs(toSpec.ID, models.Incoming)
 		if err != nil {
 			t.Fatalf("Failed to get incoming links: %v", err)
 		}
@@ -1587,13 +1289,13 @@ func TestSpecHierarchy(t *testing.T) {
 
 	t.Run("DeleteSpecLinkBySpecs", func(t *testing.T) {
 		// Test successful deletion using fromSpecID and toSpecID
-		err := ts.storage.DeleteSpecLinkBySpecs(fromSpec.ID, toSpec.ID)
+		err := storage.DeleteSpecLinkBySpecs(fromSpec.ID, toSpec.ID)
 		if err != nil {
 			t.Fatalf("Failed to delete spec link: %v", err)
 		}
 
 		// Verify the link is gone
-		outgoing, err := ts.storage.GetLinkedSpecs(fromSpec.ID, models.Outgoing)
+		outgoing, err := storage.GetLinkedSpecs(fromSpec.ID, models.Outgoing)
 		if err != nil {
 			t.Fatalf("Failed to get outgoing links after deletion: %v", err)
 		}
@@ -1603,7 +1305,7 @@ func TestSpecHierarchy(t *testing.T) {
 		}
 
 		// Test deletion of non-existent link
-		err = ts.storage.DeleteSpecLinkBySpecs(fromSpec.ID, toSpec.ID)
+		err = storage.DeleteSpecLinkBySpecs(fromSpec.ID, toSpec.ID)
 		if err == nil {
 			t.Error("Expected error when deleting non-existent link")
 		}
@@ -1622,19 +1324,19 @@ func TestSpecHierarchy(t *testing.T) {
 			LinkType:   "child",
 		}
 
-		err := ts.storage.CreateSpecLink(link)
+		err := storage.CreateSpecLink(link)
 		if err != nil {
 			t.Fatalf("Failed to create spec link: %v", err)
 		}
 
 		// Test deletion with wrong parameter order (should fail)
-		err = ts.storage.DeleteSpecLinkBySpecs(toSpec.ID, fromSpec.ID)
+		err = storage.DeleteSpecLinkBySpecs(toSpec.ID, fromSpec.ID)
 		if err == nil {
 			t.Error("Expected error when using wrong parameter order")
 		}
 
 		// Verify the link still exists
-		outgoing, err := ts.storage.GetLinkedSpecs(fromSpec.ID, models.Outgoing)
+		outgoing, err := storage.GetLinkedSpecs(fromSpec.ID, models.Outgoing)
 		if err != nil {
 			t.Fatalf("Failed to get outgoing links: %v", err)
 		}
@@ -1644,7 +1346,7 @@ func TestSpecHierarchy(t *testing.T) {
 		}
 
 		// Clean up - delete with correct order
-		err = ts.storage.DeleteSpecLinkBySpecs(fromSpec.ID, toSpec.ID)
+		err = storage.DeleteSpecLinkBySpecs(fromSpec.ID, toSpec.ID)
 		if err != nil {
 			t.Fatalf("Failed to delete spec link with correct order: %v", err)
 		}
@@ -1653,35 +1355,29 @@ func TestSpecHierarchy(t *testing.T) {
 
 // TestSpecHierarchyIntegration tests the integration between services and storage
 func TestSpecHierarchyIntegration(t *testing.T) {
-	ts := setupTestDB(t)
-	defer ts.storage.Close()
+	storage, cleanup := setupTestService(t)
+	defer cleanup()
 
 	// Create test specs
 	fromSpec := &models.SpecNode{
-		ID:       uuid.New().String(),
-		StableID: uuid.New().String(),
-		Version:  1,
-		Title:    "Integration From Spec",
-		Content:  "From content for integration test",
-		NodeType: "spec",
+		ID:      uuid.New().String(),
+		Title:   "Integration From Spec",
+		Content: "From content for integration test",
 	}
 
 	toSpec := &models.SpecNode{
-		ID:       uuid.New().String(),
-		StableID: uuid.New().String(),
-		Version:  1,
-		Title:    "Integration To Spec",
-		Content:  "To content for integration test",
-		NodeType: "spec",
+		ID:      uuid.New().String(),
+		Title:   "Integration To Spec",
+		Content: "To content for integration test",
 	}
 
 	// Create the specs
-	err := ts.storage.CreateSpec(fromSpec)
+	err := storage.CreateSpec(fromSpec)
 	if err != nil {
 		t.Fatalf("Failed to create from spec: %v", err)
 	}
 
-	err = ts.storage.CreateSpec(toSpec)
+	err = storage.CreateSpec(toSpec)
 	if err != nil {
 		t.Fatalf("Failed to create to spec: %v", err)
 	}
@@ -1693,7 +1389,7 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 		LinkType:   "child",
 	}
 
-	err = ts.storage.CreateSpecLink(link)
+	err = storage.CreateSpecLink(link)
 	if err != nil {
 		t.Fatalf("Failed to create spec link: %v", err)
 	}
@@ -1702,7 +1398,7 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 		// Query the database directly to verify the schema
 		var fromSpecID, toSpecID string
 		query := `SELECT from_spec_id, to_spec_id FROM spec_spec_links WHERE id = ?`
-		err := ts.db.QueryRow(query, link.ID).Scan(&fromSpecID, &toSpecID)
+		err := storage.db.QueryRow(query, link.ID).Scan(&fromSpecID, &toSpecID)
 		if err != nil {
 			t.Fatalf("Failed to query spec link: %v", err)
 		}
@@ -1719,13 +1415,13 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 	t.Run("DeleteUsingCorrectDirection", func(t *testing.T) {
 		// This simulates the service layer call:
 		// DeleteSpecLinkBySpecs(fromSpecID, toSpecID)
-		err := ts.storage.DeleteSpecLinkBySpecs(fromSpec.ID, toSpec.ID)
+		err := storage.DeleteSpecLinkBySpecs(fromSpec.ID, toSpec.ID)
 		if err != nil {
 			t.Fatalf("Failed to delete spec link using correct direction: %v", err)
 		}
 
 		// Verify deletion was successful
-		outgoing, err := ts.storage.GetLinkedSpecs(fromSpec.ID, models.Outgoing)
+		outgoing, err := storage.GetLinkedSpecs(fromSpec.ID, models.Outgoing)
 		if err != nil {
 			t.Fatalf("Failed to get outgoing links after deletion: %v", err)
 		}
