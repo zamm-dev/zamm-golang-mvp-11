@@ -4,7 +4,7 @@ build:
 	go build -o bin/zamm ./cmd/zamm
 
 test:
-	go test -v -race -coverprofile=coverage.out ./...
+	go test -race ./...
 
 test-coverage:
 	go tool cover -html=coverage.out -o coverage.html
