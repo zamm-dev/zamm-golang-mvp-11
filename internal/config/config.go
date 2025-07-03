@@ -45,13 +45,13 @@ func Load() (*Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 
-	// Add config paths
-	homeDir, err := os.UserHomeDir()
+	// Add config paths - use local .zamm directory
+	workingDir, err := os.Getwd()
 	if err != nil {
-		return nil, models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get user home directory", err)
+		return nil, models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get working directory", err)
 	}
 
-	zammDir := filepath.Join(homeDir, ".zamm")
+	zammDir := filepath.Join(workingDir, ".zamm")
 	viper.AddConfigPath(zammDir)
 	viper.AddConfigPath(".")
 
@@ -119,19 +119,19 @@ func setDefaults(zammDir string) {
 
 // expandPaths expands ~ and relative paths in configuration
 func expandPaths(config *Config) error {
-	homeDir, err := os.UserHomeDir()
+	workingDir, err := os.Getwd()
 	if err != nil {
-		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get user home directory", err)
+		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get working directory", err)
 	}
 
 	// Expand storage path
 	if config.Storage.Path != "" {
-		config.Storage.Path = expandPath(config.Storage.Path, homeDir)
+		config.Storage.Path = expandPath(config.Storage.Path, workingDir)
 	}
 
 	// Expand log file path
 	if config.Logging.File != "" {
-		config.Logging.File = expandPath(config.Logging.File, homeDir)
+		config.Logging.File = expandPath(config.Logging.File, workingDir)
 	}
 
 	return nil
@@ -185,12 +185,12 @@ func EnsureDirectories(config *Config) error {
 
 // WriteDefaultConfig writes a default configuration file
 func WriteDefaultConfig() error {
-	homeDir, err := os.UserHomeDir()
+	workingDir, err := os.Getwd()
 	if err != nil {
-		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get user home directory", err)
+		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get working directory", err)
 	}
 
-	zammDir := filepath.Join(homeDir, ".zamm")
+	zammDir := filepath.Join(workingDir, ".zamm")
 	configPath := filepath.Join(zammDir, "config.yaml")
 
 	// Check if config already exists
@@ -205,14 +205,14 @@ func WriteDefaultConfig() error {
 
 	// Default config content
 	configContent := `storage:
-  path: ~/.zamm
+  path: .zamm
 
 git:
   default_repo: .
 
 logging:
   level: info
-  file: ~/.zamm/logs/zamm.log
+  file: .zamm/logs/zamm.log
 
 cli:
   output_format: table
@@ -233,10 +233,10 @@ func GetConfigPath() (string, error) {
 		return configPath, nil
 	}
 
-	homeDir, err := os.UserHomeDir()
+	workingDir, err := os.Getwd()
 	if err != nil {
-		return "", models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get user home directory", err)
+		return "", models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get working directory", err)
 	}
 
-	return filepath.Join(homeDir, ".zamm", "config.yaml"), nil
+	return filepath.Join(workingDir, ".zamm", "config.yaml"), nil
 }
