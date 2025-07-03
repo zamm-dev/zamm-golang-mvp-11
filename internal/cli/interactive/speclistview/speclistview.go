@@ -166,7 +166,7 @@ func New(linkService LinkService) Model {
 		BorderBottom(true).
 		Bold(false)
 	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("0")).
+		Foreground(lipgloss.NoColor{}).
 		Bold(false)
 	commitsTable.SetStyles(s)
 
