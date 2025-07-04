@@ -559,7 +559,7 @@ func (m *Model) createSpecCmd(title, content string) tea.Cmd {
 
 		// If there's a parent spec ID, create the parent-child relationship
 		if m.parentSpecID != "" {
-			_, err := m.app.specService.AddChildToParent(spec.ID, m.parentSpecID)
+			_, err := m.app.specService.AddChildToParent(spec.ID, m.parentSpecID, "child")
 			if err != nil {
 				return operationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
 			}
@@ -632,9 +632,9 @@ func (m *Model) deleteLinkCmd(specID, commitID, repoPath string) tea.Cmd {
 }
 
 // linkSpecsCmd returns a command to create a hierarchical link between specs
-func (m *Model) linkSpecsCmd(parentSpecID, childSpecID string) tea.Cmd {
+func (m *Model) linkSpecsCmd(parentSpecID, childSpecID, linkType string) tea.Cmd {
 	return func() tea.Msg {
-		link, err := m.app.specService.AddChildToParent(childSpecID, parentSpecID)
+		link, err := m.app.specService.AddChildToParent(childSpecID, parentSpecID, linkType)
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
@@ -651,7 +651,7 @@ func (m *Model) linkSpecsCmd(parentSpecID, childSpecID string) tea.Cmd {
 		}
 
 		return operationCompleteMsg{message: fmt.Sprintf("✅ Created %s link from '%s' to '%s' (ID: %s). Press Enter to continue...",
-			"parent-child", parentTitle, childTitle, link.ID)}
+			linkType, parentTitle, childTitle, link.ID)}
 	}
 }
 
@@ -1035,7 +1035,7 @@ func (m *Model) updateLinkSpecToSpecType(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if linkType == "" {
 			linkType = "child"
 		}
-		return m, m.linkSpecsCmd(m.selectedChildSpecID, m.selectedSpecID)
+		return m, m.linkSpecsCmd(m.selectedChildSpecID, m.selectedSpecID, linkType)
 	}
 	return m, nil
 }

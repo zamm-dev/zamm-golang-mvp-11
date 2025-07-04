@@ -17,7 +17,7 @@ type SpecService interface {
 	DeleteSpec(id string) error
 
 	// Hierarchical operations
-	AddChildToParent(childSpecID, parentSpecID string) (*models.SpecSpecLink, error)
+	AddChildToParent(childSpecID, parentSpecID, linkType string) (*models.SpecSpecLink, error)
 	RemoveChildFromParent(childSpecID, parentSpecID string) error
 	GetParents(specID string) ([]*models.SpecNode, error)
 	GetChildren(specID string) ([]*models.SpecNode, error)
@@ -113,7 +113,7 @@ func (s *specService) DeleteSpec(id string) error {
 }
 
 // AddChildToParent adds a parent-child relationship by specifying the child and parent
-func (s *specService) AddChildToParent(childSpecID, parentSpecID string) (*models.SpecSpecLink, error) {
+func (s *specService) AddChildToParent(childSpecID, parentSpecID, linkType string) (*models.SpecSpecLink, error) {
 	// Validate input
 	if childSpecID == "" {
 		return nil, models.NewZammError(models.ErrTypeValidation, "child spec ID cannot be empty")
@@ -135,10 +135,15 @@ func (s *specService) AddChildToParent(childSpecID, parentSpecID string) (*model
 		return nil, models.NewZammError(models.ErrTypeValidation, "parent spec not found")
 	}
 
+	// Use provided link type or default to "child"
+	if linkType == "" {
+		linkType = "child"
+	}
+	
 	link := &models.SpecSpecLink{
 		FromSpecID: childSpecID,
 		ToSpecID:   parentSpecID,
-		LinkType:   "child",
+		LinkType:   linkType,
 	}
 
 	if err := s.storage.CreateSpecSpecLink(link); err != nil {

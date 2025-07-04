@@ -93,7 +93,7 @@ func TestRemoveChildFromParent(t *testing.T) {
 
 	t.Run("AddChildToParent", func(t *testing.T) {
 		// Add child to parent
-		link, err := service.AddChildToParent(child.ID, parent.ID)
+		link, err := service.AddChildToParent(child.ID, parent.ID, "child")
 		if err != nil {
 			t.Fatalf("Failed to add child to parent: %v", err)
 		}
@@ -239,13 +239,13 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 
 	t.Run("BuildHierarchy", func(t *testing.T) {
 		// Add Level1 as child of Root
-		_, err := service.AddChildToParent(level1Spec.ID, rootSpec.ID)
+		_, err := service.AddChildToParent(level1Spec.ID, rootSpec.ID, "child")
 		if err != nil {
 			t.Fatalf("Failed to add level1 to root: %v", err)
 		}
 
 		// Add Level2 as child of Level1
-		_, err = service.AddChildToParent(level2Spec.ID, level1Spec.ID)
+		_, err = service.AddChildToParent(level2Spec.ID, level1Spec.ID, "child")
 		if err != nil {
 			t.Fatalf("Failed to add level2 to level1: %v", err)
 		}
@@ -347,7 +347,7 @@ func TestAddChildToParent(t *testing.T) {
 	}
 
 	t.Run("ValidAddition", func(t *testing.T) {
-		link, err := service.AddChildToParent(childSpec.ID, parentSpec.ID)
+		link, err := service.AddChildToParent(childSpec.ID, parentSpec.ID, "child")
 		if err != nil {
 			t.Fatalf("Failed to add child to parent: %v", err)
 		}
@@ -365,7 +365,7 @@ func TestAddChildToParent(t *testing.T) {
 
 	t.Run("PreventSelfLink", func(t *testing.T) {
 		// Try to add spec as child of itself
-		_, err := service.AddChildToParent(parentSpec.ID, parentSpec.ID)
+		_, err := service.AddChildToParent(parentSpec.ID, parentSpec.ID, "child")
 		if err == nil {
 			t.Error("Expected error when linking spec to itself")
 		}
@@ -376,6 +376,41 @@ func TestAddChildToParent(t *testing.T) {
 		}
 		if zammErr.Type != models.ErrTypeValidation {
 			t.Errorf("Expected validation error, got %v", zammErr.Type)
+		}
+	})
+
+	t.Run("CustomLinkType", func(t *testing.T) {
+		// Create a new child spec for custom link type test
+		customChild, err := service.CreateSpec("Custom Child", "Custom child content")
+		if err != nil {
+			t.Fatalf("Failed to create custom child spec: %v", err)
+		}
+
+		// Test custom link type
+		link, err := service.AddChildToParent(customChild.ID, parentSpec.ID, "implements")
+		if err != nil {
+			t.Fatalf("Failed to add child with custom link type: %v", err)
+		}
+
+		// Verify link type is correctly set
+		if link.LinkType != "implements" {
+			t.Errorf("Expected link type 'implements', got '%s'", link.LinkType)
+		}
+
+		// Test empty link type defaults to "child"
+		emptyChild, err := service.CreateSpec("Empty Link Type Child", "Empty link type child content")
+		if err != nil {
+			t.Fatalf("Failed to create empty link type child spec: %v", err)
+		}
+
+		link2, err := service.AddChildToParent(emptyChild.ID, parentSpec.ID, "")
+		if err != nil {
+			t.Fatalf("Failed to add child with empty link type: %v", err)
+		}
+
+		// Verify empty link type defaults to "child"
+		if link2.LinkType != "child" {
+			t.Errorf("Expected default link type 'child', got '%s'", link2.LinkType)
 		}
 	})
 }
