@@ -64,7 +64,7 @@ type SpecCommitLink struct {
     SpecID   string    `json:"spec_id" db:"spec_id"`
     CommitID string    `json:"commit_id" db:"commit_id"`
     RepoPath string    `json:"repo_path" db:"repo_path"`
-    LinkType string    `json:"link_type" db:"link_type"`
+    LinkLabel string    `json:"link_label" db:"link_label"`
     CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 ```
@@ -74,7 +74,7 @@ type SpecCommitLink struct {
 - `SpecID`: Foreign key to SpecNode.ID
 - `CommitID`: Git commit hash (40-character hex string)
 - `RepoPath`: Absolute path to Git repository
-- `LinkType`: Either "implements" or "fixes" for MVP
+- `LinkLabel`: Either "implements" or "fixes" for MVP
 - Foreign key constraints ensure referential integrity
 
 ---
@@ -150,7 +150,7 @@ CREATE TABLE spec_commit_links (
     spec_id TEXT NOT NULL,
     commit_id TEXT NOT NULL,
     repo_path TEXT NOT NULL,
-    link_type TEXT NOT NULL DEFAULT 'implements',
+    link_label TEXT NOT NULL DEFAULT 'implements',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (spec_id) REFERENCES spec_nodes(id) ON DELETE CASCADE,
     UNIQUE(spec_id, commit_id, repo_path)
@@ -200,7 +200,7 @@ type SpecService interface {
 }
 
 type LinkService interface {
-    LinkSpecToCommit(specID, commitID, repoPath, linkType string) (*SpecCommitLink, error)
+    LinkSpecToCommit(specID, commitID, repoPath, label string) (*SpecCommitLink, error)
     GetSpecsForCommit(commitID, repoPath string) ([]*SpecNode, error)
     GetCommitsForSpec(specID string) ([]*SpecCommitLink, error)
     UnlinkSpecFromCommit(specID, commitID, repoPath string) error

@@ -12,7 +12,7 @@ import (
 
 // LinkService interface defines operations for managing spec-commit links
 type LinkService interface {
-	LinkSpecToCommit(specID, commitID, repoPath, linkType string) (*models.SpecCommitLink, error)
+	LinkSpecToCommit(specID, commitID, repoPath, label string) (*models.SpecCommitLink, error)
 	GetSpecsForCommit(commitID, repoPath string) ([]*models.SpecNode, error)
 	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
 	UnlinkSpecFromCommit(specID, commitID, repoPath string) error
@@ -31,9 +31,9 @@ func NewLinkService(storage storage.Storage) LinkService {
 }
 
 // LinkSpecToCommit creates a link between a spec and a commit
-func (s *linkService) LinkSpecToCommit(specID, commitID, repoPath, linkType string) (*models.SpecCommitLink, error) {
+func (s *linkService) LinkSpecToCommit(specID, commitID, repoPath, label string) (*models.SpecCommitLink, error) {
 	// Validate inputs
-	if err := s.validateLinkInput(specID, commitID, repoPath, linkType); err != nil {
+	if err := s.validateLinkInput(specID, commitID, repoPath, label); err != nil {
 		return nil, err
 	}
 
@@ -49,10 +49,10 @@ func (s *linkService) LinkSpecToCommit(specID, commitID, repoPath, linkType stri
 	}
 
 	link := &models.SpecCommitLink{
-		SpecID:   specID,
-		CommitID: strings.TrimSpace(commitID),
-		RepoPath: strings.TrimSpace(repoPath),
-		LinkType: strings.TrimSpace(linkType),
+		SpecID:    specID,
+		CommitID:  strings.TrimSpace(commitID),
+		RepoPath:  strings.TrimSpace(repoPath),
+		LinkLabel: strings.TrimSpace(label),
 	}
 
 	if err := s.storage.CreateSpecCommitLink(link); err != nil {
@@ -116,7 +116,7 @@ func (s *linkService) UnlinkSpecFromCommit(specID, commitID, repoPath string) er
 }
 
 // validateLinkInput validates input for link operations
-func (s *linkService) validateLinkInput(specID, commitID, repoPath, linkType string) error {
+func (s *linkService) validateLinkInput(specID, commitID, repoPath, label string) error {
 	if specID == "" {
 		return models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
@@ -129,7 +129,7 @@ func (s *linkService) validateLinkInput(specID, commitID, repoPath, linkType str
 		return models.NewZammError(models.ErrTypeValidation, "repository path cannot be empty")
 	}
 
-	if linkType != "" && linkType != "implements" && linkType != "fixes" {
+	if label != "" && label != "implements" && label != "fixes" {
 		return models.NewZammError(models.ErrTypeValidation, "link type must be 'implements' or 'fixes'")
 	}
 

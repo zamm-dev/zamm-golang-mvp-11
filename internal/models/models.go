@@ -27,7 +27,7 @@ type SpecCommitLink struct {
 	SpecID    string    `json:"spec_id"`
 	CommitID  string    `json:"commit_id"`
 	RepoPath  string    `json:"repo_path"`
-	LinkType  string    `json:"link_type"`
+	LinkLabel string    `json:"link_label"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -36,7 +36,7 @@ type SpecSpecLink struct {
 	ID         string    `json:"id"`
 	FromSpecID string    `json:"from_spec_id"`
 	ToSpecID   string    `json:"to_spec_id"`
-	LinkType   string    `json:"link_type"` // "child", "fixes", "implements", etc.
+	LinkLabel  string    `json:"link_label"` // "child", "fixes", "implements", etc.
 	CreatedAt  time.Time `json:"created_at"`
 }
 

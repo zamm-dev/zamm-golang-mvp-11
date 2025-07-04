@@ -194,7 +194,7 @@ CREATE TABLE spec_commit_links (
     spec_id TEXT NOT NULL,
     commit_id TEXT NOT NULL,
     repo_path TEXT NOT NULL,
-    link_type TEXT NOT NULL DEFAULT 'implements',
+    link_label TEXT NOT NULL DEFAULT 'implements',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (spec_id) REFERENCES spec_nodes(id) ON DELETE CASCADE,
     UNIQUE(spec_id, commit_id, repo_path)

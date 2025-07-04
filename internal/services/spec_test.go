@@ -358,8 +358,8 @@ func TestAddChildToParent(t *testing.T) {
 		if link.ToSpecID != parentSpec.ID {
 			t.Errorf("Expected ToSpecID to be parent %s, got %s", parentSpec.ID, link.ToSpecID)
 		}
-		if link.LinkType != "child" {
-			t.Errorf("Expected LinkType 'child', got %s", link.LinkType)
+		if link.LinkLabel != "child" {
+			t.Errorf("Expected LinkLabel 'child', got %s", link.LinkLabel)
 		}
 	})
 
@@ -379,7 +379,7 @@ func TestAddChildToParent(t *testing.T) {
 		}
 	})
 
-	t.Run("CustomLinkType", func(t *testing.T) {
+	t.Run("CustomLinkLabel", func(t *testing.T) {
 		// Create a new child spec for custom link type test
 		customChild, err := service.CreateSpec("Custom Child", "Custom child content")
 		if err != nil {
@@ -393,8 +393,8 @@ func TestAddChildToParent(t *testing.T) {
 		}
 
 		// Verify link type is correctly set
-		if link.LinkType != "implements" {
-			t.Errorf("Expected link type 'implements', got '%s'", link.LinkType)
+		if link.LinkLabel != "implements" {
+			t.Errorf("Expected link type 'implements', got '%s'", link.LinkLabel)
 		}
 
 		// Test empty link type defaults to "child"
@@ -409,8 +409,8 @@ func TestAddChildToParent(t *testing.T) {
 		}
 
 		// Verify empty link type defaults to "child"
-		if link2.LinkType != "child" {
-			t.Errorf("Expected default link type 'child', got '%s'", link2.LinkType)
+		if link2.LinkLabel != "child" {
+			t.Errorf("Expected default link type 'child', got '%s'", link2.LinkLabel)
 		}
 	})
 }

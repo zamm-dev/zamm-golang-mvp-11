@@ -113,7 +113,7 @@ func (a *App) exportSpecLinks(outputDir string) error {
 	defer writer.Flush()
 
 	// Write header
-	if err := writer.Write([]string{"from_spec_id", "to_spec_id", "link_type"}); err != nil {
+	if err := writer.Write([]string{"from_spec_id", "to_spec_id", "link_label"}); err != nil {
 		return fmt.Errorf("failed to write CSV header: %w", err)
 	}
 
@@ -125,7 +125,7 @@ func (a *App) exportSpecLinks(outputDir string) error {
 
 	// Write all links to CSV
 	for _, link := range links {
-		if err := writer.Write([]string{link.FromSpecID, link.ToSpecID, link.LinkType}); err != nil {
+		if err := writer.Write([]string{link.FromSpecID, link.ToSpecID, link.LinkLabel}); err != nil {
 			return fmt.Errorf("failed to write CSV row: %w", err)
 		}
 	}
@@ -152,7 +152,7 @@ func (a *App) exportCommitLinks(outputDir string) error {
 	defer writer.Flush()
 
 	// Write header
-	if err := writer.Write([]string{"spec_id", "commit_id", "repo_path", "link_type"}); err != nil {
+	if err := writer.Write([]string{"spec_id", "commit_id", "repo_path", "link_label"}); err != nil {
 		return fmt.Errorf("failed to write CSV header: %w", err)
 	}
 
@@ -164,7 +164,7 @@ func (a *App) exportCommitLinks(outputDir string) error {
 		}
 
 		for _, link := range links {
-			if err := writer.Write([]string{link.SpecID, link.CommitID, link.RepoPath, link.LinkType}); err != nil {
+			if err := writer.Write([]string{link.SpecID, link.CommitID, link.RepoPath, link.LinkLabel}); err != nil {
 				return fmt.Errorf("failed to write CSV row: %w", err)
 			}
 		}
@@ -210,7 +210,7 @@ func (a *App) getAllSpecSpecLinks() ([]*models.SpecSpecLink, error) {
 	// Since there's no direct method to get all spec-spec links, we'll use the underlying storage
 	// We need to add a method to the storage interface or use raw SQL
 	// For now, let's implement this using the existing GetLinkedSpecs method
-	
+
 	specs, err := a.storage.ListSpecNodes()
 	if err != nil {
 		return nil, err
@@ -234,7 +234,7 @@ func (a *App) getAllSpecSpecLinks() ([]*models.SpecSpecLink, error) {
 				link := &models.SpecSpecLink{
 					FromSpecID: spec.ID,
 					ToSpecID:   child.ID,
-					LinkType:   "child", // We know this from the GetLinkedSpecs query
+					LinkLabel:  "child", // We know this from the GetLinkedSpecs query
 				}
 				allLinks = append(allLinks, link)
 			}

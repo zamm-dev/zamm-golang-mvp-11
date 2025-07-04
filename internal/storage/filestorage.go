@@ -57,11 +57,11 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 	switch filename {
 	case "spec-links.csv":
 		return fs.writeCSVFile(path, [][]string{
-			{"from_spec_id", "to_spec_id", "link_type"},
+			{"from_spec_id", "to_spec_id", "link_label"},
 		})
 	case "commit-links.csv":
 		return fs.writeCSVFile(path, [][]string{
-			{"spec_id", "commit_id", "repo_path", "link_type"},
+			{"spec_id", "commit_id", "repo_path", "link_label"},
 		})
 	case "project_metadata.json":
 		metadata := models.ProjectMetadata{
@@ -99,7 +99,7 @@ func (fs *FileStorage) CreateSpecNode(spec *models.SpecNode) error {
 // GetSpecNode retrieves a spec node by ID
 func (fs *FileStorage) GetSpecNode(id string) (*models.SpecNode, error) {
 	path := filepath.Join(fs.baseDir, "specs", id+".json")
-	
+
 	var spec models.SpecNode
 	if err := fs.readJSONFile(path, &spec); err != nil {
 		if os.IsNotExist(err) {
@@ -133,7 +133,7 @@ func (fs *FileStorage) UpdateSpecNode(spec *models.SpecNode) error {
 // DeleteSpecNode deletes a spec node
 func (fs *FileStorage) DeleteSpecNode(id string) error {
 	path := filepath.Join(fs.baseDir, "specs", id+".json")
-	
+
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return models.NewZammError(models.ErrTypeNotFound, "spec not found")
 	}
@@ -415,7 +415,7 @@ func (fs *FileStorage) GetOrphanSpecs() ([]*models.SpecNode, error) {
 // GetProjectMetadata retrieves project metadata
 func (fs *FileStorage) GetProjectMetadata() (*models.ProjectMetadata, error) {
 	path := filepath.Join(fs.baseDir, "project_metadata.json")
-	
+
 	var metadata models.ProjectMetadata
 	if err := fs.readJSONFile(path, &metadata); err != nil {
 		if os.IsNotExist(err) {
@@ -471,10 +471,10 @@ func (fs *FileStorage) getAllSpecCommitLinks() ([]*models.SpecCommitLink, error)
 		}
 
 		link := &models.SpecCommitLink{
-			SpecID:   record[0],
-			CommitID: record[1],
-			RepoPath: record[2],
-			LinkType: record[3],
+			SpecID:    record[0],
+			CommitID:  record[1],
+			RepoPath:  record[2],
+			LinkLabel: record[3],
 		}
 		links = append(links, link)
 	}
@@ -485,9 +485,9 @@ func (fs *FileStorage) getAllSpecCommitLinks() ([]*models.SpecCommitLink, error)
 // writeSpecCommitLinks writes spec-commit links to CSV
 func (fs *FileStorage) writeSpecCommitLinks(links []*models.SpecCommitLink) error {
 	path := filepath.Join(fs.baseDir, "commit-links.csv")
-	
+
 	records := [][]string{
-		{"spec_id", "commit_id", "repo_path", "link_type"},
+		{"spec_id", "commit_id", "repo_path", "link_label"},
 	}
 
 	for _, link := range links {
@@ -495,7 +495,7 @@ func (fs *FileStorage) writeSpecCommitLinks(links []*models.SpecCommitLink) erro
 			link.SpecID,
 			link.CommitID,
 			link.RepoPath,
-			link.LinkType,
+			link.LinkLabel,
 		})
 	}
 
@@ -523,7 +523,7 @@ func (fs *FileStorage) getAllSpecSpecLinks() ([]*models.SpecSpecLink, error) {
 		link := &models.SpecSpecLink{
 			FromSpecID: record[0],
 			ToSpecID:   record[1],
-			LinkType:   record[2],
+			LinkLabel:  record[2],
 		}
 		links = append(links, link)
 	}
@@ -534,16 +534,16 @@ func (fs *FileStorage) getAllSpecSpecLinks() ([]*models.SpecSpecLink, error) {
 // writeSpecSpecLinks writes spec-spec links to CSV
 func (fs *FileStorage) writeSpecSpecLinks(links []*models.SpecSpecLink) error {
 	path := filepath.Join(fs.baseDir, "spec-links.csv")
-	
+
 	records := [][]string{
-		{"from_spec_id", "to_spec_id", "link_type"},
+		{"from_spec_id", "to_spec_id", "link_label"},
 	}
 
 	for _, link := range links {
 		records = append(records, []string{
 			link.FromSpecID,
 			link.ToSpecID,
-			link.LinkType,
+			link.LinkLabel,
 		})
 	}
 

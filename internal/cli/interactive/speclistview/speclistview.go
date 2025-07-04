@@ -451,18 +451,18 @@ func (m *Model) updateCommitsTable() {
 	for i, link := range m.links {
 		commitID := link.CommitID
 		repo := link.RepoPath
-		var linkType string
-		switch link.LinkType {
+		var label string
+		switch link.LinkLabel {
 		case "implements":
-			linkType = "IMPL"
+			label = "IMPL"
 		case "fixes":
-			linkType = "FIX"
+			label = "FIX"
 		default:
-			linkType = link.LinkType
+			label = link.LinkLabel
 		}
 		created := link.CreatedAt.Format("2006-01-02 15:04")
 
-		rows[i] = table.Row{linkType, commitID, repo, created}
+		rows[i] = table.Row{label, commitID, repo, created}
 	}
 
 	m.table.SetRows(rows)

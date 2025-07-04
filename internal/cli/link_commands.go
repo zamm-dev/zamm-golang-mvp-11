@@ -15,7 +15,7 @@ func (a *App) createLinkCommand(jsonOutput, quiet bool) *cobra.Command {
 	}
 
 	// link create
-	var specID, commitID, repoPath, linkType string
+	var specID, commitID, repoPath, label string
 	createCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a link between spec and commit",
@@ -23,11 +23,11 @@ func (a *App) createLinkCommand(jsonOutput, quiet bool) *cobra.Command {
 			if repoPath == "" {
 				repoPath = a.config.Git.DefaultRepo
 			}
-			if linkType == "" {
-				linkType = "implements"
+			if label == "" {
+				label = "implements"
 			}
 
-			link, err := a.linkService.LinkSpecToCommit(specID, commitID, repoPath, linkType)
+			link, err := a.linkService.LinkSpecToCommit(specID, commitID, repoPath, label)
 			if err != nil {
 				return err
 			}
@@ -45,7 +45,7 @@ func (a *App) createLinkCommand(jsonOutput, quiet bool) *cobra.Command {
 	createCmd.Flags().StringVar(&specID, "spec", "", "Specification ID (required)")
 	createCmd.Flags().StringVar(&commitID, "commit", "", "Commit hash (required)")
 	createCmd.Flags().StringVar(&repoPath, "repo", "", "Repository path (default: current directory)")
-	createCmd.Flags().StringVar(&linkType, "type", "implements", "Link type (implements or fixes)")
+	createCmd.Flags().StringVar(&label, "type", "implements", "Link type (implements or fixes)")
 	createCmd.MarkFlagRequired("spec")
 	createCmd.MarkFlagRequired("commit")
 

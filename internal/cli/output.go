@@ -68,7 +68,7 @@ func (a *App) outputLinkTable(links []*models.SpecCommitLink) error {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			link.CommitID[:12]+"...",
 			repoName,
-			link.LinkType,
+			link.LinkLabel,
 			link.CreatedAt.Format("2006-01-02 15:04"),
 		)
 	}
