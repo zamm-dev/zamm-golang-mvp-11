@@ -13,16 +13,14 @@
 
 ## Architecture
 - **CLI Tool**: Go-based CLI for linking specs to Git commits
-- **Storage**: SQLite database (~/.zamm/zamm.db) with migration support
+- **Storage**: .zamm/ folder in the project directory with `specs/<id>.json` files for spec definitions, spec-links.csv for links between specs, commit-links.csv for links between specs and commits, and project_metadata.json for root node metadata
+- **Data Models**: Spec Nodes that use UUIDs for spec node IDs
 - **Structure**: cmd/zamm (CLI entry), internal/{storage,services,models,config,cli}
-- **Database**: Two main tables: spec_nodes and spec_commit_links
 - **Config**: YAML config at ~/.zamm/config.yaml
-- **Models**: SpecNode and SpecCommitLink with UUID primary keys
 
 ## Code Style
 - **Imports**: stdlib, third-party, local imports with blank line separation
 - **Errors**: Custom ZammError type with categorized error handling
 - **Naming**: PascalCase exports, camelCase private, descriptive names
 - **Structs**: Multiple tags same line `json:"id" db:"id"`
-- **SQL**: Multi-line formatting with proper indentation
 - **Tests**: Use t.Helper() for test helpers, table-driven tests preferred
