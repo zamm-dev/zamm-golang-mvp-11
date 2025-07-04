@@ -71,7 +71,7 @@ type Model struct {
 	// Spec selector components
 	specSelector common.SpecSelector
 	specEditor   common.SpecEditor
-	linkSelector common.LinkSelector
+	linkSelector common.LinkTypeSelector
 }
 
 type linkItem struct {
@@ -136,7 +136,7 @@ func (a *App) runInteractiveMode() error {
 		textInput:      ti,
 		specListView:   speclistview.New(combinedSvc),
 		specSelector:   common.NewSpecSelector(common.DefaultSpecSelectorConfig()),
-		linkSelector:   common.NewLinkSelector(common.DefaultLinkSelectorConfig()),
+		linkSelector:   common.NewLinkTypeSelector("Select Option"),
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
 	}
@@ -342,12 +342,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resetInputs()
 			m.selectedSpecID = msg.SpecID
 
-			// Configure link selector for link type selection
-			options := []common.LinkOption{
-				{ID: "git_commit", Label: "Git Commit", Description: "Link to a git commit"},
-				{ID: "parent_spec", Label: "Parent Specification", Description: "Link to another specification"},
-			}
-
 			// Find selected spec title for the title
 			var specTitle string
 			for _, spec := range m.specs {
@@ -357,12 +351,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-			config := common.LinkSelectorConfig{
-				Title:       fmt.Sprintf("🔗 Link Type Selection\n\nSelect link type for '%s':", specTitle),
-				Options:     options,
-				ShowNumbers: true,
-			}
-			m.linkSelector = common.NewLinkSelector(config)
+			title := fmt.Sprintf("🔗 Link Type Selection\n\nSelect link type for '%s':", specTitle)
+			m.linkSelector = common.NewLinkTypeSelector(title)
 			m.linkSelector.SetSize(m.terminalWidth, m.terminalHeight)
 
 			m.state = LinkLabelSelection
@@ -384,12 +374,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resetInputs()
 			m.selectedSpecID = msg.SpecID
 
-			// Configure link selector for unlink type selection
-			options := []common.LinkOption{
-				{ID: "git_commit", Label: "Git Commit Links", Description: "Remove links to git commits"},
-				{ID: "spec_link", Label: "Specification Links", Description: "Remove links to other specifications"},
-			}
-
 			// Find selected spec title for the title
 			var specTitle string
 			for _, spec := range m.specs {
@@ -399,12 +383,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-			config := common.LinkSelectorConfig{
-				Title:       fmt.Sprintf("🗑️ Unlink Type Selection\n\nSelect link type to remove from '%s':", specTitle),
-				Options:     options,
-				ShowNumbers: true,
-			}
-			m.linkSelector = common.NewLinkSelector(config)
+			title := fmt.Sprintf("🗑️ Unlink Type Selection\n\nSelect link type to remove from '%s':", specTitle)
+			m.linkSelector = common.NewLinkTypeSelector(title)
 			m.linkSelector.SetSize(m.terminalWidth, m.terminalHeight)
 
 			m.state = UnlinkVariantSelection
@@ -452,14 +432,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case common.LinkOptionSelectedMsg:
 		if m.state == LinkLabelSelection {
 			// Handle link type selection
-			if msg.Option.ID == "git_commit" {
+			if msg.Option.Type == common.GitCommitLink {
 				// Link to Git Commit
 				m.resetInputs()
 				m.state = LinkSpecCommit
 				m.promptText = "Enter commit hash:"
 				m.textInput.Focus()
 				return m, nil
-			} else if msg.Option.ID == "parent_spec" {
+			} else if msg.Option.Type == common.SpecLink {
 				// Link to Parent Spec
 				m.resetInputs()
 				m.state = LinkSpecToSpecSelection
@@ -485,10 +465,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else if m.state == UnlinkVariantSelection {
 			// Handle unlink type selection
-			if msg.Option.ID == "git_commit" {
+			if msg.Option.Type == common.GitCommitLink {
 				// Unlink from Git Commit
 				return m, m.loadLinksForSpecCmd()
-			} else if msg.Option.ID == "spec_link" {
+			} else if msg.Option.Type == common.SpecLink {
 				// Unlink from Parent Spec
 				m.resetInputs()
 
