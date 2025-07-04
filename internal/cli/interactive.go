@@ -71,6 +71,7 @@ type Model struct {
 	// Spec selector components
 	specSelector common.SpecSelector
 	specEditor   common.SpecEditor
+	linkSelector common.LinkSelector
 }
 
 type linkItem struct {
@@ -135,6 +136,7 @@ func (a *App) runInteractiveMode() error {
 		textInput:      ti,
 		specListView:   speclistview.New(combinedSvc),
 		specSelector:   common.NewSpecSelector(common.DefaultSpecSelectorConfig()),
+		linkSelector:   common.NewLinkSelector(common.DefaultLinkSelectorConfig()),
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
 	}
@@ -158,6 +160,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.specListView.SetSize(msg.Width, msg.Height)
 		m.specSelector.SetSize(msg.Width, msg.Height)
 		m.specEditor.SetSize(msg.Width, msg.Height)
+		m.linkSelector.SetSize(msg.Width, msg.Height)
 	case tea.KeyMsg:
 		if m.showMessage {
 			if msg.String() == "enter" || msg.String() == " " || msg.String() == "esc" {
@@ -179,9 +182,35 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case LinkSelection:
 			return m.updateLinkSelection(msg)
 		case LinkLabelSelection:
-			return m.updateLinkLabelSelection(msg)
+			// Use link selector for link type selection
+			var cmd tea.Cmd
+			selector, selectorCmd := m.linkSelector.Update(msg)
+			m.linkSelector = *selector
+			cmd = selectorCmd
+
+			// Handle escape key to go back
+			if msg.String() == "esc" {
+				m.state = SpecListView
+				m.cursor = 0
+				return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+			}
+
+			return m, cmd
 		case UnlinkVariantSelection:
-			return m.updateUnlinkVariantSelection(msg)
+			// Use link selector for unlink type selection
+			var cmd tea.Cmd
+			selector, selectorCmd := m.linkSelector.Update(msg)
+			m.linkSelector = *selector
+			cmd = selectorCmd
+
+			// Handle escape key to go back
+			if msg.String() == "esc" {
+				m.state = SpecListView
+				m.cursor = 0
+				return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+			}
+
+			return m, cmd
 		case LinkSpecToSpecSelection:
 			// Use spec selector for spec selection
 			var cmd tea.Cmd
@@ -312,6 +341,30 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state == SpecListView {
 			m.resetInputs()
 			m.selectedSpecID = msg.SpecID
+
+			// Configure link selector for link type selection
+			options := []common.LinkOption{
+				{ID: "git_commit", Label: "Git Commit", Description: "Link to a git commit"},
+				{ID: "parent_spec", Label: "Parent Specification", Description: "Link to another specification"},
+			}
+
+			// Find selected spec title for the title
+			var specTitle string
+			for _, spec := range m.specs {
+				if spec.ID == msg.SpecID {
+					specTitle = spec.Title
+					break
+				}
+			}
+
+			config := common.LinkSelectorConfig{
+				Title:       fmt.Sprintf("🔗 Link Type Selection\n\nSelect link type for '%s':", specTitle),
+				Options:     options,
+				ShowNumbers: true,
+			}
+			m.linkSelector = common.NewLinkSelector(config)
+			m.linkSelector.SetSize(m.terminalWidth, m.terminalHeight)
+
 			m.state = LinkLabelSelection
 			m.cursor = 0
 			return m, nil
@@ -330,6 +383,30 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state == SpecListView {
 			m.resetInputs()
 			m.selectedSpecID = msg.SpecID
+
+			// Configure link selector for unlink type selection
+			options := []common.LinkOption{
+				{ID: "git_commit", Label: "Git Commit Links", Description: "Remove links to git commits"},
+				{ID: "spec_link", Label: "Specification Links", Description: "Remove links to other specifications"},
+			}
+
+			// Find selected spec title for the title
+			var specTitle string
+			for _, spec := range m.specs {
+				if spec.ID == msg.SpecID {
+					specTitle = spec.Title
+					break
+				}
+			}
+
+			config := common.LinkSelectorConfig{
+				Title:       fmt.Sprintf("🗑️ Unlink Type Selection\n\nSelect link type to remove from '%s':", specTitle),
+				Options:     options,
+				ShowNumbers: true,
+			}
+			m.linkSelector = common.NewLinkSelector(config)
+			m.linkSelector.SetSize(m.terminalWidth, m.terminalHeight)
+
 			m.state = UnlinkVariantSelection
 			m.cursor = 0
 			return m, nil
@@ -370,6 +447,77 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Just unlink between the current spec and the selected spec
 			selectedSpecID := msg.Spec.ID
 			return m, m.unlinkSpecsCmd(m.selectedSpecID, selectedSpecID)
+		}
+
+	case common.LinkOptionSelectedMsg:
+		if m.state == LinkLabelSelection {
+			// Handle link type selection
+			if msg.Option.ID == "git_commit" {
+				// Link to Git Commit
+				m.resetInputs()
+				m.state = LinkSpecCommit
+				m.promptText = "Enter commit hash:"
+				m.textInput.Focus()
+				return m, nil
+			} else if msg.Option.ID == "parent_spec" {
+				// Link to Parent Spec
+				m.resetInputs()
+				m.state = LinkSpecToSpecSelection
+				m.cursor = 0
+
+				// Configure spec selector for linking mode
+				config := common.SpecSelectorConfig{
+					Title: "🔗 Link to Specification",
+				}
+				m.specSelector = common.NewSpecSelector(config)
+
+				// Filter out the current spec
+				filteredSpecs := make([]interactive.Spec, 0, len(m.specs))
+				for _, spec := range m.specs {
+					if spec.ID != m.selectedSpecID {
+						filteredSpecs = append(filteredSpecs, spec)
+					}
+				}
+				m.specSelector.SetSpecs(filteredSpecs)
+				m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
+
+				return m, nil
+			}
+		} else if m.state == UnlinkVariantSelection {
+			// Handle unlink type selection
+			if msg.Option.ID == "git_commit" {
+				// Unlink from Git Commit
+				return m, m.loadLinksForSpecCmd()
+			} else if msg.Option.ID == "spec_link" {
+				// Unlink from Parent Spec
+				m.resetInputs()
+
+				// Get child specs that can be unlinked directly
+				unlinkSpecs, err := m.getChildSpecs(m.selectedSpecID)
+				if err != nil {
+					m.message = fmt.Sprintf("Error loading linked specs: %v", err)
+					m.showMessage = true
+					return m, nil
+				}
+
+				if len(unlinkSpecs) == 0 {
+					m.message = "No child specifications found to unlink."
+					m.showMessage = true
+					return m, nil
+				}
+
+				// Configure the spec selector for unlink mode
+				config := common.SpecSelectorConfig{
+					Title: "🗑️ Remove Specification Link",
+				}
+				m.specSelector = common.NewSpecSelector(config)
+				m.specSelector.SetSpecs(unlinkSpecs)
+				m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
+
+				m.state = UnlinkSpecFromSpecSelection
+				m.cursor = 0
+				return m, nil
+			}
 		}
 
 	case speclistview.ExitMsg:
@@ -693,9 +841,9 @@ func (m *Model) View() string {
 	case SpecEditor:
 		return m.specEditor.View()
 	case LinkLabelSelection:
-		return m.renderLinkLabelSelection()
+		return m.linkSelector.View()
 	case UnlinkVariantSelection:
-		return m.renderUnlinkVariantSelection()
+		return m.linkSelector.View()
 	case LinkSpecToSpecSelection:
 		return m.specSelector.View()
 	case UnlinkSpecFromSpecSelection:
@@ -807,73 +955,6 @@ func (m *Model) renderConfirmDelete() string {
 	return s
 }
 
-// renderLinkLabelSelection renders the link type selection menu
-func (m *Model) renderLinkLabelSelection() string {
-	s := "🔗 Link Type Selection\n"
-	s += "=====================\n\n"
-
-	// Find selected spec title
-	var specTitle string
-	for _, spec := range m.specs {
-		if spec.ID == m.selectedSpecID {
-			specTitle = spec.Title
-			break
-		}
-	}
-
-	s += fmt.Sprintf("Select link type for '%s':\n\n", specTitle)
-
-	options := []string{
-		"Git Commit",
-		"Parent Specification",
-	}
-
-	for i, option := range options {
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
-		}
-		s += fmt.Sprintf("%s %d. %s\n", cursor, i+1, option)
-	}
-
-	s += "\nUse ↑/↓ arrows to navigate, Enter to select, Esc to go back"
-	return s
-}
-
-// renderUnlinkVariantSelection renders the unlink type selection menu
-func (m *Model) renderUnlinkVariantSelection() string {
-	s := "🗑️  Unlink Type Selection\n"
-	s += "=========================\n\n"
-
-	// Find selected spec title
-	var specTitle string
-	for _, spec := range m.specs {
-		if spec.ID == m.selectedSpecID {
-			specTitle = spec.Title
-			break
-		}
-	}
-
-	s += fmt.Sprintf("Select link type to remove from '%s':\n\n", specTitle)
-
-	options := []string{
-		"Git Commit Links",
-		"Specification Links",
-	}
-
-	for i, option := range options {
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
-		}
-		s += fmt.Sprintf("%s %d. %s\n", cursor, i+1, option)
-	}
-
-	s += "\nUse ↑/↓ arrows to navigate, Enter to select, Esc to go back"
-	return s
-}
-
-// renderLinkSpecToSpecSelection renders the spec-to-spec selection menu
 // renderLinkSpecToSpecType renders the link type input form
 func (m *Model) renderLinkSpecToSpecType() string {
 	s := "🔗 Specification Link Type\n"
@@ -896,113 +977,6 @@ func (m *Model) renderLinkSpecToSpecType() string {
 	s += "Press Enter to finish, Esc to cancel"
 
 	return s
-}
-
-// updateLinkLabelSelection handles the link type selection menu
-func (m *Model) updateLinkLabelSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc":
-		m.state = SpecListView
-		m.cursor = 0
-		return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
-	case "up", "k":
-		if m.cursor > 0 {
-			m.cursor--
-		}
-	case "down", "j":
-		if m.cursor < 1 { // 0: Git Commit, 1: Parent Spec
-			m.cursor++
-		}
-	case "enter", " ":
-		if m.cursor == 0 {
-			// Link to Git Commit
-			m.resetInputs()
-			m.state = LinkSpecCommit
-			m.promptText = "Enter commit hash:"
-			m.textInput.Focus()
-			return m, nil
-		} else if m.cursor == 1 {
-			// Link to Parent Spec
-			m.resetInputs()
-			m.state = LinkSpecToSpecSelection
-			m.cursor = 0
-
-			// Configure spec selector for linking mode
-			config := common.SpecSelectorConfig{
-				Title: "🔗 Link to Specification",
-			}
-			m.specSelector = common.NewSpecSelector(config)
-
-			// Filter out the current spec
-			filteredSpecs := make([]interactive.Spec, 0, len(m.specs))
-			for _, spec := range m.specs {
-				if spec.ID != m.selectedSpecID {
-					filteredSpecs = append(filteredSpecs, spec)
-				}
-			}
-			m.specSelector.SetSpecs(filteredSpecs)
-			m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
-
-			return m, nil
-		}
-	}
-	return m, nil
-}
-
-// updateUnlinkVariantSelection handles the unlink type selection menu
-func (m *Model) updateUnlinkVariantSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c", "q":
-		return m, tea.Quit
-	case "esc":
-		m.state = SpecListView
-		m.cursor = 0
-		return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
-	case "up", "k":
-		if m.cursor > 0 {
-			m.cursor--
-		}
-	case "down", "j":
-		if m.cursor < 1 { // 0: Git Commit, 1: Parent Spec
-			m.cursor++
-		}
-	case "enter", " ":
-		if m.cursor == 0 {
-			// Unlink from Git Commit
-			return m, m.loadLinksForSpecCmd()
-		} else if m.cursor == 1 { // Unlink from Parent Spec
-			m.resetInputs()
-
-			// Get child specs that can be unlinked directly
-			unlinkSpecs, err := m.getChildSpecs(m.selectedSpecID)
-			if err != nil {
-				m.message = fmt.Sprintf("Error loading linked specs: %v", err)
-				m.showMessage = true
-				return m, nil
-			}
-
-			if len(unlinkSpecs) == 0 {
-				m.message = "No child specifications found to unlink."
-				m.showMessage = true
-				return m, nil
-			}
-
-			// Configure the spec selector for unlink mode
-			config := common.SpecSelectorConfig{
-				Title: "🗑️ Remove Specification Link",
-			}
-			m.specSelector = common.NewSpecSelector(config)
-			m.specSelector.SetSpecs(unlinkSpecs)
-			m.specSelector.SetSize(m.terminalWidth, m.terminalHeight)
-
-			m.state = UnlinkSpecFromSpecSelection
-			m.cursor = 0
-			return m, nil
-		}
-	}
-	return m, nil
 }
 
 // updateLinkSpecToSpecType handles the link type input for spec-to-spec linking
