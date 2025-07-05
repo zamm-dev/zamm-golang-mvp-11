@@ -129,6 +129,10 @@ func (s *SpecSelector) ResetCursor() {
 func (s *SpecSelector) Update(msg tea.Msg) (*SpecSelector, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if s.list.SettingFilter() { // let list handle filter input
+			break
+		}
+
 		switch msg.String() {
 		case "enter":
 			if selectedSpec := s.GetSelectedSpec(); selectedSpec != nil {
