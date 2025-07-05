@@ -32,8 +32,6 @@ type specDelegate struct {
 	isInFocus bool // Whether the list is currently in focus
 }
 
-var defaultStyle = lipgloss.NewStyle()
-
 func (d specDelegate) Height() int                             { return 1 }
 func (d specDelegate) Spacing() int                            { return 0 }
 func (d specDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }

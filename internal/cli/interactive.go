@@ -22,9 +22,7 @@ const (
 	SpecListView MenuState = iota
 	LinkSelection
 	SpecEditor
-	LinkSpecCommit
-	LinkSpecRepo
-	LinkSpecType
+	GitCommitForm
 	ConfirmDelete
 	// New states for link type selection and hierarchical specs
 	LinkLabelSelection
@@ -69,9 +67,10 @@ type Model struct {
 	inputLinkLabel      string
 
 	// Spec selector components
-	specSelector common.SpecSelector
-	specEditor   common.SpecEditor
-	linkSelector common.LinkTypeSelector
+	specSelector  common.SpecSelector
+	specEditor    common.SpecEditor
+	linkSelector  common.LinkTypeSelector
+	gitCommitForm common.GitCommitForm
 }
 
 type linkItem struct {
@@ -137,6 +136,7 @@ func (a *App) runInteractiveMode() error {
 		specListView:   speclistview.New(combinedSvc),
 		specSelector:   common.NewSpecSelector(common.DefaultSpecSelectorConfig()),
 		linkSelector:   common.NewLinkTypeSelector("Select Option"),
+		gitCommitForm:  common.NewGitCommitForm(common.GitCommitFormConfig{Title: "Git Commit Form"}),
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
 	}
@@ -161,6 +161,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.specSelector.SetSize(msg.Width, msg.Height)
 		m.specEditor.SetSize(msg.Width, msg.Height)
 		m.linkSelector.SetSize(msg.Width, msg.Height)
+		m.gitCommitForm.SetSize(msg.Width, msg.Height)
 	case tea.KeyMsg:
 		if m.showMessage {
 			if msg.String() == "enter" || msg.String() == " " || msg.String() == "esc" {
@@ -233,18 +234,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.specEditor = *editor
 			cmd = editorCmd
 			return m, cmd
-		case LinkSpecCommit, LinkSpecRepo, LinkSpecType,
-			LinkSpecToSpecType:
-			var cmd tea.Cmd
-			m.textInput, cmd = m.textInput.Update(msg)
-
-			switch m.state {
-			case LinkSpecCommit, LinkSpecRepo, LinkSpecType:
-				return m.updateLinkSpec(msg)
-			case LinkSpecToSpecType:
-				return m.updateLinkSpecToSpecType(msg)
-			}
+		case GitCommitForm:
+			form, cmd := m.gitCommitForm.Update(msg)
+			m.gitCommitForm = *form
 			return m, cmd
+		case LinkSpecToSpecType:
+			m.textInput, _ = m.textInput.Update(msg)
+			return m.updateLinkSpecToSpecType(msg)
 		case ConfirmDelete:
 			return m.updateConfirmDelete(msg)
 		}
@@ -397,6 +393,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
 		}
 
+	case common.GitCommitFormCompleteMsg:
+		if m.state == GitCommitForm {
+			// Create the link with the provided information
+			return m, m.createLinkCmd(m.selectedSpecID, msg.CommitHash, msg.RepoPath, msg.LinkType)
+		}
+
+	case common.GitCommitFormCancelMsg:
+		if m.state == GitCommitForm {
+			m.state = SpecListView
+			m.resetInputs()
+			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+		}
+
 	case common.SpecSelectedMsg:
 		if m.state == LinkSpecToSpecSelection {
 			// Handle spec selection for linking
@@ -419,11 +428,27 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state == LinkLabelSelection {
 			// Handle link type selection
 			if msg.LinkType == common.GitCommitLink {
-				// Link to Git Commit
+				// Link to Git Commit - use new form component
 				m.resetInputs()
-				m.state = LinkSpecCommit
-				m.promptText = "Enter commit hash:"
-				m.textInput.Focus()
+
+				// Find selected spec title for the title
+				var specTitle string
+				for _, spec := range m.specs {
+					if spec.ID == m.selectedSpecID {
+						specTitle = spec.Title
+						break
+					}
+				}
+
+				config := common.GitCommitFormConfig{
+					Title:           fmt.Sprintf("🔗 Link '%s' to Git Commit", specTitle),
+					InitialCommit:   "",
+					InitialRepo:     m.app.config.Git.DefaultRepo,
+					InitialLinkType: "implements",
+				}
+				m.gitCommitForm = common.NewGitCommitForm(config)
+				m.gitCommitForm.SetSize(m.terminalWidth, m.terminalHeight)
+				m.state = GitCommitForm
 				return m, nil
 			} else if msg.LinkType == common.SpecLink {
 				// Link to Parent Spec
@@ -523,45 +548,6 @@ func (m *Model) updateLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter", " ":
 		if len(m.links) > 0 {
 			return m.executeLinkAction()
-		}
-	}
-	return m, nil
-}
-
-// updateLinkSpec handles updates for linking specifications
-func (m *Model) updateLinkSpec(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
-	case tea.KeyCtrlC, tea.KeyEsc:
-		m.state = SpecListView
-		m.cursor = 0
-		m.resetInputs()
-		return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
-	case tea.KeyEnter:
-		switch m.state {
-		case LinkSpecCommit:
-			if strings.TrimSpace(m.textInput.Value()) == "" {
-				return m, nil
-			}
-			m.inputCommit = strings.TrimSpace(m.textInput.Value())
-			m.textInput.Reset()
-			m.state = LinkSpecRepo
-			m.promptText = "Enter repository path (or press Enter for default):"
-			return m, nil
-		case LinkSpecRepo:
-			m.inputRepo = strings.TrimSpace(m.textInput.Value())
-			if m.inputRepo == "" {
-				m.inputRepo = m.app.config.Git.DefaultRepo
-			}
-			m.textInput.Reset()
-			m.state = LinkSpecType
-			m.promptText = "Enter link type (or press Enter for 'implements'):"
-			return m, nil
-		case LinkSpecType:
-			m.inputType = strings.TrimSpace(m.textInput.Value())
-			if m.inputType == "" {
-				m.inputType = "implements"
-			}
-			return m, m.createLinkCmd(m.selectedSpecID, m.inputCommit, m.inputRepo, m.inputType)
 		}
 	}
 	return m, nil
@@ -813,6 +799,8 @@ func (m *Model) View() string {
 		return m.renderLinkSelection()
 	case SpecEditor:
 		return m.specEditor.View()
+	case GitCommitForm:
+		return m.gitCommitForm.View()
 	case LinkLabelSelection:
 		return m.linkSelector.View()
 	case UnlinkVariantSelection:
@@ -821,8 +809,6 @@ func (m *Model) View() string {
 		return m.specSelector.View()
 	case UnlinkSpecFromSpecSelection:
 		return m.specSelector.View()
-	case LinkSpecCommit, LinkSpecRepo, LinkSpecType:
-		return m.renderLinkSpec()
 	case LinkSpecToSpecType:
 		return m.renderLinkSpecToSpecType()
 	case ConfirmDelete:
@@ -864,42 +850,6 @@ func (m *Model) renderLinkSelection() string {
 	}
 
 	s += "\nUse ↑/↓ arrows to navigate, Enter to delete, Esc to go back"
-	return s
-}
-
-// renderLinkSpec renders the link specification form
-func (m *Model) renderLinkSpec() string {
-	s := "🔗 Link Specification to Commit\n"
-	s += "===============================\n\n"
-
-	// Show selected spec
-	var specTitle string
-	for _, spec := range m.specs {
-		if spec.ID == m.selectedSpecID {
-			specTitle = spec.Title
-			break
-		}
-	}
-	s += fmt.Sprintf("Linking: %s\n\n", specTitle)
-
-	switch m.state {
-	case LinkSpecCommit:
-		s += m.promptText + "\n"
-		s += m.textInput.View() + "\n\n"
-		s += "Press Enter to continue, Esc to cancel"
-	case LinkSpecRepo:
-		s += fmt.Sprintf("Commit: %s\n\n", m.inputCommit)
-		s += m.promptText + "\n"
-		s += m.textInput.View() + "\n\n"
-		s += "Press Enter to continue, Esc to cancel"
-	case LinkSpecType:
-		s += fmt.Sprintf("Commit: %s\n", m.inputCommit)
-		s += fmt.Sprintf("Repository: %s\n\n", m.inputRepo)
-		s += m.promptText + "\n"
-		s += m.textInput.View() + "\n\n"
-		s += "Press Enter to finish, Esc to cancel"
-	}
-
 	return s
 }
 

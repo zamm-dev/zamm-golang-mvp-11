@@ -4,6 +4,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+var defaultStyle = lipgloss.NewStyle()
+
 func HighlightStyle() lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("4")).Bold(true)
 }
