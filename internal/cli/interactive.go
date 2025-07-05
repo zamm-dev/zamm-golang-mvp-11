@@ -520,6 +520,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case speclistview.ExitMsg:
 		return m, tea.Quit
+
+	default:
+		new_spec_selector, cmd := m.specSelector.Update(msg)
+		m.specSelector = *new_spec_selector
+		return m, cmd
 	}
 
 	var cmd tea.Cmd
