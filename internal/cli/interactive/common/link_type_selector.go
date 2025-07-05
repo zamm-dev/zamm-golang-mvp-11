@@ -32,12 +32,12 @@ func (o LinkOption) FilterValue() string {
 var (
 	GitCommitOption = LinkOption{
 		Type:  GitCommitLink,
-		Label: "Git Commit",
+		Label: "[G]it Commit",
 	}
 
 	SpecOption = LinkOption{
 		Type:  SpecLink,
-		Label: "Specification",
+		Label: "[S]pecification",
 	}
 )
 
@@ -117,6 +117,14 @@ func (s *LinkTypeSelector) Update(msg tea.Msg) (*LinkTypeSelector, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "g":
+			return s, func() tea.Msg {
+				return LinkOptionSelectedMsg{LinkType: GitCommitLink}
+			}
+		case "s":
+			return s, func() tea.Msg {
+				return LinkOptionSelectedMsg{LinkType: SpecLink}
+			}
 		case "enter":
 			if selectedOption := s.GetSelectedOption(); selectedOption != nil {
 				return s, func() tea.Msg {
