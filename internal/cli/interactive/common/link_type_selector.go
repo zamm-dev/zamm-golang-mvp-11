@@ -10,18 +10,17 @@ import (
 )
 
 // LinkType represents the type of link that can be selected
-type LinkType string
+type LinkType int
 
 const (
-	GitCommitLink LinkType = "git_commit"
-	SpecLink      LinkType = "spec_link"
+	GitCommitLink LinkType = iota
+	SpecLink
 )
 
 // LinkOption represents a link option that can be selected
 type LinkOption struct {
-	Type        LinkType
-	Label       string
-	Description string
+	Type  LinkType
+	Label string
 }
 
 // FilterValue returns a value for filtering - implements list.Item
@@ -32,27 +31,26 @@ func (o LinkOption) FilterValue() string {
 // Predefined link options - these are the core link types
 var (
 	GitCommitOption = LinkOption{
-		Type:        GitCommitLink,
-		Label:       "Git Commit",
-		Description: "Link to a git commit",
+		Type:  GitCommitLink,
+		Label: "Git Commit",
 	}
 
 	SpecOption = LinkOption{
-		Type:        SpecLink,
-		Label:       "Specification",
-		Description: "Link to another specification",
+		Type:  SpecLink,
+		Label: "Specification",
 	}
 )
 
 // LinkOptionSelectedMsg is sent when a link option is selected
 type LinkOptionSelectedMsg struct {
-	Option LinkOption
+	LinkType LinkType
 }
 
+// LinkTypeCancelledMsg is sent when the user cancels link type selection
+type LinkTypeCancelledMsg struct{}
+
 // linkDelegate handles rendering of link option items in the list
-type linkDelegate struct {
-	isInFocus bool // Whether the list is currently in focus
-}
+type linkDelegate struct{}
 
 func (d linkDelegate) Height() int                             { return 1 }
 func (d linkDelegate) Spacing() int                            { return 0 }
@@ -63,21 +61,12 @@ func (d linkDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		return
 	}
 
-	str := fmt.Sprintf("%d. %s", index+1, option.Label)
-
-	maxWidth := m.Width() - 2 // account for padding
-	if len(str) > maxWidth && maxWidth > 3 {
-		str = str[:maxWidth-3] + "..."
-	} else if len(str) > maxWidth && maxWidth > 0 {
-		str = str[:maxWidth]
-	}
-
-	if index == m.Index() && d.isInFocus {
+	if index == m.Index() {
 		// Show selector and highlight when this item is selected and list is in focus
-		fmt.Fprint(w, HighlightStyle().Render("> "+str))
+		fmt.Fprint(w, HighlightStyle().Render("> "+option.Label))
 	} else {
 		// No selector when list is not in focus or item is not selected
-		fmt.Fprint(w, defaultStyle.Render("  "+str))
+		fmt.Fprint(w, defaultStyle.Render("  "+option.Label))
 	}
 }
 
@@ -85,29 +74,20 @@ func (d linkDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 type LinkTypeSelector struct {
 	list     list.Model
 	title    string
-	width    int
-	height   int
 	delegate linkDelegate
 }
 
 // NewLinkTypeSelector creates a new link selector component
 func NewLinkTypeSelector(title string) LinkTypeSelector {
-	delegate := linkDelegate{
-		isInFocus: true, // Start in focus by default
-	}
+	delegate := linkDelegate{}
 
 	// Hardcoded options - always the same
-	options := []LinkOption{GitCommitOption, SpecOption}
-
-	// Convert options to list items
-	items := make([]list.Item, len(options))
-	for i, option := range options {
-		items[i] = option
-	}
-
-	l := list.New(items, delegate, 0, 0)
+	options := []list.Item{GitCommitOption, SpecOption}
+	l := list.New(options, delegate, 0, 0)
 	l.Title = title
 	l.SetShowHelp(false)
+	l.SetShowPagination(false)
+	l.SetShowStatusBar(false)
 	l.Styles.Title = lipgloss.NewStyle().Bold(true)
 
 	return LinkTypeSelector{
@@ -117,21 +97,8 @@ func NewLinkTypeSelector(title string) LinkTypeSelector {
 	}
 }
 
-// SetFocus sets whether the link selector list is currently in focus
-func (s *LinkTypeSelector) SetFocus(inFocus bool) {
-	s.delegate.isInFocus = inFocus
-	s.list.SetDelegate(s.delegate)
-}
-
-// IsFocused returns whether the link selector list is currently in focus
-func (s *LinkTypeSelector) IsFocused() bool {
-	return s.delegate.isInFocus
-}
-
 // SetSize sets the dimensions of the link selector
 func (s *LinkTypeSelector) SetSize(width, height int) {
-	s.width = width
-	s.height = height
 	s.list.SetSize(width, height)
 }
 
@@ -145,11 +112,6 @@ func (s *LinkTypeSelector) GetSelectedOption() *LinkOption {
 	return nil
 }
 
-// ResetCursor resets the list cursor to the first item
-func (s *LinkTypeSelector) ResetCursor() {
-	s.list.Select(0)
-}
-
 // Update handles tea messages and updates the component
 func (s *LinkTypeSelector) Update(msg tea.Msg) (*LinkTypeSelector, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -158,10 +120,14 @@ func (s *LinkTypeSelector) Update(msg tea.Msg) (*LinkTypeSelector, tea.Cmd) {
 		case "enter":
 			if selectedOption := s.GetSelectedOption(); selectedOption != nil {
 				return s, func() tea.Msg {
-					return LinkOptionSelectedMsg{Option: *selectedOption}
+					return LinkOptionSelectedMsg{LinkType: selectedOption.Type}
 				}
 			}
 			return s, nil
+		case "esc":
+			return s, func() tea.Msg {
+				return LinkTypeCancelledMsg{}
+			}
 		}
 	}
 

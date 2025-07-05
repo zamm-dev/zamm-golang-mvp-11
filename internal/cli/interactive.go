@@ -188,13 +188,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.linkSelector = *selector
 			cmd = selectorCmd
 
-			// Handle escape key to go back
-			if msg.String() == "esc" {
-				m.state = SpecListView
-				m.cursor = 0
-				return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
-			}
-
 			return m, cmd
 		case UnlinkVariantSelection:
 			// Use link selector for unlink type selection
@@ -202,13 +195,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			selector, selectorCmd := m.linkSelector.Update(msg)
 			m.linkSelector = *selector
 			cmd = selectorCmd
-
-			// Handle escape key to go back
-			if msg.String() == "esc" {
-				m.state = SpecListView
-				m.cursor = 0
-				return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
-			}
 
 			return m, cmd
 		case LinkSpecToSpecSelection:
@@ -432,14 +418,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case common.LinkOptionSelectedMsg:
 		if m.state == LinkLabelSelection {
 			// Handle link type selection
-			if msg.Option.Type == common.GitCommitLink {
+			if msg.LinkType == common.GitCommitLink {
 				// Link to Git Commit
 				m.resetInputs()
 				m.state = LinkSpecCommit
 				m.promptText = "Enter commit hash:"
 				m.textInput.Focus()
 				return m, nil
-			} else if msg.Option.Type == common.SpecLink {
+			} else if msg.LinkType == common.SpecLink {
 				// Link to Parent Spec
 				m.resetInputs()
 				m.state = LinkSpecToSpecSelection
@@ -465,10 +451,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else if m.state == UnlinkVariantSelection {
 			// Handle unlink type selection
-			if msg.Option.Type == common.GitCommitLink {
+			if msg.LinkType == common.GitCommitLink {
 				// Unlink from Git Commit
 				return m, m.loadLinksForSpecCmd()
-			} else if msg.Option.Type == common.SpecLink {
+			} else if msg.LinkType == common.SpecLink {
 				// Unlink from Parent Spec
 				m.resetInputs()
 
@@ -498,6 +484,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor = 0
 				return m, nil
 			}
+		}
+
+	case common.LinkTypeCancelledMsg:
+		if m.state == LinkLabelSelection || m.state == UnlinkVariantSelection {
+			m.state = SpecListView
+			m.cursor = 0
+			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
 		}
 
 	case speclistview.ExitMsg:
