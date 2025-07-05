@@ -1,5 +1,7 @@
 {
   "id": "e5a42227-8342-4f64-b626-9fa5b887c811",
-  "title": "There should be a common spec selector element",
-  "content": "All spec selection logic, including that in the main spec list, should make use of this common element"
+  "title": "Spec Selection Screen",
+  "content": "There should be a common screen for selecting a spec for linking/viewing.\n\nAll spec selection logic, including that in the main spec list, should make use of this common element",
+  "created_at": "0001-01-01T00:00:00Z",
+  "updated_at": "2025-07-05T14:52:26.821837+07:00"
 }
