@@ -2,92 +2,15 @@ package common
 
 import (
 	"bytes"
+	"path/filepath"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
-	"github.com/yourorg/zamm-mvp/internal/models"
+	"github.com/yourorg/zamm-mvp/internal/services"
+	"github.com/yourorg/zamm-mvp/internal/storage"
 )
-
-// Mock services for testing
-type mockLinkService struct{}
-type mockSpecService struct{}
-
-func (m *mockLinkService) LinkSpecToCommit(specID, commitHash, repoPath, linkType string) (*models.SpecCommitLink, error) {
-	return &models.SpecCommitLink{}, nil
-}
-
-func (m *mockLinkService) UnlinkSpecFromCommit(specID, commitID, repoPath string) error {
-	return nil
-}
-
-func (m *mockLinkService) GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error) {
-	return []*models.SpecCommitLink{}, nil
-}
-
-func (m *mockLinkService) GetSpecsForCommit(commitID, repoPath string) ([]*models.SpecNode, error) {
-	return []*models.SpecNode{}, nil
-}
-
-func (m *mockSpecService) ListSpecs() ([]*models.SpecNode, error) {
-	return []*models.SpecNode{
-		{
-			ID:      "test-spec-1",
-			Title:   "Test Spec",
-			Content: "Test content",
-		},
-		{
-			ID:      "other-spec-2",
-			Title:   "Other Spec",
-			Content: "Other content",
-		},
-	}, nil
-}
-
-func (m *mockSpecService) GetChildren(specID string) ([]*models.SpecNode, error) {
-	return []*models.SpecNode{}, nil
-}
-
-func (m *mockSpecService) AddChildToParent(childID, parentID, linkType string) (*models.SpecSpecLink, error) {
-	return &models.SpecSpecLink{}, nil
-}
-
-func (m *mockSpecService) RemoveChildFromParent(childID, parentID string) error {
-	return nil
-}
-
-func (m *mockSpecService) CreateSpec(title, content string) (*models.SpecNode, error) {
-	return &models.SpecNode{}, nil
-}
-
-func (m *mockSpecService) GetSpec(id string) (*models.SpecNode, error) {
-	return &models.SpecNode{}, nil
-}
-
-func (m *mockSpecService) UpdateSpec(id, title, content string) (*models.SpecNode, error) {
-	return &models.SpecNode{}, nil
-}
-
-func (m *mockSpecService) DeleteSpec(id string) error {
-	return nil
-}
-
-func (m *mockSpecService) GetParents(specID string) ([]*models.SpecNode, error) {
-	return []*models.SpecNode{}, nil
-}
-
-func (m *mockSpecService) InitializeRootSpec() error {
-	return nil
-}
-
-func (m *mockSpecService) GetRootSpec() (*models.SpecNode, error) {
-	return &models.SpecNode{}, nil
-}
-
-func (m *mockSpecService) GetOrphanSpecs() ([]*models.SpecNode, error) {
-	return []*models.SpecNode{}, nil
-}
 
 func requireGoldenAfterWaitFor(t *testing.T, tm *teatest.TestModel, waitFor []byte, goldenName string) {
 	var capturedOutput []byte
@@ -108,15 +31,19 @@ func requireGoldenAfterWaitFor(t *testing.T, tm *teatest.TestModel, waitFor []by
 }
 
 func TestLinkEditorInitialRender(t *testing.T) {
+	// Use testdata storage
+	testDataPath := filepath.Join("testdata", ".zamm")
+	storage := storage.NewFileStorage(testDataPath)
+	linkService := services.NewLinkService(storage)
+	specService := services.NewSpecService(storage)
+
 	config := LinkEditorConfig{
 		Title:             "Test Link Editor",
 		DefaultRepo:       "/test/repo",
-		SelectedSpecID:    "test-spec-1",
-		SelectedSpecTitle: "Test Spec",
+		SelectedSpecID:    "201c7092-9367-4a97-837b-98fbbcd7168a", // "Hello World" spec from testdata
+		SelectedSpecTitle: "Hello World",
 		IsUnlinkMode:      false,
 	}
-	linkService := &mockLinkService{}
-	specService := &mockSpecService{}
 	model := NewLinkEditor(config, linkService, specService)
 
 	tm := teatest.NewTestModel(t, model, teatest.WithInitialTermSize(80, 24))
@@ -125,15 +52,19 @@ func TestLinkEditorInitialRender(t *testing.T) {
 }
 
 func TestLinkEditorPressG(t *testing.T) {
+	// Use testdata storage
+	testDataPath := filepath.Join("testdata", ".zamm")
+	storage := storage.NewFileStorage(testDataPath)
+	linkService := services.NewLinkService(storage)
+	specService := services.NewSpecService(storage)
+
 	config := LinkEditorConfig{
 		Title:             "Test Link Editor",
 		DefaultRepo:       "/test/repo",
-		SelectedSpecID:    "test-spec-1",
-		SelectedSpecTitle: "Test Spec",
+		SelectedSpecID:    "201c7092-9367-4a97-837b-98fbbcd7168a", // "Hello World" spec from testdata
+		SelectedSpecTitle: "Hello World",
 		IsUnlinkMode:      false,
 	}
-	linkService := &mockLinkService{}
-	specService := &mockSpecService{}
 	model := NewLinkEditor(config, linkService, specService)
 
 	tm := teatest.NewTestModel(t, model, teatest.WithInitialTermSize(80, 24))
@@ -145,15 +76,19 @@ func TestLinkEditorPressG(t *testing.T) {
 }
 
 func TestLinkEditorSpecSelectionMode(t *testing.T) {
+	// Use testdata storage
+	testDataPath := filepath.Join("testdata", ".zamm")
+	storage := storage.NewFileStorage(testDataPath)
+	linkService := services.NewLinkService(storage)
+	specService := services.NewSpecService(storage)
+
 	config := LinkEditorConfig{
 		Title:             "Test Link Editor",
 		DefaultRepo:       "/test/repo",
-		SelectedSpecID:    "test-spec-1",
-		SelectedSpecTitle: "Test Spec",
+		SelectedSpecID:    "201c7092-9367-4a97-837b-98fbbcd7168a", // "Hello World" spec from testdata
+		SelectedSpecTitle: "Hello World",
 		IsUnlinkMode:      false,
 	}
-	linkService := &mockLinkService{}
-	specService := &mockSpecService{}
 	model := NewLinkEditor(config, linkService, specService)
 
 	tm := teatest.NewTestModel(t, model, teatest.WithInitialTermSize(80, 24))
@@ -164,5 +99,5 @@ func TestLinkEditorSpecSelectionMode(t *testing.T) {
 	tm.Send(nil)
 
 	// Wait for the spec selection screen to render
-	requireGoldenAfterWaitFor(t, tm, []byte("Other Spec"), "TestLinkEditorSpecSelectionMode.golden")
+	requireGoldenAfterWaitFor(t, tm, []byte("Rust Implementation"), "TestLinkEditorSpecSelectionMode.golden")
 }
