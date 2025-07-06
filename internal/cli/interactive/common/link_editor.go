@@ -90,7 +90,6 @@ type LinkEditor struct {
 }
 
 type linkItem struct {
-	ID        string
 	CommitID  string
 	RepoPath  string
 	LinkLabel string
@@ -199,7 +198,6 @@ func (l *LinkEditor) loadGitCommitLinks() tea.Cmd {
 		linkItems := make([]linkItem, len(links))
 		for i, link := range links {
 			linkItems[i] = linkItem{
-				ID:        link.ID,
 				CommitID:  link.CommitID,
 				RepoPath:  link.RepoPath,
 				LinkLabel: link.LinkLabel,

@@ -37,7 +37,7 @@ func (a *App) createLinkCommand(jsonOutput, quiet bool) *cobra.Command {
 			}
 
 			if !quiet {
-				fmt.Printf("Created link: %s\n", link.ID)
+				fmt.Printf("Created link between spec %s and commit %s\n", specID, commitID)
 			}
 			return nil
 		},

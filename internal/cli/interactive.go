@@ -476,7 +476,6 @@ func (m *Model) loadLinksForSpecCmd() tea.Cmd {
 		linkItems := make([]linkItem, len(links))
 		for i, link := range links {
 			linkItems[i] = linkItem{
-				ID:        link.ID,
 				CommitID:  link.CommitID,
 				RepoPath:  link.RepoPath,
 				LinkLabel: link.LinkLabel,
@@ -537,7 +536,7 @@ func (m *Model) updateSpecCmd(specID, title, content string) tea.Cmd {
 // createLinkCmd returns a command to create a new link
 func (m *Model) createLinkCmd(specID, commitID, repoPath, label string) tea.Cmd {
 	return func() tea.Msg {
-		link, err := m.app.linkService.LinkSpecToCommit(specID, commitID, repoPath, label)
+		_, err := m.app.linkService.LinkSpecToCommit(specID, commitID, repoPath, label)
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
@@ -551,8 +550,8 @@ func (m *Model) createLinkCmd(specID, commitID, repoPath, label string) tea.Cmd 
 			}
 		}
 
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Created link between '%s' and commit %s (ID: %s). Press Enter to continue...",
-			specTitle, commitID[:12]+"...", link.ID)}
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Created link between '%s' and commit %s. Press Enter to continue...",
+			specTitle, commitID[:12]+"...")}
 	}
 }
 

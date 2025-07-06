@@ -10,14 +10,13 @@ const (
 
 // SpecNode represents a specification node in the system
 type SpecNode struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
 }
 
 // SpecCommitLink represents a link between a spec and a git commit
 type SpecCommitLink struct {
-	ID        string `json:"id"`
 	SpecID    string `json:"spec_id"`
 	CommitID  string `json:"commit_id"`
 	RepoPath  string `json:"repo_path"`
@@ -26,7 +25,6 @@ type SpecCommitLink struct {
 
 // SpecSpecLink represents a hierarchical link between two specifications (forms a DAG)
 type SpecSpecLink struct {
-	ID         string `json:"id"`
 	FromSpecID string `json:"from_spec_id"`
 	ToSpecID   string `json:"to_spec_id"`
 	LinkLabel  string `json:"link_label"` // "child", "fixes", "implements", etc.
@@ -34,7 +32,6 @@ type SpecSpecLink struct {
 
 // ProjectMetadata represents project-level metadata and configuration
 type ProjectMetadata struct {
-	ID         int     `json:"id"`
 	RootSpecID *string `json:"root_spec_id"` // Nullable foreign key to specs
 }
 

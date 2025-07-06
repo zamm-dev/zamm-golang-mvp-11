@@ -63,9 +63,7 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 			{"spec_id", "commit_id", "repo_path", "link_label"},
 		})
 	case "project_metadata.json":
-			metadata := models.ProjectMetadata{
-		ID: 1,
-	}
+		metadata := models.ProjectMetadata{}
 		return fs.writeJSONFile(path, metadata)
 	default:
 		// Create empty file
@@ -410,9 +408,7 @@ func (fs *FileStorage) GetProjectMetadata() (*models.ProjectMetadata, error) {
 	if err := fs.readJSONFile(path, &metadata); err != nil {
 		if os.IsNotExist(err) {
 			// Create default metadata
-			metadata = models.ProjectMetadata{
-				ID: 1,
-			}
+			metadata = models.ProjectMetadata{}
 			if err := fs.writeJSONFile(path, metadata); err != nil {
 				return nil, err
 			}
