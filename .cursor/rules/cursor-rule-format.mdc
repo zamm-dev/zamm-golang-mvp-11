@@ -1,0 +1,84 @@
+---
+globs: *.mdc
+description: Standards for Cursor rule file format and structure
+---
+
+# Cursor Rule Format Standards
+
+<rule>
+name: cursor_rule_format
+description: Standards for proper Cursor rule file format and structure
+filters:
+  # Match any .mdc files in the rules directory
+  - type: file_extension
+    pattern: "\\.mdc$"
+  - type: path
+    pattern: "\\.cursor/rules/.*"
+  # Match file creation and editing events
+  - type: event
+    pattern: "file_create|file_edit"
+
+actions:
+  - type: reject
+    conditions:
+      - pattern: "---\\s*\\n.*\\n.*\\n---\\s*\\n\\s*$"
+        message: "Cursor rule files must have content after the frontmatter section"
+
+  - type: suggest
+    message: |
+      When creating or editing Cursor rules:
+
+      1. Frontmatter must come FIRST, followed by content:
+         ```markdown
+         ---
+         alwaysApply: true
+         description: Your description here
+         ---
+         
+         # Your Rule Title
+         
+         Your rule content goes here, after the frontmatter.
+         ```
+
+      2. Frontmatter structure:
+         - Must be enclosed in `---` markers
+         - Must be at the very top of the file
+         - Contains metadata properties only
+         - No rule content should be inside frontmatter
+
+      3. Content structure:
+         - Must come AFTER the frontmatter
+         - Can include markdown formatting
+         - Can reference files using `[filename](mdc:filename)` syntax
+         - Should be descriptive and helpful
+
+      4. Common mistakes to avoid:
+         - Putting rule content inside frontmatter
+         - Missing content after frontmatter
+         - Incorrect frontmatter syntax
+
+examples:
+  - input: |
+      ---
+      alwaysApply: true
+      description: Build after code changes
+      # Build After Code Changes
+      After making code changes, always run `make`...
+      ---
+    output: "INCORRECT: Content should be after frontmatter"
+
+  - input: |
+      ---
+      alwaysApply: true
+      description: Build after code changes
+      ---
+      
+      # Build After Code Changes
+      
+      After making code changes, always run `make` to build the project...
+    output: "CORRECT: Content properly placed after frontmatter"
+
+metadata:
+  priority: high
+  version: 1.0
+</rule>

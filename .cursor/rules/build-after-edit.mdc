@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+description: Build after code changes
+---
+# Build After Code Changes
+
+After making code changes, always run `make` to build the project and ensure there are no compilation errors. This helps catch issues early and ensures the codebase remains in a buildable state.
