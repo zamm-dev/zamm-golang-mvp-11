@@ -109,8 +109,13 @@ func setDefaults(zammDir string) {
 	viper.SetDefault("git.default_repo", ".")
 
 	// Logging defaults
+	homeDir, err := os.UserHomeDir()
+	logPath := filepath.Join(homeDir, ".zamm", "logs", "zamm.log")
+	if err != nil {
+		logPath = ".zamm/logs/zamm.log" // fallback
+	}
 	viper.SetDefault("logging.level", "info")
-	viper.SetDefault("logging.file", filepath.Join(zammDir, "logs", "zamm.log"))
+	viper.SetDefault("logging.file", logPath)
 
 	// CLI defaults
 	viper.SetDefault("cli.output_format", "table")
@@ -203,6 +208,12 @@ func WriteDefaultConfig() error {
 		return models.NewZammErrorWithCause(models.ErrTypeSystem, fmt.Sprintf("failed to create zamm directory: %s", zammDir), err)
 	}
 
+	homeDir, err := os.UserHomeDir()
+	logPath := filepath.Join(homeDir, ".zamm", "logs", "zamm.log")
+	if err != nil {
+		logPath = ".zamm/logs/zamm.log" // fallback
+	}
+
 	// Default config content
 	configContent := `storage:
   path: .zamm
@@ -212,7 +223,7 @@ git:
 
 logging:
   level: info
-  file: .zamm/logs/zamm.log
+  file: "` + logPath + `"
 
 cli:
   output_format: table

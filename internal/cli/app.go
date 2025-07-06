@@ -21,14 +21,7 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
-	if err := config.EnsureDirectories(cfg); err != nil {
-		return nil, err
-	}
-
 	store := storage.NewFileStorage(cfg.Storage.Path)
-	if err := store.InitializeStorage(); err != nil {
-		return nil, err
-	}
 
 	return &App{
 		config:      cfg,

@@ -39,13 +39,31 @@ func (a *App) createStatusCommand(jsonOutput bool) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			specs, err := a.specService.ListSpecs()
 			if err != nil {
-				return err
+				// If storage doesn't exist, show uninitialized status
+				if jsonOutput {
+					status := map[string]interface{}{
+						"config_path":  a.config.Storage.Path,
+						"storage_path": a.config.Storage.Path,
+						"spec_count":   0,
+						"initialized":  false,
+						"error":        err.Error(),
+					}
+					return a.outputJSON(status)
+				}
+
+				fmt.Printf("ZAMM Status\n")
+				fmt.Printf("===========\n")
+				fmt.Printf("Storage: %s (not initialized)\n", a.config.Storage.Path)
+				fmt.Printf("Specifications: 0\n")
+				fmt.Printf("Error: %s\n", err.Error())
+				return nil
 			}
 
 			status := map[string]interface{}{
 				"config_path":  a.config.Storage.Path,
 				"storage_path": a.config.Storage.Path,
 				"spec_count":   len(specs),
+				"initialized":  true,
 			}
 
 			if jsonOutput {
