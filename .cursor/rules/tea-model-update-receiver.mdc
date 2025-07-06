@@ -1,0 +1,9 @@
+---
+description: Bubble Tea Model Update Receiver Rule
+globs: *.go
+alwaysApply: true
+---
+
+# Bubble Tea Model Update Receiver Rule
+
+Do not change `Update` functions to receive pointer receivers because they must conform to the `tea.Model` interface, which expects value receivers. Always use value receivers for `Update` methods in Bubble Tea models.
