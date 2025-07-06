@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/yourorg/zamm-mvp/internal/models"
 )
@@ -64,11 +63,9 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 			{"spec_id", "commit_id", "repo_path", "link_label"},
 		})
 	case "project_metadata.json":
-		metadata := models.ProjectMetadata{
-			ID:        1,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
+			metadata := models.ProjectMetadata{
+		ID: 1,
+	}
 		return fs.writeJSONFile(path, metadata)
 	default:
 		// Create empty file
@@ -87,10 +84,6 @@ func (fs *FileStorage) CreateSpecNode(spec *models.SpecNode) error {
 	if spec.ID == "" {
 		return fmt.Errorf("spec ID cannot be empty")
 	}
-
-	now := time.Now()
-	spec.CreatedAt = now
-	spec.UpdatedAt = now
 
 	path := filepath.Join(fs.baseDir, "specs", spec.ID+".json")
 	return fs.writeJSONFile(path, spec)
@@ -118,13 +111,10 @@ func (fs *FileStorage) UpdateSpecNode(spec *models.SpecNode) error {
 	}
 
 	// Check if spec exists
-	existing, err := fs.GetSpecNode(spec.ID)
+	_, err := fs.GetSpecNode(spec.ID)
 	if err != nil {
 		return err
 	}
-
-	spec.CreatedAt = existing.CreatedAt
-	spec.UpdatedAt = time.Now()
 
 	path := filepath.Join(fs.baseDir, "specs", spec.ID+".json")
 	return fs.writeJSONFile(path, spec)
@@ -163,9 +153,9 @@ func (fs *FileStorage) ListSpecNodes() ([]*models.SpecNode, error) {
 		specs = append(specs, spec)
 	}
 
-	// Sort by creation time
+	// Sort by ID for consistent ordering
 	sort.Slice(specs, func(i, j int) bool {
-		return specs[i].CreatedAt.Before(specs[j].CreatedAt)
+		return specs[i].ID < specs[j].ID
 	})
 
 	return specs, nil
@@ -421,9 +411,7 @@ func (fs *FileStorage) GetProjectMetadata() (*models.ProjectMetadata, error) {
 		if os.IsNotExist(err) {
 			// Create default metadata
 			metadata = models.ProjectMetadata{
-				ID:        1,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
+				ID: 1,
 			}
 			if err := fs.writeJSONFile(path, metadata); err != nil {
 				return nil, err
@@ -444,7 +432,6 @@ func (fs *FileStorage) SetRootSpecID(specID *string) error {
 	}
 
 	metadata.RootSpecID = specID
-	metadata.UpdatedAt = time.Now()
 
 	path := filepath.Join(fs.baseDir, "project_metadata.json")
 	return fs.writeJSONFile(path, metadata)

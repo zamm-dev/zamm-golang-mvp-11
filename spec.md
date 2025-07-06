@@ -38,14 +38,12 @@ This MVP implements the core functionality of linking specification nodes to Git
 #### 3.1 Specification Node
 ```go
 type SpecNode struct {
-    ID          string    `json:"id" db:"id"`
-    StableID    string    `json:"stable_id" db:"stable_id"`
-    Version     int       `json:"version" db:"version"`
-    Title       string    `json:"title" db:"title"`
-    Content     string    `json:"content" db:"content"`
-    NodeType    string    `json:"node_type" db:"node_type"` // Always "spec" for MVP
-    CreatedAt   time.Time `json:"created_at" db:"created_at"`
-    UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+    ID          string `json:"id" db:"id"`
+    StableID    string `json:"stable_id" db:"stable_id"`
+    Version     int    `json:"version" db:"version"`
+    Title       string `json:"title" db:"title"`
+    Content     string `json:"content" db:"content"`
+    NodeType    string `json:"node_type" db:"node_type"` // Always "spec" for MVP
 }
 ```
 
@@ -60,12 +58,11 @@ type SpecNode struct {
 #### 3.2 Spec-Commit Link  
 ```go
 type SpecCommitLink struct {
-    ID       string    `json:"id" db:"id"`
-    SpecID   string    `json:"spec_id" db:"spec_id"`
-    CommitID string    `json:"commit_id" db:"commit_id"`
-    RepoPath string    `json:"repo_path" db:"repo_path"`
-    LinkLabel string    `json:"link_label" db:"link_label"`
-    CreatedAt time.Time `json:"created_at" db:"created_at"`
+    ID       string `json:"id" db:"id"`
+    SpecID   string `json:"spec_id" db:"spec_id"`
+    CommitID string `json:"commit_id" db:"commit_id"`
+    RepoPath string `json:"repo_path" db:"repo_path"`
+    LinkLabel string `json:"link_label" db:"link_label"`
 }
 ```
 
@@ -137,13 +134,10 @@ CREATE TABLE spec_nodes (
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     node_type TEXT NOT NULL DEFAULT 'spec',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(stable_id, version)
 );
 
 CREATE INDEX idx_spec_nodes_stable_id ON spec_nodes(stable_id);
-CREATE INDEX idx_spec_nodes_created_at ON spec_nodes(created_at);
 
 CREATE TABLE spec_commit_links (
     id TEXT PRIMARY KEY,
@@ -151,7 +145,6 @@ CREATE TABLE spec_commit_links (
     commit_id TEXT NOT NULL,
     repo_path TEXT NOT NULL,
     link_label TEXT NOT NULL DEFAULT 'implements',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (spec_id) REFERENCES spec_nodes(id) ON DELETE CASCADE,
     UNIQUE(spec_id, commit_id, repo_path)
 );

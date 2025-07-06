@@ -78,7 +78,6 @@ type linkItem struct {
 	CommitID  string
 	RepoPath  string
 	LinkLabel string
-	CreatedAt string
 }
 
 // Custom messages
@@ -609,10 +608,9 @@ func (m *Model) loadSpecsCmd() tea.Cmd {
 		specItems := make([]interactive.Spec, len(specs))
 		for i, spec := range specs {
 			specItems[i] = interactive.Spec{
-				ID:        spec.ID,
-				Title:     spec.Title,
-				Content:   spec.Content,
-				CreatedAt: spec.CreatedAt.Format("2006-01-02 15:04"),
+				ID:      spec.ID,
+				Title:   spec.Title,
+				Content: spec.Content,
 			}
 		}
 
@@ -635,7 +633,6 @@ func (m *Model) loadLinksForSpecCmd() tea.Cmd {
 				CommitID:  link.CommitID,
 				RepoPath:  link.RepoPath,
 				LinkLabel: link.LinkLabel,
-				CreatedAt: link.CreatedAt.Format("2006-01-02 15:04"),
 			}
 		}
 
@@ -952,10 +949,9 @@ func (m *Model) getChildSpecs(specID string) ([]interactive.Spec, error) {
 	specs := make([]interactive.Spec, 0, len(linkedSpecs))
 	for _, spec := range linkedSpecs {
 		specs = append(specs, interactive.Spec{
-			ID:        spec.ID,
-			Title:     spec.Title,
-			Content:   spec.Content,
-			CreatedAt: spec.CreatedAt.Format("2006-01-02 15:04"),
+			ID:      spec.ID,
+			Title:   spec.Title,
+			Content: spec.Content,
 		})
 	}
 	return specs, nil
@@ -1031,10 +1027,9 @@ func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, erro
 	parent := parents[0]
 
 	return &interactive.Spec{
-		ID:        parent.ID,
-		Title:     parent.Title,
-		Content:   parent.Content,
-		CreatedAt: parent.CreatedAt.Format("2006-01-02 15:04"),
+		ID:      parent.ID,
+		Title:   parent.Title,
+		Content: parent.Content,
 	}, nil
 }
 
@@ -1049,9 +1044,8 @@ func (cs *combinedService) GetRootSpec() (*interactive.Spec, error) {
 
 	// Convert models.SpecNode to interactive.Spec
 	return &interactive.Spec{
-		ID:        rootNode.ID,
-		Title:     rootNode.Title,
-		Content:   rootNode.Content,
-		CreatedAt: rootNode.CreatedAt.Format("2006-01-02 15:04"),
+		ID:      rootNode.ID,
+		Title:   rootNode.Title,
+		Content: rootNode.Content,
 	}, nil
 }

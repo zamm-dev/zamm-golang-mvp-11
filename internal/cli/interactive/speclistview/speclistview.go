@@ -148,7 +148,6 @@ func New(linkService LinkService) Model {
 		{Title: "TYPE", Width: 4},
 		{Title: "COMMIT", Width: 8},
 		{Title: "REPO", Width: 16},
-		{Title: "CREATED", Width: 16},
 	}
 
 	commitsTable := table.New(
@@ -204,11 +203,11 @@ func (m *Model) SetSize(width, height int) {
 	m.viewport.Height = m.height
 
 	tableWidth := m.paneWidth()
+	extraPadding := 7 // in between the columns
 	columns := []table.Column{
 		{Title: "TYPE", Width: 4},
 		{Title: "COMMIT", Width: 8},
-		{Title: "REPO", Width: tableWidth - 28 - 9},
-		{Title: "CREATED", Width: 16},
+		{Title: "REPO", Width: tableWidth - 12 - extraPadding},
 	}
 	m.table.SetColumns(columns)
 }
@@ -359,10 +358,9 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 	childSpecs := make([]interactive.Spec, 0, len(childSpecNodes))
 	for _, node := range childSpecNodes {
 		childSpecs = append(childSpecs, interactive.Spec{
-			ID:        node.ID,
-			Title:     node.Title,
-			Content:   node.Content,
-			CreatedAt: node.CreatedAt.Format("2006-01-02 15:04"),
+			ID:      node.ID,
+			Title:   node.Title,
+			Content: node.Content,
 		})
 	}
 	specs = childSpecs
@@ -460,9 +458,7 @@ func (m *Model) updateCommitsTable() {
 		default:
 			label = link.LinkLabel
 		}
-		created := link.CreatedAt.Format("2006-01-02 15:04")
-
-		rows[i] = table.Row{label, commitID, repo, created}
+		rows[i] = table.Row{label, commitID, repo}
 	}
 
 	m.table.SetRows(rows)
