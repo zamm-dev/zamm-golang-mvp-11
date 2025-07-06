@@ -165,7 +165,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case SpecEditor:
 			var cmd tea.Cmd
 			editor, editorCmd := m.specEditor.Update(msg)
-			m.specEditor = *editor
+			if specEditor, ok := editor.(*common.SpecEditor); ok {
+				m.specEditor = *specEditor
+			}
 			cmd = editorCmd
 			return m, cmd
 
