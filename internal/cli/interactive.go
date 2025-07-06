@@ -10,7 +10,6 @@ import (
 	interactive "github.com/yourorg/zamm-mvp/internal/cli/interactive"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive/common"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive/speclistview"
-	"github.com/yourorg/zamm-mvp/internal/config"
 	"github.com/yourorg/zamm-mvp/internal/models"
 	"github.com/yourorg/zamm-mvp/internal/services"
 )
@@ -101,19 +100,9 @@ func (a *App) createInteractiveCommand() *cobra.Command {
 
 // runInteractiveMode starts the interactive mode with TUI
 func (a *App) runInteractiveMode() error {
-	// Ensure directories before initializing storage
-	if err := config.EnsureDirectories(a.config); err != nil {
-		return fmt.Errorf("failed to ensure directories: %w", err)
-	}
-	// Initialize storage if needed
-	fmt.Println("Initializing storage...")
-	if err := a.storage.InitializeStorage(); err != nil {
-		return fmt.Errorf("failed to initialize storage: %w", err)
-	}
-
-	// Initialize root spec on startup
-	if err := a.specService.InitializeRootSpec(); err != nil {
-		return fmt.Errorf("failed to initialize root spec: %w", err)
+	// Perform complete initialization
+	if err := a.InitializeZamm(); err != nil {
+		return fmt.Errorf("failed to initialize zamm: %w", err)
 	}
 
 	ti := textinput.New()

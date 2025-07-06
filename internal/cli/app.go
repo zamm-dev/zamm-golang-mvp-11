@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/yourorg/zamm-mvp/internal/config"
 	"github.com/yourorg/zamm-mvp/internal/services"
 	"github.com/yourorg/zamm-mvp/internal/storage"
@@ -29,6 +31,26 @@ func NewApp() (*App, error) {
 		specService: services.NewSpecService(store),
 		linkService: services.NewLinkService(store),
 	}, nil
+}
+
+// InitializeZamm performs complete initialization including directories, storage, and root spec
+func (a *App) InitializeZamm() error {
+	// Ensure directories exist
+	if err := config.EnsureDirectories(a.config); err != nil {
+		return fmt.Errorf("failed to ensure directories: %w", err)
+	}
+
+	// Initialize storage
+	if err := a.storage.InitializeStorage(); err != nil {
+		return fmt.Errorf("failed to initialize storage: %w", err)
+	}
+
+	// Initialize root spec
+	if err := a.specService.InitializeRootSpec(); err != nil {
+		return fmt.Errorf("failed to initialize root spec: %w", err)
+	}
+
+	return nil
 }
 
 // Close closes the application and cleans up resources

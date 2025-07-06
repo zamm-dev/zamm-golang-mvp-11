@@ -24,8 +24,8 @@ func (a *App) createInitCommand() *cobra.Command {
 				return err
 			}
 
-			// Initialize file-based storage
-			if err := a.storage.InitializeStorage(); err != nil {
+			// Perform complete initialization
+			if err := a.InitializeZamm(); err != nil {
 				return err
 			}
 
