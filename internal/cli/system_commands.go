@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/yourorg/zamm-mvp/internal/config"
@@ -13,6 +14,12 @@ func (a *App) createInitCommand() *cobra.Command {
 		Use:   "init",
 		Short: "Initialize zamm in current directory",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check if .zamm directory already exists
+			if _, err := os.Stat(a.config.Storage.Path); err == nil {
+				fmt.Printf("ZAMM is already initialized in %s\n", a.config.Storage.Path)
+				return nil
+			}
+
 			if err := config.WriteDefaultConfig(); err != nil {
 				return err
 			}
