@@ -1,0 +1,5 @@
+{
+  "id": "52999c7b-0412-4ee6-825e-969b79d8bb37",
+  "title": "`init` should handle initialization of everything the program needs to run",
+  "content": "This includes:\n\n- Initializing the .zamm/ directory\n- Initializing the subdirectories and files needed to record nodes and the links between them and Git Commits\n- Initializing a root spec node"
+}
