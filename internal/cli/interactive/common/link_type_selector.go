@@ -73,7 +73,6 @@ func (d linkDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 // LinkTypeSelector is a reusable component for selecting link options
 type LinkTypeSelector struct {
 	list     list.Model
-	title    string
 	delegate linkDelegate
 }
 
@@ -92,7 +91,6 @@ func NewLinkTypeSelector(title string) LinkTypeSelector {
 
 	return LinkTypeSelector{
 		list:     l,
-		title:    title,
 		delegate: delegate,
 	}
 }

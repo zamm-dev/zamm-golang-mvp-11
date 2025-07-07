@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
 	"github.com/yourorg/zamm-mvp/internal/services"
 )
@@ -17,7 +18,7 @@ const (
 	LinkTypeSelection LinkEditorMode = iota
 	LinkGitCommitForm
 	SpecSelection
-	LinkTypeInput
+	SpecLinkTypeSelection
 	// Unlink modes
 	UnlinkTypeSelection
 	GitCommitLinkSelection
@@ -87,6 +88,10 @@ type LinkEditor struct {
 	// For unlink operations
 	gitCommitLinks []linkItem
 	cursor         int
+
+	// Screen dimensions
+	width  int
+	height int
 }
 
 type linkItem struct {
@@ -100,20 +105,28 @@ func NewLinkEditor(config LinkEditorConfig, linkService services.LinkService, sp
 	// Initialize link type selector with appropriate title
 	var title string
 	if config.IsUnlinkMode {
-		title = fmt.Sprintf("🗑️ Unlink Type Selection\n\nSelect link type to remove from '%s':", config.SelectedSpecTitle)
+		title = "Select link type to remove:"
 	} else {
-		title = fmt.Sprintf("🔗 Link Type Selection\n\nSelect link type for '%s':", config.SelectedSpecTitle)
+		title = "Select link type to add:"
 	}
 	linkSelector := NewLinkTypeSelector(title)
 
 	// Initialize spec selector
 	specSelector := NewSpecSelector(SpecSelectorConfig{
-		Title: "🔗 Link to Specification",
+		Title: "🔗 Choose spec to link to",
 	})
 
 	// Initialize text input for link type
 	textInput := textinput.New()
 	textInput.Placeholder = "Enter link type (or press Enter for 'child')"
+
+	// Always initialize git commit form (will be configured when needed)
+	gitCommitFormConfig := GitCommitFormConfig{
+		InitialCommit:   "",
+		InitialRepo:     config.DefaultRepo,
+		InitialLinkType: "implements",
+	}
+	gitCommitForm := NewGitCommitForm(gitCommitFormConfig)
 
 	// Set initial mode based on config
 	initialMode := LinkTypeSelection
@@ -122,23 +135,25 @@ func NewLinkEditor(config LinkEditorConfig, linkService services.LinkService, sp
 	}
 
 	return LinkEditor{
-		config:       config,
-		mode:         initialMode,
-		linkSelector: linkSelector,
-		specSelector: specSelector,
-		textInput:    textInput,
-		linkService:  linkService,
-		specService:  specService,
+		config:        config,
+		mode:          initialMode,
+		linkSelector:  linkSelector,
+		gitCommitForm: gitCommitForm,
+		specSelector:  specSelector,
+		textInput:     textInput,
+		linkService:   linkService,
+		specService:   specService,
 	}
 }
 
 // SetSize sets the dimensions of the link editor
 func (l *LinkEditor) SetSize(width, height int) {
-	l.linkSelector.SetSize(width, height)
-	l.specSelector.SetSize(width, height)
-	if l.gitCommitForm.config.Title != "" {
-		l.gitCommitForm.SetSize(width, height)
-	}
+	l.width = width
+	l.height = height
+	l.linkSelector.SetSize(width, height-3)
+	// somehow this needs to be 1 less than the usual height
+	l.specSelector.SetSize(width, height-4)
+	l.gitCommitForm.SetSize(width, height-3)
 }
 
 // loadAvailableSpecs loads all specs except the current one for selection
@@ -232,7 +247,7 @@ func (l LinkEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return l, cmd
 		case SpecSelection:
 			return l.updateSpecSelection(msg)
-		case LinkTypeInput:
+		case SpecLinkTypeSelection:
 			return l.updateLinkTypeInput(msg)
 		case UnlinkTypeSelection:
 			selector, cmd := l.linkSelector.Update(msg)
@@ -368,7 +383,6 @@ func (l LinkEditor) handleLinkOptionSelected(msg LinkOptionSelectedMsg) (tea.Mod
 			return l, l.loadGitCommitLinks()
 		} else if msg.LinkType == SpecLink {
 			// Show spec selector for unlinking
-			l.specSelector.config.Title = "🗑️ Remove Specification Link"
 			l.specSelector.SetSpecs(l.availableSpecs)
 			l.mode = SpecLinkSelection
 			return l, l.loadChildSpecs()
@@ -376,9 +390,8 @@ func (l LinkEditor) handleLinkOptionSelected(msg LinkOptionSelectedMsg) (tea.Mod
 	} else {
 		// Handle link mode
 		if msg.LinkType == GitCommitLink {
-			// Show git commit form
+			// Reset git commit form with fresh values
 			config := GitCommitFormConfig{
-				Title:           fmt.Sprintf("🔗 Link '%s' to Git Commit", l.config.SelectedSpecTitle),
 				InitialCommit:   "",
 				InitialRepo:     l.config.DefaultRepo,
 				InitialLinkType: "implements",
@@ -411,7 +424,7 @@ func (l LinkEditor) handleSpecSelected(msg SpecSelectedMsg) (tea.Model, tea.Cmd)
 		} else {
 			// For link mode, show link type input
 			l.selectedChildSpecID = msg.Spec.ID
-			l.mode = LinkTypeInput
+			l.mode = SpecLinkTypeSelection
 			l.promptText = "Enter link type (or press Enter for 'child'):"
 			l.textInput.Focus()
 			return l, nil
@@ -516,33 +529,45 @@ func (l LinkEditor) resetInputs() {
 	l.textInput.Blur()
 }
 
-// View renders the link editor
-func (l LinkEditor) View() string {
-	switch l.mode {
-	case LinkTypeSelection:
-		return l.linkSelector.View()
-	case LinkGitCommitForm:
-		return l.gitCommitForm.View()
-	case SpecSelection:
-		return l.specSelector.View()
-	case LinkTypeInput:
-		return l.renderLinkTypeInput()
-	case UnlinkTypeSelection:
-		return l.linkSelector.View()
-	case GitCommitLinkSelection:
-		return l.renderGitCommitLinkSelection()
-	case SpecLinkSelection:
-		return l.specSelector.View()
-	default:
-		return "Loading..."
+// renderHeader renders the consistent spec title header
+func (l LinkEditor) renderHeader() string {
+	header := l.config.SelectedSpecTitle
+	// Use full width for underline, defaulting to header length if width not set
+	underlineWidth := l.width
+	if underlineWidth == 0 {
+		underlineWidth = len(header)
 	}
+	underline := strings.Repeat("=", underlineWidth)
+	return header + "\n" + underline + "\n"
 }
 
-// renderLinkTypeInput renders the link type input form
-func (l LinkEditor) renderLinkTypeInput() string {
-	s := "🔗 Specification Link Type\n"
-	s += "==========================\n\n"
+// View renders the link editor
+func (l LinkEditor) View() string {
+	// Always show the spec title header first
+	header := l.renderHeader()
 
+	// Then render the appropriate child component
+	var childContent string
+	switch l.mode {
+	case LinkTypeSelection, UnlinkTypeSelection:
+		childContent = l.linkSelector.View()
+	case LinkGitCommitForm:
+		childContent = l.gitCommitForm.View()
+	case SpecSelection, SpecLinkSelection:
+		childContent = l.specSelector.View()
+	case SpecLinkTypeSelection:
+		childContent = l.renderSpecLinkTypeSelection()
+	case GitCommitLinkSelection:
+		childContent = l.renderGitCommitLinkSelection()
+	default:
+		childContent = "Loading..."
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Top, header, childContent)
+}
+
+// renderSpecLinkTypeSelection renders the link type input form
+func (l LinkEditor) renderSpecLinkTypeSelection() string {
 	// Find spec titles
 	var targetSpecTitle string
 	for _, spec := range l.availableSpecs {
@@ -552,26 +577,25 @@ func (l LinkEditor) renderLinkTypeInput() string {
 		}
 	}
 
-	s += fmt.Sprintf("Linking '%s' to '%s'\n\n", l.config.SelectedSpecTitle, targetSpecTitle)
+	s := fmt.Sprintf("Linking '%s' to '%s'\n\n", l.config.SelectedSpecTitle, targetSpecTitle)
 	s += l.promptText + "\n"
 	s += l.textInput.View() + "\n\n"
 	s += "Press Enter to finish, Esc to cancel"
+
+	s = lipgloss.NewStyle().Width(l.width).Render(s)
 
 	return s
 }
 
 // renderGitCommitLinkSelection renders the git commit link selection screen
 func (l LinkEditor) renderGitCommitLinkSelection() string {
-	s := "🗑️  Delete Git Commit Link\n"
-	s += "=============================\n\n"
-
 	if len(l.gitCommitLinks) == 0 {
-		s += "No git commit links found for this specification.\n\n"
+		s := "No git commit links found for this specification.\n\n"
 		s += "Press Esc to return to main menu"
 		return s
 	}
 
-	s += fmt.Sprintf("Git commit links for '%s':\n\n", l.config.SelectedSpecTitle)
+	s := fmt.Sprintf("Git commit links for '%s':\n\n", l.config.SelectedSpecTitle)
 
 	for i, link := range l.gitCommitLinks {
 		cursor := " "

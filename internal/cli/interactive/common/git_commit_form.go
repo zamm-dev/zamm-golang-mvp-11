@@ -25,7 +25,6 @@ const (
 
 // GitCommitFormConfig configures the behavior of the git commit form
 type GitCommitFormConfig struct {
-	Title           string // Title shown to user (e.g., "Link Specification to Git Commit")
 	InitialCommit   string // Initial commit hash value
 	InitialRepo     string // Initial repository path value (defaults to ".")
 	InitialLinkType string // Initial link type value (defaults to "implements")
@@ -254,10 +253,6 @@ func (g *GitCommitForm) Update(msg tea.Msg) (*GitCommitForm, tea.Cmd) {
 // View renders the git commit form
 func (g *GitCommitForm) View() string {
 	var sb strings.Builder
-
-	// Header
-	sb.WriteString(g.config.Title + "\n")
-	sb.WriteString(strings.Repeat("=", len(g.config.Title)) + "\n\n")
 
 	// Commit hash input
 	commitStyle := defaultStyle

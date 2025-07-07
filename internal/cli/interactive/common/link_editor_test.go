@@ -48,7 +48,7 @@ func TestLinkEditorInitialRender(t *testing.T) {
 
 	tm := teatest.NewTestModel(t, model, teatest.WithInitialTermSize(80, 24))
 
-	requireGoldenAfterWaitFor(t, tm, []byte("Link Type Selection"), "TestLinkEditorInitialRender.golden")
+	requireGoldenAfterWaitFor(t, tm, []byte("Select link type"), "TestLinkEditorInitialRender.golden")
 }
 
 func TestLinkEditorPressG(t *testing.T) {
@@ -72,7 +72,7 @@ func TestLinkEditorPressG(t *testing.T) {
 	// Simulate pressing 'g'
 	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
 
-	requireGoldenAfterWaitFor(t, tm, []byte("Git Commit"), "TestLinkEditorPressG.golden")
+	requireGoldenAfterWaitFor(t, tm, []byte("Commit Hash"), "TestLinkEditorPressG.golden")
 }
 
 func TestLinkEditorSpecSelectionMode(t *testing.T) {
