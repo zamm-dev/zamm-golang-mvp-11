@@ -373,19 +373,6 @@ func (l LinkEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return l, nil
 }
 
-// updateSpecSelection handles updates for spec selection
-func (l LinkEditor) updateSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Handle escape key to go back
-	if msg.String() == "esc" {
-		l.mode = LinkTypeSelection
-		return l, nil
-	}
-
-	selector, cmd := l.specSelector.Update(msg)
-	l.specSelector = *selector
-	return l, cmd
-}
-
 // updateChildSpecSelection handles updates for child spec selection
 func (l LinkEditor) updateChildSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle escape key to go back
@@ -410,25 +397,6 @@ func (l LinkEditor) updateParentSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cm
 	selector, cmd := l.specSelector.Update(msg)
 	l.specSelector = *selector
 	return l, cmd
-}
-
-// updateLinkTypeInput handles updates for link type input
-func (l LinkEditor) updateLinkTypeInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
-	case tea.KeyCtrlC, tea.KeyEsc:
-		l.mode = ChildSpecSelection
-		l.resetInputs()
-		return l, nil
-	case tea.KeyEnter:
-		label := strings.TrimSpace(l.textInput.Value())
-		if label == "" {
-			label = "child"
-		}
-		return l, l.createSpecLink(label)
-	}
-
-	l.textInput, _ = l.textInput.Update(msg)
-	return l, nil
 }
 
 // updateChildSpecLinkTypeInput handles updates for child spec link type input
@@ -661,33 +629,6 @@ func (l LinkEditor) removeGitCommitLink(commitID, repoPath string) tea.Cmd {
 	}
 }
 
-// createSpecLink creates a spec-to-spec link
-func (l LinkEditor) createSpecLink(linkType string) tea.Cmd {
-	return func() tea.Msg {
-		_, err := l.specService.AddChildToParent(l.selectedChildSpecID, l.config.SelectedSpecID, linkType)
-		if err != nil {
-			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error creating spec link: %v", err)}
-		}
-
-		// Find target spec title for display
-		var targetSpecTitle string
-		for _, spec := range l.availableSpecs {
-			if spec.ID == l.selectedChildSpecID {
-				targetSpecTitle = spec.Title
-				break
-			}
-		}
-
-		return LinkEditorCompleteMsg{
-			Operation:       "create",
-			LinkType:        "spec",
-			TargetSpecID:    l.selectedChildSpecID,
-			TargetSpecTitle: targetSpecTitle,
-			SpecLinkType:    linkType,
-		}
-	}
-}
-
 // createChildSpecLink creates a child spec link
 func (l LinkEditor) createChildSpecLink(linkType string) tea.Cmd {
 	return func() tea.Msg {
@@ -867,27 +808,6 @@ func (l LinkEditor) View() string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Top, header, childContent)
-}
-
-// renderSpecLinkTypeSelection renders the link type input form
-func (l LinkEditor) renderSpecLinkTypeSelection() string {
-	// Find spec titles
-	var targetSpecTitle string
-	for _, spec := range l.availableSpecs {
-		if spec.ID == l.selectedChildSpecID {
-			targetSpecTitle = spec.Title
-			break
-		}
-	}
-
-	s := fmt.Sprintf("Linking '%s' to '%s'\n\n", l.config.SelectedSpecTitle, targetSpecTitle)
-	s += l.promptText + "\n"
-	s += l.textInput.View() + "\n\n"
-	s += "Press Enter to finish, Esc to cancel"
-
-	s = lipgloss.NewStyle().Width(l.width).Render(s)
-
-	return s
 }
 
 // renderChildSpecLinkTypeSelection renders the child spec link type input form
