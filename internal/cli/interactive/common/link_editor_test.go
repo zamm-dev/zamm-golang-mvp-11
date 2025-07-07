@@ -38,11 +38,11 @@ func TestLinkEditorInitialRender(t *testing.T) {
 	specService := services.NewSpecService(storage)
 
 	config := LinkEditorConfig{
-		Title:             "Test Link Editor",
-		DefaultRepo:       "/test/repo",
-		SelectedSpecID:    "201c7092-9367-4a97-837b-98fbbcd7168a", // "Hello World" spec from testdata
-		SelectedSpecTitle: "Hello World",
-		IsUnlinkMode:      false,
+		Title:            "Test Link Editor",
+		DefaultRepo:      "/test/repo",
+		CurrentSpecID:    "201c7092-9367-4a97-837b-98fbbcd7168a", // "Hello World" spec from testdata
+		CurrentSpecTitle: "Hello World",
+		IsUnlinkMode:     false,
 	}
 	model := NewLinkEditor(config, linkService, specService)
 
@@ -59,11 +59,11 @@ func TestLinkEditorPressG(t *testing.T) {
 	specService := services.NewSpecService(storage)
 
 	config := LinkEditorConfig{
-		Title:             "Test Link Editor",
-		DefaultRepo:       "/test/repo",
-		SelectedSpecID:    "201c7092-9367-4a97-837b-98fbbcd7168a", // "Hello World" spec from testdata
-		SelectedSpecTitle: "Hello World",
-		IsUnlinkMode:      false,
+		Title:            "Test Link Editor",
+		DefaultRepo:      "/test/repo",
+		CurrentSpecID:    "201c7092-9367-4a97-837b-98fbbcd7168a", // "Hello World" spec from testdata
+		CurrentSpecTitle: "Hello World",
+		IsUnlinkMode:     false,
 	}
 	model := NewLinkEditor(config, linkService, specService)
 
@@ -83,11 +83,11 @@ func TestLinkEditorSpecSelectionMode(t *testing.T) {
 	specService := services.NewSpecService(storage)
 
 	config := LinkEditorConfig{
-		Title:             "Test Link Editor",
-		DefaultRepo:       "/test/repo",
-		SelectedSpecID:    "201c7092-9367-4a97-837b-98fbbcd7168a", // "Hello World" spec from testdata
-		SelectedSpecTitle: "Hello World",
-		IsUnlinkMode:      false,
+		Title:            "Test Link Editor",
+		DefaultRepo:      "/test/repo",
+		CurrentSpecID:    "201c7092-9367-4a97-837b-98fbbcd7168a", // "Hello World" spec from testdata
+		CurrentSpecTitle: "Hello World",
+		IsUnlinkMode:     false,
 	}
 	model := NewLinkEditor(config, linkService, specService)
 

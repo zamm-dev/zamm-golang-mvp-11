@@ -118,7 +118,7 @@ func (a *App) runInteractiveMode() error {
 		state:          SpecListView,
 		textInput:      ti,
 		specListView:   speclistview.New(combinedSvc),
-		linkEditor:     common.NewLinkEditor(common.LinkEditorConfig{Title: "", DefaultRepo: a.config.Git.DefaultRepo, SelectedSpecID: "", SelectedSpecTitle: "", IsUnlinkMode: false}, a.linkService, a.specService),
+		linkEditor:     common.NewLinkEditor(common.LinkEditorConfig{Title: "", DefaultRepo: a.config.Git.DefaultRepo, CurrentSpecID: "", CurrentSpecTitle: "", IsUnlinkMode: false}, a.linkService, a.specService),
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
 	}
@@ -265,11 +265,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Create link editor for linking mode
 			config := common.LinkEditorConfig{
-				Title:             "Link Specification",
-				DefaultRepo:       m.app.config.Git.DefaultRepo,
-				SelectedSpecID:    msg.SpecID,
-				SelectedSpecTitle: specTitle,
-				IsUnlinkMode:      false,
+				Title:            "Link Specification",
+				DefaultRepo:      m.app.config.Git.DefaultRepo,
+				CurrentSpecID:    msg.SpecID,
+				CurrentSpecTitle: specTitle,
+				IsUnlinkMode:     false,
 			}
 			m.linkEditor = common.NewLinkEditor(config, m.app.linkService, m.app.specService)
 			m.linkEditor.SetSize(m.terminalWidth, m.terminalHeight)
@@ -303,11 +303,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Create link editor for unlinking mode
 			config := common.LinkEditorConfig{
-				Title:             "Remove Links",
-				DefaultRepo:       m.app.config.Git.DefaultRepo,
-				SelectedSpecID:    msg.SpecID,
-				SelectedSpecTitle: specTitle,
-				IsUnlinkMode:      true,
+				Title:            "Remove Links",
+				DefaultRepo:      m.app.config.Git.DefaultRepo,
+				CurrentSpecID:    msg.SpecID,
+				CurrentSpecTitle: specTitle,
+				IsUnlinkMode:     true,
 			}
 			m.linkEditor = common.NewLinkEditor(config, m.app.linkService, m.app.specService)
 			m.linkEditor.SetSize(m.terminalWidth, m.terminalHeight)
