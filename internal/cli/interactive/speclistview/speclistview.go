@@ -31,6 +31,9 @@ type DeleteSpecMsg struct {
 type RemoveLinkSpecMsg struct {
 	SpecID string
 }
+type MoveSpecMsg struct {
+	SpecID string
+}
 type ExitMsg struct{}
 
 // Model represents the state of the spec list view screen
@@ -51,6 +54,7 @@ type keyMap struct {
 	Delete key.Binding
 	Link   key.Binding
 	Remove key.Binding
+	Move   key.Binding
 	Help   key.Binding
 	Back   key.Binding
 	Quit   key.Binding
@@ -93,6 +97,10 @@ var keys = keyMap{
 		key.WithKeys("r", "R"),
 		key.WithHelp("r", "remove link"),
 	),
+	Move: key.NewBinding(
+		key.WithKeys("m", "M"),
+		key.WithHelp("m", "move"),
+	),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "Q"),
 		key.WithHelp("q", "quit"),
@@ -112,7 +120,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down},
 		{k.Select, k.Back},
 		{k.Create, k.Edit, k.Delete},
-		{k.Link, k.Remove},
+		{k.Link, k.Remove, k.Move},
 		{k.Help, k.Quit},
 	}
 }
@@ -287,6 +295,9 @@ func (m *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Remove):
 			// Remove link from the active spec
 			return *m, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: m.activeSpec.ID} }
+		case key.Matches(msg, m.keys.Move):
+			// Move the active spec to a different parent
+			return *m, func() tea.Msg { return MoveSpecMsg{SpecID: m.activeSpec.ID} }
 		case key.Matches(msg, m.keys.Help):
 			m.help.ShowAll = !m.help.ShowAll
 			return *m, nil

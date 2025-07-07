@@ -26,6 +26,9 @@ const (
 	GitCommitLinkSelection
 	ChildSpecLinkSelection
 	ParentSpecLinkSelection
+	// Move modes
+	MoveOldParentSelection
+	MoveNewParentSelection
 )
 
 // LinkEditorConfig configures the behavior of the link editor
@@ -35,6 +38,7 @@ type LinkEditorConfig struct {
 	CurrentSpecID    string // ID of the spec being linked
 	CurrentSpecTitle string // Title of the spec being linked
 	IsUnlinkMode     bool   // Whether this is for unlinking (true) or linking (false)
+	IsMoveMode       bool   // Whether this is for moving (true) or regular linking (false)
 }
 
 // LinkEditorCompleteMsg is sent when link operation is complete
@@ -83,6 +87,10 @@ type LinkEditor struct {
 	gitCommitLinks []linkItem
 	cursor         int
 
+	// For move operations
+	moveOldParentID    string
+	moveOldParentTitle string
+
 	// Screen dimensions
 	width  int
 	height int
@@ -106,8 +114,14 @@ func NewLinkEditor(config LinkEditorConfig, linkService services.LinkService, sp
 	linkSelector := NewLinkTypeSelector(title)
 
 	// Initialize spec selector
+	var specSelectorTitle string
+	if config.IsMoveMode {
+		specSelectorTitle = "🔀 Select current parent to move from"
+	} else {
+		specSelectorTitle = "🔗 Choose spec to link to"
+	}
 	specSelector := NewSpecSelector(SpecSelectorConfig{
-		Title: "🔗 Choose spec to link to",
+		Title: specSelectorTitle,
 	})
 
 	// Initialize text input for link type
@@ -126,6 +140,8 @@ func NewLinkEditor(config LinkEditorConfig, linkService services.LinkService, sp
 	initialMode := LinkTypeSelection
 	if config.IsUnlinkMode {
 		initialMode = UnlinkTypeSelection
+	} else if config.IsMoveMode {
+		initialMode = MoveOldParentSelection
 	}
 
 	return LinkEditor{
@@ -158,10 +174,14 @@ func (l *LinkEditor) loadSpecsExceptCurrent() tea.Cmd {
 			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading specs: %v", err)}
 		}
 
-		// Filter out the current spec
+		// Filter out the current spec and for move mode, also filter out the old parent
 		filteredSpecs := make([]interactive.Spec, 0, len(specs))
 		for _, spec := range specs {
 			if spec.ID != l.config.CurrentSpecID {
+				// For move mode's second step, also filter out the old parent
+				if l.config.IsMoveMode && l.mode == MoveNewParentSelection && spec.ID == l.moveOldParentID {
+					continue
+				}
 				filteredSpecs = append(filteredSpecs, interactive.Spec{
 					ID:      spec.ID,
 					Title:   spec.Title,
@@ -239,6 +259,10 @@ func (l *LinkEditor) loadGitCommitLinks() tea.Cmd {
 
 // Init initializes the link editor
 func (l LinkEditor) Init() tea.Cmd {
+	if l.config.IsMoveMode && l.mode == MoveOldParentSelection {
+		// For move mode, start by loading parent specs to select which one to move from
+		return l.loadParentSpecs()
+	}
 	return nil
 }
 
@@ -275,6 +299,10 @@ func (l LinkEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case ChildSpecLinkSelection:
 			return l.updateSpecSelection(msg)
 		case ParentSpecLinkSelection:
+			return l.updateSpecSelection(msg)
+		case MoveOldParentSelection:
+			return l.updateSpecSelection(msg)
+		case MoveNewParentSelection:
 			return l.updateSpecSelection(msg)
 		}
 
@@ -324,6 +352,9 @@ func (l LinkEditor) getEscapeMode() LinkEditorMode {
 		return LinkTypeSelection
 	case ChildSpecLinkSelection, ParentSpecLinkSelection:
 		return UnlinkTypeSelection
+	case MoveOldParentSelection, MoveNewParentSelection:
+		// For move modes, escape should cancel the operation
+		return LinkTypeSelection // This will be handled as a cancel in the parent
 	default:
 		return LinkTypeSelection // fallback
 	}
@@ -333,6 +364,12 @@ func (l LinkEditor) getEscapeMode() LinkEditorMode {
 func (l LinkEditor) updateSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle escape key to go back
 	if msg.String() == "esc" {
+		if l.config.IsMoveMode {
+			// For move modes, escape should cancel the entire operation
+			return l, func() tea.Msg {
+				return LinkEditorCancelMsg{}
+			}
+		}
 		l.mode = l.getEscapeMode()
 		return l, nil
 	}
@@ -474,6 +511,24 @@ func (l LinkEditor) handleSpecSelected(msg SpecSelectedMsg) (tea.Model, tea.Cmd)
 				// Fallback to old behavior for compatibility
 				return l, l.removeSpecLink(msg.Spec.ID)
 			}
+		} else if l.config.IsMoveMode {
+			// For move mode, handle two-step process
+			switch l.mode {
+			case MoveOldParentSelection:
+				// First step: store the old parent and proceed to new parent selection
+				l.moveOldParentID = msg.Spec.ID
+				l.moveOldParentTitle = msg.Spec.Title
+				l.mode = MoveNewParentSelection
+				// Update spec selector title for the second step
+				l.specSelector = NewSpecSelector(SpecSelectorConfig{
+					Title: "🔀 Select new parent to move to",
+				})
+				l.specSelector.SetSize(l.width, l.height-4)
+				return l, l.loadSpecsExceptCurrent()
+			case MoveNewParentSelection:
+				// Second step: perform the move operation
+				return l, l.moveSpec(msg.Spec.ID)
+			}
 		} else {
 			// For link mode, show link type input based on current mode
 			l.selectedSpecID = msg.Spec.ID
@@ -583,11 +638,32 @@ func (l LinkEditor) removeParentSpecLink(targetSpecID string) tea.Cmd {
 	}
 }
 
+// moveSpec moves a spec from one parent to another
+func (l LinkEditor) moveSpec(newParentID string) tea.Cmd {
+	return func() tea.Msg {
+		// First, remove from old parent
+		err := l.specService.RemoveChildFromParent(l.config.CurrentSpecID, l.moveOldParentID)
+		if err != nil {
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error removing from old parent: %v", err)}
+		}
+
+		// Then, add to new parent with same link type (using "child" as default)
+		_, err = l.specService.AddChildToParent(l.config.CurrentSpecID, newParentID, "child")
+		if err != nil {
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error adding to new parent: %v", err)}
+		}
+
+		return LinkEditorCompleteMsg{}
+	}
+}
+
 // resetInputs clears all input fields
 func (l LinkEditor) resetInputs() {
 	l.selectedSpecID = ""
 	l.selectedSpecTitle = ""
 	l.inputLinkLabel = ""
+	l.moveOldParentID = ""
+	l.moveOldParentTitle = ""
 	l.textInput.Reset()
 	l.textInput.Blur()
 }
@@ -616,7 +692,7 @@ func (l LinkEditor) View() string {
 		childContent = l.linkSelector.View()
 	case LinkGitCommitForm:
 		childContent = l.gitCommitForm.View()
-	case ChildSpecSelection, ParentSpecSelection, ChildSpecLinkSelection, ParentSpecLinkSelection:
+	case ChildSpecSelection, ParentSpecSelection, ChildSpecLinkSelection, ParentSpecLinkSelection, MoveOldParentSelection, MoveNewParentSelection:
 		childContent = l.specSelector.View()
 	case ChildSpecLinkTypeSelection:
 		childContent = l.renderChildSpecLinkTypeSelection()

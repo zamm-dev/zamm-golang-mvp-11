@@ -118,7 +118,7 @@ func (a *App) runInteractiveMode() error {
 		state:          SpecListView,
 		textInput:      ti,
 		specListView:   speclistview.New(combinedSvc),
-		linkEditor:     common.NewLinkEditor(common.LinkEditorConfig{Title: "", DefaultRepo: a.config.Git.DefaultRepo, CurrentSpecID: "", CurrentSpecTitle: "", IsUnlinkMode: false}, a.linkService, a.specService),
+		linkEditor:     common.NewLinkEditor(common.LinkEditorConfig{Title: "", DefaultRepo: a.config.Git.DefaultRepo, CurrentSpecID: "", CurrentSpecTitle: "", IsUnlinkMode: false, IsMoveMode: false}, a.linkService, a.specService),
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
 	}
@@ -270,6 +270,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				CurrentSpecID:    msg.SpecID,
 				CurrentSpecTitle: specTitle,
 				IsUnlinkMode:     false,
+				IsMoveMode:       false,
 			}
 			m.linkEditor = common.NewLinkEditor(config, m.app.linkService, m.app.specService)
 			m.linkEditor.SetSize(m.terminalWidth, m.terminalHeight)
@@ -308,12 +309,43 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				CurrentSpecID:    msg.SpecID,
 				CurrentSpecTitle: specTitle,
 				IsUnlinkMode:     true,
+				IsMoveMode:       false,
 			}
 			m.linkEditor = common.NewLinkEditor(config, m.app.linkService, m.app.specService)
 			m.linkEditor.SetSize(m.terminalWidth, m.terminalHeight)
 
 			m.state = LinkEditor
 			return m, nil
+		}
+
+	case speclistview.MoveSpecMsg:
+		if m.state == SpecListView {
+			m.resetInputs()
+			m.selectedSpecID = msg.SpecID
+
+			// Find selected spec title for the title
+			var specTitle string
+			for _, spec := range m.specs {
+				if spec.ID == msg.SpecID {
+					specTitle = spec.Title
+					break
+				}
+			}
+
+			// Create link editor for move mode
+			config := common.LinkEditorConfig{
+				Title:            "Move Spec",
+				DefaultRepo:      m.app.config.Git.DefaultRepo,
+				CurrentSpecID:    msg.SpecID,
+				CurrentSpecTitle: specTitle,
+				IsUnlinkMode:     false,
+				IsMoveMode:       true,
+			}
+			m.linkEditor = common.NewLinkEditor(config, m.app.linkService, m.app.specService)
+			m.linkEditor.SetSize(m.terminalWidth, m.terminalHeight)
+
+			m.state = LinkEditor
+			return m, m.linkEditor.Init()
 		}
 
 	case common.SpecEditorCompleteMsg:
@@ -771,4 +803,14 @@ func (cs *combinedService) GetRootSpec() (*interactive.Spec, error) {
 		Title:   rootNode.Title,
 		Content: rootNode.Content,
 	}, nil
+}
+
+// getSpecTitle returns the title of a spec by its ID
+func (m *Model) getSpecTitle(specID string) string {
+	for _, spec := range m.specs {
+		if spec.ID == specID {
+			return spec.Title
+		}
+	}
+	return "Unknown Spec"
 }
