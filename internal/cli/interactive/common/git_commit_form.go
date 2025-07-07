@@ -82,10 +82,11 @@ func (d gitCommitDelegate) Render(w io.Writer, m list.Model, index int, listItem
 
 // Predefined link type options
 var defaultLinkTypeOptions = []list.Item{
-	LinkTypeOption{Value: "implements", Label: "implements"},
-	LinkTypeOption{Value: "fixes", Label: "fixes"},
-	LinkTypeOption{Value: "documents", Label: "documents"},
-	LinkTypeOption{Value: "tests", Label: "tests"},
+	LinkTypeOption{Value: "implements", Label: "Implementation"},
+	LinkTypeOption{Value: "fixes", Label: "Fix"},
+	LinkTypeOption{Value: "refactors", Label: "Refactor"},
+	LinkTypeOption{Value: "documents", Label: "Documentation"},
+	LinkTypeOption{Value: "tests", Label: "Test"},
 }
 
 // GitCommitForm is a reusable component for collecting git commit information
