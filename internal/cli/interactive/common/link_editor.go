@@ -38,19 +38,7 @@ type LinkEditorConfig struct {
 }
 
 // LinkEditorCompleteMsg is sent when link operation is complete
-type LinkEditorCompleteMsg struct {
-	Operation string // "create" or "remove"
-	LinkType  string // "git_commit" or "spec"
-	// For git commit links
-	CommitHash  string
-	CommitID    string
-	RepoPath    string
-	GitLinkType string
-	// For spec links
-	TargetSpecID    string
-	TargetSpecTitle string
-	SpecLinkType    string
-}
+type LinkEditorCompleteMsg struct{}
 
 // LinkEditorCancelMsg is sent when user cancels the link editor
 type LinkEditorCancelMsg struct{}
@@ -591,13 +579,7 @@ func (l LinkEditor) createGitCommitLink(commitHash, repoPath, linkType string) t
 			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error creating git commit link: %v", err)}
 		}
 
-		return LinkEditorCompleteMsg{
-			Operation:   "create",
-			LinkType:    "git_commit",
-			CommitHash:  commitHash,
-			RepoPath:    repoPath,
-			GitLinkType: linkType,
-		}
+		return LinkEditorCompleteMsg{}
 	}
 }
 
@@ -609,12 +591,7 @@ func (l LinkEditor) removeGitCommitLink(commitID, repoPath string) tea.Cmd {
 			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error removing git commit link: %v", err)}
 		}
 
-		return LinkEditorCompleteMsg{
-			Operation: "remove",
-			LinkType:  "git_commit",
-			CommitID:  commitID,
-			RepoPath:  repoPath,
-		}
+		return LinkEditorCompleteMsg{}
 	}
 }
 
@@ -626,22 +603,7 @@ func (l LinkEditor) createChildSpecLink(linkType string) tea.Cmd {
 			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error creating child spec link: %v", err)}
 		}
 
-		// Find target spec title for display
-		var targetSpecTitle string
-		for _, spec := range l.availableSpecs {
-			if spec.ID == l.selectedChildSpecID {
-				targetSpecTitle = spec.Title
-				break
-			}
-		}
-
-		return LinkEditorCompleteMsg{
-			Operation:       "create",
-			LinkType:        "child_spec",
-			TargetSpecID:    l.selectedChildSpecID,
-			TargetSpecTitle: targetSpecTitle,
-			SpecLinkType:    linkType,
-		}
+		return LinkEditorCompleteMsg{}
 	}
 }
 
@@ -654,22 +616,7 @@ func (l LinkEditor) createParentSpecLink(linkType string) tea.Cmd {
 			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error creating parent spec link: %v", err)}
 		}
 
-		// Find target spec title for display
-		var targetSpecTitle string
-		for _, spec := range l.parentSpecs {
-			if spec.ID == l.selectedChildSpecID {
-				targetSpecTitle = spec.Title
-				break
-			}
-		}
-
-		return LinkEditorCompleteMsg{
-			Operation:       "create",
-			LinkType:        "parent_spec",
-			TargetSpecID:    l.selectedChildSpecID,
-			TargetSpecTitle: targetSpecTitle,
-			SpecLinkType:    linkType,
-		}
+		return LinkEditorCompleteMsg{}
 	}
 }
 
@@ -681,21 +628,7 @@ func (l LinkEditor) removeSpecLink(targetSpecID string) tea.Cmd {
 			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error removing spec link: %v", err)}
 		}
 
-		// Find target spec title for display
-		var targetSpecTitle string
-		for _, spec := range l.availableSpecs {
-			if spec.ID == targetSpecID {
-				targetSpecTitle = spec.Title
-				break
-			}
-		}
-
-		return LinkEditorCompleteMsg{
-			Operation:       "remove",
-			LinkType:        "spec",
-			TargetSpecID:    targetSpecID,
-			TargetSpecTitle: targetSpecTitle,
-		}
+		return LinkEditorCompleteMsg{}
 	}
 }
 
@@ -707,21 +640,7 @@ func (l LinkEditor) removeChildSpecLink(targetSpecID string) tea.Cmd {
 			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error removing child spec link: %v", err)}
 		}
 
-		// Find target spec title for display
-		var targetSpecTitle string
-		for _, spec := range l.childSpecs {
-			if spec.ID == targetSpecID {
-				targetSpecTitle = spec.Title
-				break
-			}
-		}
-
-		return LinkEditorCompleteMsg{
-			Operation:       "remove",
-			LinkType:        "child_spec",
-			TargetSpecID:    targetSpecID,
-			TargetSpecTitle: targetSpecTitle,
-		}
+		return LinkEditorCompleteMsg{}
 	}
 }
 
@@ -734,21 +653,7 @@ func (l LinkEditor) removeParentSpecLink(targetSpecID string) tea.Cmd {
 			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error removing parent spec link: %v", err)}
 		}
 
-		// Find target spec title for display
-		var targetSpecTitle string
-		for _, spec := range l.parentSpecs {
-			if spec.ID == targetSpecID {
-				targetSpecTitle = spec.Title
-				break
-			}
-		}
-
-		return LinkEditorCompleteMsg{
-			Operation:       "remove",
-			LinkType:        "parent_spec",
-			TargetSpecID:    targetSpecID,
-			TargetSpecTitle: targetSpecTitle,
-		}
+		return LinkEditorCompleteMsg{}
 	}
 }
 
