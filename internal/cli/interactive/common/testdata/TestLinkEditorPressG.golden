@@ -4,7 +4,11 @@
 Commit Hash: > Enter git commit hash                                            
 Repository: > /test/repo                                                        
                                                                                 
+  Link Type                                                                     
                                                                                 
 > implements                                                                    
+  fixes                                                                         
+  documents                                                                     
+  tests                                                                         
                                                                                 
 Press Tab/Shift+Tab to switch fields, Enter to submit, Esc to cancel            [80D

@@ -115,7 +115,11 @@ func NewGitCommitForm(config GitCommitFormConfig) GitCommitForm {
 
 	// Create link type list
 	delegate := gitCommitDelegate{}
-	linkTypeList := list.New(defaultLinkTypeOptions, delegate, 0, 0)
+	// Use reasonable default dimensions instead of (0, 0) to ensure proper initial rendering
+	// The actual size will be set later via SetSize(), but this prevents rendering issues
+	defaultWidth := 40
+	defaultHeight := 2 + len(defaultLinkTypeOptions) // 2 lines for title and spacing
+	linkTypeList := list.New(defaultLinkTypeOptions, delegate, defaultWidth, defaultHeight)
 	linkTypeList.Title = "Link Type"
 	linkTypeList.SetShowHelp(false)
 	linkTypeList.SetShowPagination(false)
@@ -151,8 +155,7 @@ func (g *GitCommitForm) SetSize(width, height int) {
 	g.commitInput.Width = width - len(gitHashLabel)
 	g.repoInput.Width = width - len(repoPathLabel)
 
-	listHeight := max(height-12, 6)
-	g.linkTypeList.SetSize(width, listHeight)
+	g.linkTypeList.SetSize(width, 2+len(defaultLinkTypeOptions)) // 2 lines for title and spacing
 }
 
 // updateFocus updates the focus and blur states based on the current mode
