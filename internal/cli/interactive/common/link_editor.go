@@ -465,19 +465,6 @@ func (l LinkEditor) updateGitCommitLinkSelection(msg tea.KeyMsg) (tea.Model, tea
 	return l, nil
 }
 
-// updateSpecLinkSelection handles updates for spec link selection
-func (l LinkEditor) updateSpecLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Handle escape key to go back
-	if msg.String() == "esc" {
-		l.mode = UnlinkTypeSelection
-		return l, nil
-	}
-
-	selector, cmd := l.specSelector.Update(msg)
-	l.specSelector = *selector
-	return l, cmd
-}
-
 // updateChildSpecLinkSelection handles updates for child spec link selection (unlink mode)
 func (l LinkEditor) updateChildSpecLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle escape key to go back
@@ -510,16 +497,17 @@ func (l LinkEditor) handleLinkOptionSelected(msg LinkOptionSelectedMsg) (tea.Mod
 
 	if l.config.IsUnlinkMode {
 		// Handle unlink mode
-		if msg.LinkType == GitCommitLink {
+		switch msg.LinkType {
+		case GitCommitLink:
 			// Load git commit links and show selection
 			l.mode = GitCommitLinkSelection
 			return l, l.loadGitCommitLinks()
-		} else if msg.LinkType == ChildSpecLink {
+		case ChildSpecLink:
 			// Show spec selector for unlinking child specs
 			l.specSelector.SetSpecs(l.childSpecs)
 			l.mode = ChildSpecLinkSelection
 			return l, l.loadChildSpecs()
-		} else if msg.LinkType == ParentSpecLink {
+		case ParentSpecLink:
 			// Show spec selector for unlinking parent specs
 			l.specSelector.SetSpecs(l.parentSpecs)
 			l.mode = ParentSpecLinkSelection
@@ -527,7 +515,8 @@ func (l LinkEditor) handleLinkOptionSelected(msg LinkOptionSelectedMsg) (tea.Mod
 		}
 	} else {
 		// Handle link mode
-		if msg.LinkType == GitCommitLink {
+		switch msg.LinkType {
+		case GitCommitLink:
 			// Reset git commit form with fresh values
 			config := GitCommitFormConfig{
 				InitialCommit:   "",
@@ -537,12 +526,12 @@ func (l LinkEditor) handleLinkOptionSelected(msg LinkOptionSelectedMsg) (tea.Mod
 			l.gitCommitForm = NewGitCommitForm(config)
 			l.mode = LinkGitCommitForm
 			return l, nil
-		} else if msg.LinkType == ChildSpecLink {
+		case ChildSpecLink:
 			// Show spec selector for adding child specs
 			l.specSelector.SetSpecs(l.availableSpecs)
 			l.mode = ChildSpecSelection
 			return l, l.loadAvailableSpecs()
-		} else if msg.LinkType == ParentSpecLink {
+		case ParentSpecLink:
 			// Show spec selector for adding parent specs
 			l.specSelector.SetSpecs(l.parentSpecs)
 			l.mode = ParentSpecSelection
