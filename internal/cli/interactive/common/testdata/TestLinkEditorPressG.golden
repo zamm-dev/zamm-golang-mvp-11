@@ -6,9 +6,10 @@ Repository: > /test/repo
                                                                                 
   Link Type                                                                     
                                                                                 
-> implements                                                                    
-  fixes                                                                         
-  documents                                                                     
-  tests                                                                         
+> Implementation                                                                
+  Fix                                                                           
+  Refactor                                                                      
+  Documentation                                                                 
+  Test                                                                          
                                                                                 
 Press Tab/Shift+Tab to switch fields, Enter to submit, Esc to cancel            [80D
