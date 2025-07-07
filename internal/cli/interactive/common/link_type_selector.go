@@ -14,7 +14,8 @@ type LinkType int
 
 const (
 	GitCommitLink LinkType = iota
-	SpecLink
+	ChildSpecLink
+	ParentSpecLink
 )
 
 // LinkOption represents a link option that can be selected
@@ -35,9 +36,14 @@ var (
 		Label: "[G]it Commit",
 	}
 
-	SpecOption = LinkOption{
-		Type:  SpecLink,
-		Label: "[S]pecification",
+	ChildSpecOption = LinkOption{
+		Type:  ChildSpecLink,
+		Label: "[C]hild Specification",
+	}
+
+	ParentSpecOption = LinkOption{
+		Type:  ParentSpecLink,
+		Label: "[P]arent Specification",
 	}
 )
 
@@ -81,7 +87,7 @@ func NewLinkTypeSelector(title string) LinkTypeSelector {
 	delegate := linkDelegate{}
 
 	// Hardcoded options - always the same
-	options := []list.Item{GitCommitOption, SpecOption}
+	options := []list.Item{GitCommitOption, ChildSpecOption, ParentSpecOption}
 	l := list.New(options, delegate, 0, 0)
 	l.Title = title
 	l.SetShowHelp(false)
@@ -119,9 +125,13 @@ func (s *LinkTypeSelector) Update(msg tea.Msg) (*LinkTypeSelector, tea.Cmd) {
 			return s, func() tea.Msg {
 				return LinkOptionSelectedMsg{LinkType: GitCommitLink}
 			}
-		case "s":
+		case "c":
 			return s, func() tea.Msg {
-				return LinkOptionSelectedMsg{LinkType: SpecLink}
+				return LinkOptionSelectedMsg{LinkType: ChildSpecLink}
+			}
+		case "p":
+			return s, func() tea.Msg {
+				return LinkOptionSelectedMsg{LinkType: ParentSpecLink}
 			}
 		case "enter":
 			if selectedOption := s.GetSelectedOption(); selectedOption != nil {

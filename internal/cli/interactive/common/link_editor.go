@@ -17,12 +17,15 @@ type LinkEditorMode int
 const (
 	LinkTypeSelection LinkEditorMode = iota
 	LinkGitCommitForm
-	SpecSelection
-	SpecLinkTypeSelection
+	ChildSpecSelection
+	ParentSpecSelection
+	ChildSpecLinkTypeSelection
+	ParentSpecLinkTypeSelection
 	// Unlink modes
 	UnlinkTypeSelection
 	GitCommitLinkSelection
-	SpecLinkSelection
+	ChildSpecLinkSelection
+	ParentSpecLinkSelection
 )
 
 // LinkEditorConfig configures the behavior of the link editor
@@ -63,6 +66,16 @@ type SpecsLoadedMsg struct {
 	Specs []interactive.Spec
 }
 
+// ParentSpecsLoadedMsg is sent when parent specs are loaded asynchronously
+type ParentSpecsLoadedMsg struct {
+	Specs []interactive.Spec
+}
+
+// ChildSpecsLoadedMsg is sent when child specs are loaded asynchronously
+type ChildSpecsLoadedMsg struct {
+	Specs []interactive.Spec
+}
+
 // LinkEditor is a component that manages the entire link creation flow
 type LinkEditor struct {
 	config        LinkEditorConfig
@@ -84,9 +97,11 @@ type LinkEditor struct {
 
 	// Available specs for selection
 	availableSpecs []interactive.Spec
+	parentSpecs    []interactive.Spec
 
 	// For unlink operations
 	gitCommitLinks []linkItem
+	childSpecs     []interactive.Spec
 	cursor         int
 
 	// Screen dimensions
@@ -197,8 +212,7 @@ func (l *LinkEditor) loadChildSpecs() tea.Cmd {
 			})
 		}
 
-		l.availableSpecs = specs
-		return nil
+		return ChildSpecsLoadedMsg{Specs: specs}
 	}
 }
 
@@ -224,6 +238,51 @@ func (l *LinkEditor) loadGitCommitLinks() tea.Cmd {
 	}
 }
 
+// loadParentSpecs loads all specs that can be parents (all except current spec)
+func (l *LinkEditor) loadParentSpecs() tea.Cmd {
+	return func() tea.Msg {
+		specs, err := l.specService.ListSpecs()
+		if err != nil {
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading specs: %v", err)}
+		}
+
+		// Filter out the current spec
+		filteredSpecs := make([]interactive.Spec, 0, len(specs))
+		for _, spec := range specs {
+			if spec.ID != l.config.SelectedSpecID {
+				filteredSpecs = append(filteredSpecs, interactive.Spec{
+					ID:      spec.ID,
+					Title:   spec.Title,
+					Content: spec.Content,
+				})
+			}
+		}
+
+		return ParentSpecsLoadedMsg{Specs: filteredSpecs}
+	}
+}
+
+// loadParentSpecsForUnlink loads parent specs that can be unlinked
+func (l *LinkEditor) loadParentSpecsForUnlink() tea.Cmd {
+	return func() tea.Msg {
+		linkedSpecs, err := l.specService.GetParents(l.config.SelectedSpecID)
+		if err != nil {
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading linked parent specs: %v", err)}
+		}
+
+		specs := make([]interactive.Spec, 0, len(linkedSpecs))
+		for _, spec := range linkedSpecs {
+			specs = append(specs, interactive.Spec{
+				ID:      spec.ID,
+				Title:   spec.Title,
+				Content: spec.Content,
+			})
+		}
+
+		return ParentSpecsLoadedMsg{Specs: specs}
+	}
+}
+
 // Init initializes the link editor
 func (l LinkEditor) Init() tea.Cmd {
 	return nil
@@ -245,10 +304,14 @@ func (l LinkEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			form, cmd := l.gitCommitForm.Update(msg)
 			l.gitCommitForm = *form
 			return l, cmd
-		case SpecSelection:
-			return l.updateSpecSelection(msg)
-		case SpecLinkTypeSelection:
-			return l.updateLinkTypeInput(msg)
+		case ChildSpecSelection:
+			return l.updateChildSpecSelection(msg)
+		case ParentSpecSelection:
+			return l.updateParentSpecSelection(msg)
+		case ChildSpecLinkTypeSelection:
+			return l.updateChildSpecLinkTypeInput(msg)
+		case ParentSpecLinkTypeSelection:
+			return l.updateParentSpecLinkTypeInput(msg)
 		case UnlinkTypeSelection:
 			selector, cmd := l.linkSelector.Update(msg)
 			l.linkSelector = *selector
@@ -258,8 +321,10 @@ func (l LinkEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return l, nil
 		case GitCommitLinkSelection:
 			return l.updateGitCommitLinkSelection(msg)
-		case SpecLinkSelection:
-			return l.updateSpecLinkSelection(msg)
+		case ChildSpecLinkSelection:
+			return l.updateChildSpecLinkSelection(msg)
+		case ParentSpecLinkSelection:
+			return l.updateParentSpecLinkSelection(msg)
 		}
 
 	case LinkOptionSelectedMsg:
@@ -286,10 +351,20 @@ func (l LinkEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		l.availableSpecs = msg.Specs
 		l.specSelector.SetSpecs(l.availableSpecs)
 		return l, nil
+	case ParentSpecsLoadedMsg:
+		// Set the loaded parent specs and update the selector
+		l.parentSpecs = msg.Specs
+		l.specSelector.SetSpecs(l.parentSpecs)
+		return l, nil
+	case ChildSpecsLoadedMsg:
+		// Set the loaded child specs and update the selector
+		l.childSpecs = msg.Specs
+		l.specSelector.SetSpecs(l.childSpecs)
+		return l, nil
 	}
 
 	switch l.mode {
-	case SpecSelection:
+	case ChildSpecSelection, ParentSpecSelection, ChildSpecLinkSelection, ParentSpecLinkSelection:
 		selector, cmd := l.specSelector.Update(msg)
 		l.specSelector = *selector
 		return l, cmd
@@ -311,11 +386,37 @@ func (l LinkEditor) updateSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return l, cmd
 }
 
+// updateChildSpecSelection handles updates for child spec selection
+func (l LinkEditor) updateChildSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle escape key to go back
+	if msg.String() == "esc" {
+		l.mode = LinkTypeSelection
+		return l, nil
+	}
+
+	selector, cmd := l.specSelector.Update(msg)
+	l.specSelector = *selector
+	return l, cmd
+}
+
+// updateParentSpecSelection handles updates for parent spec selection
+func (l LinkEditor) updateParentSpecSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle escape key to go back
+	if msg.String() == "esc" {
+		l.mode = LinkTypeSelection
+		return l, nil
+	}
+
+	selector, cmd := l.specSelector.Update(msg)
+	l.specSelector = *selector
+	return l, cmd
+}
+
 // updateLinkTypeInput handles updates for link type input
 func (l LinkEditor) updateLinkTypeInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type {
 	case tea.KeyCtrlC, tea.KeyEsc:
-		l.mode = SpecSelection
+		l.mode = ChildSpecSelection
 		l.resetInputs()
 		return l, nil
 	case tea.KeyEnter:
@@ -324,6 +425,44 @@ func (l LinkEditor) updateLinkTypeInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			label = "child"
 		}
 		return l, l.createSpecLink(label)
+	}
+
+	l.textInput, _ = l.textInput.Update(msg)
+	return l, nil
+}
+
+// updateChildSpecLinkTypeInput handles updates for child spec link type input
+func (l LinkEditor) updateChildSpecLinkTypeInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyCtrlC, tea.KeyEsc:
+		l.mode = ChildSpecSelection
+		l.resetInputs()
+		return l, nil
+	case tea.KeyEnter:
+		label := strings.TrimSpace(l.textInput.Value())
+		if label == "" {
+			label = "child"
+		}
+		return l, l.createChildSpecLink(label)
+	}
+
+	l.textInput, _ = l.textInput.Update(msg)
+	return l, nil
+}
+
+// updateParentSpecLinkTypeInput handles updates for parent spec link type input
+func (l LinkEditor) updateParentSpecLinkTypeInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyCtrlC, tea.KeyEsc:
+		l.mode = ParentSpecSelection
+		l.resetInputs()
+		return l, nil
+	case tea.KeyEnter:
+		label := strings.TrimSpace(l.textInput.Value())
+		if label == "" {
+			label = "child"
+		}
+		return l, l.createParentSpecLink(label)
 	}
 
 	l.textInput, _ = l.textInput.Update(msg)
@@ -371,6 +510,32 @@ func (l LinkEditor) updateSpecLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 	return l, cmd
 }
 
+// updateChildSpecLinkSelection handles updates for child spec link selection (unlink mode)
+func (l LinkEditor) updateChildSpecLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle escape key to go back
+	if msg.String() == "esc" {
+		l.mode = UnlinkTypeSelection
+		return l, nil
+	}
+
+	selector, cmd := l.specSelector.Update(msg)
+	l.specSelector = *selector
+	return l, cmd
+}
+
+// updateParentSpecLinkSelection handles updates for parent spec link selection (unlink mode)
+func (l LinkEditor) updateParentSpecLinkSelection(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle escape key to go back
+	if msg.String() == "esc" {
+		l.mode = UnlinkTypeSelection
+		return l, nil
+	}
+
+	selector, cmd := l.specSelector.Update(msg)
+	l.specSelector = *selector
+	return l, cmd
+}
+
 // handleLinkOptionSelected handles when a link option is selected
 func (l LinkEditor) handleLinkOptionSelected(msg LinkOptionSelectedMsg) (tea.Model, tea.Cmd) {
 	l.selectedLinkType = msg.LinkType
@@ -381,11 +546,16 @@ func (l LinkEditor) handleLinkOptionSelected(msg LinkOptionSelectedMsg) (tea.Mod
 			// Load git commit links and show selection
 			l.mode = GitCommitLinkSelection
 			return l, l.loadGitCommitLinks()
-		} else if msg.LinkType == SpecLink {
-			// Show spec selector for unlinking
-			l.specSelector.SetSpecs(l.availableSpecs)
-			l.mode = SpecLinkSelection
+		} else if msg.LinkType == ChildSpecLink {
+			// Show spec selector for unlinking child specs
+			l.specSelector.SetSpecs(l.childSpecs)
+			l.mode = ChildSpecLinkSelection
 			return l, l.loadChildSpecs()
+		} else if msg.LinkType == ParentSpecLink {
+			// Show spec selector for unlinking parent specs
+			l.specSelector.SetSpecs(l.parentSpecs)
+			l.mode = ParentSpecLinkSelection
+			return l, l.loadParentSpecsForUnlink()
 		}
 	} else {
 		// Handle link mode
@@ -399,11 +569,16 @@ func (l LinkEditor) handleLinkOptionSelected(msg LinkOptionSelectedMsg) (tea.Mod
 			l.gitCommitForm = NewGitCommitForm(config)
 			l.mode = LinkGitCommitForm
 			return l, nil
-		} else if msg.LinkType == SpecLink {
-			// Show spec selector
+		} else if msg.LinkType == ChildSpecLink {
+			// Show spec selector for adding child specs
 			l.specSelector.SetSpecs(l.availableSpecs)
-			l.mode = SpecSelection
+			l.mode = ChildSpecSelection
 			return l, l.loadAvailableSpecs()
+		} else if msg.LinkType == ParentSpecLink {
+			// Show spec selector for adding parent specs
+			l.specSelector.SetSpecs(l.parentSpecs)
+			l.mode = ParentSpecSelection
+			return l, l.loadParentSpecs()
 		}
 	}
 
@@ -419,13 +594,31 @@ func (l LinkEditor) handleGitCommitFormComplete(msg GitCommitFormCompleteMsg) (t
 func (l LinkEditor) handleSpecSelected(msg SpecSelectedMsg) (tea.Model, tea.Cmd) {
 	if msg.Spec.ID != "" && msg.Spec.ID != l.config.SelectedSpecID {
 		if l.config.IsUnlinkMode {
-			// For unlink mode, directly remove the link
-			return l, l.removeSpecLink(msg.Spec.ID)
+			// For unlink mode, directly remove the link based on current mode
+			switch l.mode {
+			case ChildSpecLinkSelection:
+				return l, l.removeChildSpecLink(msg.Spec.ID)
+			case ParentSpecLinkSelection:
+				return l, l.removeParentSpecLink(msg.Spec.ID)
+			default:
+				// Fallback to old behavior for compatibility
+				return l, l.removeSpecLink(msg.Spec.ID)
+			}
 		} else {
-			// For link mode, show link type input
+			// For link mode, show link type input based on current mode
 			l.selectedChildSpecID = msg.Spec.ID
-			l.mode = SpecLinkTypeSelection
-			l.promptText = "Enter link type (or press Enter for 'child'):"
+			switch l.mode {
+			case ChildSpecSelection:
+				l.mode = ChildSpecLinkTypeSelection
+				l.promptText = "Enter link type (or press Enter for 'child'):"
+			case ParentSpecSelection:
+				l.mode = ParentSpecLinkTypeSelection
+				l.promptText = "Enter link type (or press Enter for 'child'):"
+			default:
+				// Fallback to old behavior for compatibility
+				l.mode = ChildSpecLinkTypeSelection
+				l.promptText = "Enter link type (or press Enter for 'child'):"
+			}
 			l.textInput.Focus()
 			return l, nil
 		}
@@ -495,6 +688,61 @@ func (l LinkEditor) createSpecLink(linkType string) tea.Cmd {
 	}
 }
 
+// createChildSpecLink creates a child spec link
+func (l LinkEditor) createChildSpecLink(linkType string) tea.Cmd {
+	return func() tea.Msg {
+		_, err := l.specService.AddChildToParent(l.selectedChildSpecID, l.config.SelectedSpecID, linkType)
+		if err != nil {
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error creating child spec link: %v", err)}
+		}
+
+		// Find target spec title for display
+		var targetSpecTitle string
+		for _, spec := range l.availableSpecs {
+			if spec.ID == l.selectedChildSpecID {
+				targetSpecTitle = spec.Title
+				break
+			}
+		}
+
+		return LinkEditorCompleteMsg{
+			Operation:       "create",
+			LinkType:        "child_spec",
+			TargetSpecID:    l.selectedChildSpecID,
+			TargetSpecTitle: targetSpecTitle,
+			SpecLinkType:    linkType,
+		}
+	}
+}
+
+// createParentSpecLink creates a parent spec link
+func (l LinkEditor) createParentSpecLink(linkType string) tea.Cmd {
+	return func() tea.Msg {
+		// For parent links, the selected spec is the child, and we're adding a parent
+		_, err := l.specService.AddChildToParent(l.config.SelectedSpecID, l.selectedChildSpecID, linkType)
+		if err != nil {
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error creating parent spec link: %v", err)}
+		}
+
+		// Find target spec title for display
+		var targetSpecTitle string
+		for _, spec := range l.parentSpecs {
+			if spec.ID == l.selectedChildSpecID {
+				targetSpecTitle = spec.Title
+				break
+			}
+		}
+
+		return LinkEditorCompleteMsg{
+			Operation:       "create",
+			LinkType:        "parent_spec",
+			TargetSpecID:    l.selectedChildSpecID,
+			TargetSpecTitle: targetSpecTitle,
+			SpecLinkType:    linkType,
+		}
+	}
+}
+
 // removeSpecLink removes a spec-to-spec link
 func (l LinkEditor) removeSpecLink(targetSpecID string) tea.Cmd {
 	return func() tea.Msg {
@@ -515,6 +763,59 @@ func (l LinkEditor) removeSpecLink(targetSpecID string) tea.Cmd {
 		return LinkEditorCompleteMsg{
 			Operation:       "remove",
 			LinkType:        "spec",
+			TargetSpecID:    targetSpecID,
+			TargetSpecTitle: targetSpecTitle,
+		}
+	}
+}
+
+// removeChildSpecLink removes a child spec link
+func (l LinkEditor) removeChildSpecLink(targetSpecID string) tea.Cmd {
+	return func() tea.Msg {
+		err := l.specService.RemoveChildFromParent(targetSpecID, l.config.SelectedSpecID)
+		if err != nil {
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error removing child spec link: %v", err)}
+		}
+
+		// Find target spec title for display
+		var targetSpecTitle string
+		for _, spec := range l.childSpecs {
+			if spec.ID == targetSpecID {
+				targetSpecTitle = spec.Title
+				break
+			}
+		}
+
+		return LinkEditorCompleteMsg{
+			Operation:       "remove",
+			LinkType:        "child_spec",
+			TargetSpecID:    targetSpecID,
+			TargetSpecTitle: targetSpecTitle,
+		}
+	}
+}
+
+// removeParentSpecLink removes a parent spec link
+func (l LinkEditor) removeParentSpecLink(targetSpecID string) tea.Cmd {
+	return func() tea.Msg {
+		// For parent links, the current spec is the child, and we're removing a parent
+		err := l.specService.RemoveChildFromParent(l.config.SelectedSpecID, targetSpecID)
+		if err != nil {
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error removing parent spec link: %v", err)}
+		}
+
+		// Find target spec title for display
+		var targetSpecTitle string
+		for _, spec := range l.parentSpecs {
+			if spec.ID == targetSpecID {
+				targetSpecTitle = spec.Title
+				break
+			}
+		}
+
+		return LinkEditorCompleteMsg{
+			Operation:       "remove",
+			LinkType:        "parent_spec",
 			TargetSpecID:    targetSpecID,
 			TargetSpecTitle: targetSpecTitle,
 		}
@@ -553,10 +854,12 @@ func (l LinkEditor) View() string {
 		childContent = l.linkSelector.View()
 	case LinkGitCommitForm:
 		childContent = l.gitCommitForm.View()
-	case SpecSelection, SpecLinkSelection:
+	case ChildSpecSelection, ParentSpecSelection, ChildSpecLinkSelection, ParentSpecLinkSelection:
 		childContent = l.specSelector.View()
-	case SpecLinkTypeSelection:
-		childContent = l.renderSpecLinkTypeSelection()
+	case ChildSpecLinkTypeSelection:
+		childContent = l.renderChildSpecLinkTypeSelection()
+	case ParentSpecLinkTypeSelection:
+		childContent = l.renderParentSpecLinkTypeSelection()
 	case GitCommitLinkSelection:
 		childContent = l.renderGitCommitLinkSelection()
 	default:
@@ -578,6 +881,48 @@ func (l LinkEditor) renderSpecLinkTypeSelection() string {
 	}
 
 	s := fmt.Sprintf("Linking '%s' to '%s'\n\n", l.config.SelectedSpecTitle, targetSpecTitle)
+	s += l.promptText + "\n"
+	s += l.textInput.View() + "\n\n"
+	s += "Press Enter to finish, Esc to cancel"
+
+	s = lipgloss.NewStyle().Width(l.width).Render(s)
+
+	return s
+}
+
+// renderChildSpecLinkTypeSelection renders the child spec link type input form
+func (l LinkEditor) renderChildSpecLinkTypeSelection() string {
+	// Find spec titles
+	var targetSpecTitle string
+	for _, spec := range l.availableSpecs {
+		if spec.ID == l.selectedChildSpecID {
+			targetSpecTitle = spec.Title
+			break
+		}
+	}
+
+	s := fmt.Sprintf("Adding '%s' as child of '%s'\n\n", targetSpecTitle, l.config.SelectedSpecTitle)
+	s += l.promptText + "\n"
+	s += l.textInput.View() + "\n\n"
+	s += "Press Enter to finish, Esc to cancel"
+
+	s = lipgloss.NewStyle().Width(l.width).Render(s)
+
+	return s
+}
+
+// renderParentSpecLinkTypeSelection renders the parent spec link type input form
+func (l LinkEditor) renderParentSpecLinkTypeSelection() string {
+	// Find spec titles
+	var targetSpecTitle string
+	for _, spec := range l.parentSpecs {
+		if spec.ID == l.selectedChildSpecID {
+			targetSpecTitle = spec.Title
+			break
+		}
+	}
+
+	s := fmt.Sprintf("Adding '%s' as parent of '%s'\n\n", targetSpecTitle, l.config.SelectedSpecTitle)
 	s += l.promptText + "\n"
 	s += l.textInput.View() + "\n\n"
 	s += "Press Enter to finish, Esc to cancel"
