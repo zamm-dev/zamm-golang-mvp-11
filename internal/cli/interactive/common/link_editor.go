@@ -54,6 +54,11 @@ type SpecsLoadedMsg struct {
 	Specs []interactive.Spec
 }
 
+// GitCommitLinksLoadedMsg is sent when git commit links are loaded asynchronously
+type GitCommitLinksLoadedMsg struct {
+	Links []linkItem
+}
+
 // LinkEditor is a component that manages the entire link creation flow
 type LinkEditor struct {
 	config        LinkEditorConfig
@@ -228,8 +233,7 @@ func (l *LinkEditor) loadGitCommitLinks() tea.Cmd {
 			}
 		}
 
-		l.gitCommitLinks = linkItems
-		return nil
+		return GitCommitLinksLoadedMsg{Links: linkItems}
 	}
 }
 
@@ -296,6 +300,10 @@ func (l LinkEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SpecsLoadedMsg:
 		// Set the loaded specs directly to the selector
 		l.specSelector.SetSpecs(msg.Specs)
+		return l, nil
+	case GitCommitLinksLoadedMsg:
+		// Set the loaded git commit links
+		l.gitCommitLinks = msg.Links
 		return l, nil
 	}
 
