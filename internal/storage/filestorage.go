@@ -33,7 +33,7 @@ func (fs *FileStorage) BaseDir() string {
 func (fs *FileStorage) InitializeStorage() error {
 	dirs := []string{
 		fs.baseDir,
-		filepath.Join(fs.baseDir, "specs"),
+		filepath.Join(fs.baseDir, "nodes"),
 	}
 
 	for _, dir := range dirs {
@@ -87,13 +87,13 @@ func (fs *FileStorage) CreateSpecNode(spec *models.Spec) error {
 		return fmt.Errorf("spec ID cannot be empty")
 	}
 
-	path := filepath.Join(fs.baseDir, "specs", spec.ID+".json")
+	path := fs.getNodeFilePath(spec.ID)
 	return fs.writeJSONFile(path, spec)
 }
 
 // GetSpecNode retrieves a spec node by ID
 func (fs *FileStorage) GetSpecNode(id string) (*models.Spec, error) {
-	path := filepath.Join(fs.baseDir, "specs", id+".json")
+	path := fs.getNodeFilePath(id)
 
 	var spec models.Spec
 	if err := fs.readJSONFile(path, &spec); err != nil {
@@ -118,13 +118,13 @@ func (fs *FileStorage) UpdateSpecNode(spec *models.Spec) error {
 		return err
 	}
 
-	path := filepath.Join(fs.baseDir, "specs", spec.ID+".json")
+	path := fs.getNodeFilePath(spec.ID)
 	return fs.writeJSONFile(path, spec)
 }
 
 // DeleteSpecNode deletes a spec node
 func (fs *FileStorage) DeleteSpecNode(id string) error {
-	path := filepath.Join(fs.baseDir, "specs", id+".json")
+	path := fs.getNodeFilePath(id)
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return models.NewZammError(models.ErrTypeNotFound, "spec not found")
@@ -135,8 +135,8 @@ func (fs *FileStorage) DeleteSpecNode(id string) error {
 
 // ListSpecNodes returns all spec nodes
 func (fs *FileStorage) ListSpecNodes() ([]*models.Spec, error) {
-	specsDir := filepath.Join(fs.baseDir, "specs")
-	entries, err := os.ReadDir(specsDir)
+	nodesDir := filepath.Join(fs.baseDir, "nodes")
+	entries, err := os.ReadDir(nodesDir)
 	if err != nil {
 		return nil, err
 	}
@@ -439,6 +439,11 @@ func (fs *FileStorage) SetRootSpecID(specID *string) error {
 }
 
 // Helper methods
+
+// getNodeFilePath returns the file path for a node
+func (fs *FileStorage) getNodeFilePath(nodeID string) string {
+	return filepath.Join(fs.baseDir, "nodes", nodeID+".json")
+}
 
 // getAllSpecCommitLinks reads all spec-commit links from CSV
 func (fs *FileStorage) getAllSpecCommitLinks() ([]*models.SpecCommitLink, error) {
