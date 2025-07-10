@@ -39,7 +39,7 @@ type ExitMsg struct{}
 // Model represents the state of the spec list view screen
 type LinkService interface {
 	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
-	GetChildSpecs(specID *string) ([]*models.SpecNode, error) // nil specID returns top-level specs
+	GetChildSpecs(specID *string) ([]*models.Spec, error) // nil specID returns top-level specs
 	GetSpecByID(specID string) (*interactive.Spec, error)
 	GetParentSpec(specID string) (*interactive.Spec, error)
 	GetRootSpec() (*interactive.Spec, error)
@@ -131,7 +131,7 @@ type Model struct {
 	help         help.Model
 	specs        []interactive.Spec
 	links        []*models.SpecCommitLink
-	childSpecs   []*models.SpecNode
+	childSpecs   []*models.Spec
 	linkService  LinkService
 	viewport     viewport.Model
 	table        table.Model
@@ -222,13 +222,6 @@ func (m *Model) SetSize(width, height int) {
 
 func (m *Model) paneWidth() int {
 	return (m.width - 1) / 2 // width of each half pane, minus 1 for padding
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // Refresh refreshes the current view data by reloading specs for the current node

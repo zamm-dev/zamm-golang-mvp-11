@@ -13,7 +13,7 @@ import (
 // LinkService interface defines operations for managing spec-commit links
 type LinkService interface {
 	LinkSpecToCommit(specID, commitID, repoPath, label string) (*models.SpecCommitLink, error)
-	GetSpecsForCommit(commitID, repoPath string) ([]*models.SpecNode, error)
+	GetSpecsForCommit(commitID, repoPath string) ([]*models.Spec, error)
 	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
 	UnlinkSpecFromCommit(specID, commitID, repoPath string) error
 }
@@ -63,7 +63,7 @@ func (s *linkService) LinkSpecToCommit(specID, commitID, repoPath, label string)
 }
 
 // GetSpecsForCommit retrieves all specs linked to a commit
-func (s *linkService) GetSpecsForCommit(commitID, repoPath string) ([]*models.SpecNode, error) {
+func (s *linkService) GetSpecsForCommit(commitID, repoPath string) ([]*models.Spec, error) {
 	if err := s.validateCommitInput(commitID, repoPath); err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (s *linkService) GetSpecsForCommit(commitID, repoPath string) ([]*models.Sp
 	}
 
 	// Get specs for each link
-	var specs []*models.SpecNode
+	var specs []*models.Spec
 	for _, link := range links {
 		spec, err := s.storage.GetSpecNode(link.SpecID)
 		if err != nil {

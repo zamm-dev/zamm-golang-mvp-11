@@ -75,12 +75,15 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 	}
 }
 
-// SpecNode operations
-
+// Spec operations
 // CreateSpecNode creates a new spec node
-func (fs *FileStorage) CreateSpecNode(spec *models.SpecNode) error {
+func (fs *FileStorage) CreateSpecNode(spec *models.Spec) error {
 	if spec.ID == "" {
 		return fmt.Errorf("spec ID cannot be empty")
+	}
+
+	if spec.Type == "" {
+		spec.Type = "specification"
 	}
 
 	path := filepath.Join(fs.baseDir, "specs", spec.ID+".json")
@@ -88,10 +91,10 @@ func (fs *FileStorage) CreateSpecNode(spec *models.SpecNode) error {
 }
 
 // GetSpecNode retrieves a spec node by ID
-func (fs *FileStorage) GetSpecNode(id string) (*models.SpecNode, error) {
+func (fs *FileStorage) GetSpecNode(id string) (*models.Spec, error) {
 	path := filepath.Join(fs.baseDir, "specs", id+".json")
 
-	var spec models.SpecNode
+	var spec models.Spec
 	if err := fs.readJSONFile(path, &spec); err != nil {
 		if os.IsNotExist(err) {
 			return nil, models.NewZammError(models.ErrTypeNotFound, "spec not found")
@@ -99,13 +102,21 @@ func (fs *FileStorage) GetSpecNode(id string) (*models.SpecNode, error) {
 		return nil, err
 	}
 
+	if spec.Type == "" {
+		spec.Type = "specification"
+	}
+
 	return &spec, nil
 }
 
 // UpdateSpecNode updates an existing spec node
-func (fs *FileStorage) UpdateSpecNode(spec *models.SpecNode) error {
+func (fs *FileStorage) UpdateSpecNode(spec *models.Spec) error {
 	if spec.ID == "" {
 		return fmt.Errorf("spec ID cannot be empty")
+	}
+
+	if spec.Type == "" {
+		spec.Type = "specification"
 	}
 
 	// Check if spec exists
@@ -130,14 +141,14 @@ func (fs *FileStorage) DeleteSpecNode(id string) error {
 }
 
 // ListSpecNodes returns all spec nodes
-func (fs *FileStorage) ListSpecNodes() ([]*models.SpecNode, error) {
+func (fs *FileStorage) ListSpecNodes() ([]*models.Spec, error) {
 	specsDir := filepath.Join(fs.baseDir, "specs")
 	entries, err := os.ReadDir(specsDir)
 	if err != nil {
 		return nil, err
 	}
 
-	var specs []*models.SpecNode
+	var specs []*models.Spec
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
@@ -344,14 +355,15 @@ func (fs *FileStorage) DeleteSpecLinkBySpecs(fromSpecID, toSpecID string) error 
 	return fs.writeSpecSpecLinks(filtered)
 }
 
+// Hierarchical operations
 // GetLinkedSpecs retrieves specs linked to a given spec
-func (fs *FileStorage) GetLinkedSpecs(specID string, direction models.Direction) ([]*models.SpecNode, error) {
+func (fs *FileStorage) GetLinkedSpecs(specID string, direction models.Direction) ([]*models.Spec, error) {
 	links, err := fs.GetSpecSpecLinks(specID, direction)
 	if err != nil {
 		return nil, err
 	}
 
-	var specs []*models.SpecNode
+	var specs []*models.Spec
 	for _, link := range links {
 		var targetSpecID string
 		if direction == models.Outgoing {
@@ -371,7 +383,7 @@ func (fs *FileStorage) GetLinkedSpecs(specID string, direction models.Direction)
 }
 
 // GetOrphanSpecs retrieves all specs that don't have any parent links
-func (fs *FileStorage) GetOrphanSpecs() ([]*models.SpecNode, error) {
+func (fs *FileStorage) GetOrphanSpecs() ([]*models.Spec, error) {
 	allSpecs, err := fs.ListSpecNodes()
 	if err != nil {
 		return nil, err
@@ -388,7 +400,7 @@ func (fs *FileStorage) GetOrphanSpecs() ([]*models.SpecNode, error) {
 		hasParents[link.FromSpecID] = true
 	}
 
-	var orphans []*models.SpecNode
+	var orphans []*models.Spec
 	for _, spec := range allSpecs {
 		if !hasParents[spec.ID] {
 			orphans = append(orphans, spec)

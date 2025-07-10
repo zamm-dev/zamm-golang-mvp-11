@@ -723,7 +723,7 @@ func (cs *combinedService) GetCommitsForSpec(specID string) ([]*models.SpecCommi
 	return cs.linkService.GetCommitsForSpec(specID)
 }
 
-func (cs *combinedService) GetChildSpecs(specID *string) ([]*models.SpecNode, error) {
+func (cs *combinedService) GetChildSpecs(specID *string) ([]*models.Spec, error) {
 	if specID == nil {
 		// Get all specs and filter for top-level ones (those without parents)
 		allSpecs, err := cs.specService.ListSpecs()
@@ -731,7 +731,7 @@ func (cs *combinedService) GetChildSpecs(specID *string) ([]*models.SpecNode, er
 			return nil, err
 		}
 
-		var topLevelSpecs []*models.SpecNode
+		var topLevelSpecs []*models.Spec
 		for _, spec := range allSpecs {
 			// Check if this spec has any parents
 			parents, err := cs.specService.GetParents(spec.ID)
@@ -752,19 +752,19 @@ func (cs *combinedService) GetChildSpecs(specID *string) ([]*models.SpecNode, er
 }
 
 func (cs *combinedService) GetSpecByID(specID string) (*interactive.Spec, error) {
-	specNode, err := cs.specService.GetSpec(specID)
+	spec, err := cs.specService.GetSpec(specID)
 	if err != nil {
 		return nil, err
 	}
-	if specNode == nil {
+	if spec == nil {
 		return nil, nil
 	}
 
-	// Convert models.SpecNode to interactive.Spec
+	// Convert models.Spec to interactive.Spec
 	return &interactive.Spec{
-		ID:      specNode.ID,
-		Title:   specNode.Title,
-		Content: specNode.Content,
+		ID:      spec.ID,
+		Title:   spec.Title,
+		Content: spec.Content,
 	}, nil
 }
 
@@ -797,7 +797,7 @@ func (cs *combinedService) GetRootSpec() (*interactive.Spec, error) {
 		return nil, nil
 	}
 
-	// Convert models.SpecNode to interactive.Spec
+	// Convert models.Spec to interactive.Spec
 	return &interactive.Spec{
 		ID:      rootNode.ID,
 		Title:   rootNode.Title,
