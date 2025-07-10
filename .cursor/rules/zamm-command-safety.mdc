@@ -1,0 +1,46 @@
+---
+alwaysApply: true
+---
+# ZAMM Command Safety Rule
+
+**NEVER run live `zamm` commands on the root project directory.** This includes commands like:
+- `./bin/zamm migrate`
+- `./bin/zamm init`
+- `./bin/zamm status`
+- `./bin/zamm spec create`
+- Any other `zamm` subcommands
+
+## Safe Testing Locations
+
+Only run `zamm` commands inside the test data directory:
+- `internal/cli/interactive/common/testdata/`
+
+## Why This Rule Exists
+
+1. **Data Protection**: Running zamm commands on the root directory can modify the actual `.zamm/` storage directory
+2. **Test Isolation**: Tests should use isolated test data directories
+3. **Development Safety**: Prevents accidental modification of development data
+
+## Allowed Commands
+
+✅ Safe to run anywhere:
+- `make build`
+- `make test`
+- `go test`
+- `go build`
+
+❌ Never run on root directory:
+- `./bin/zamm *` (any zamm subcommand)
+
+## Example Safe Usage
+
+```bash
+# ✅ Safe - run in test directory
+cd internal/cli/interactive/common/testdata/
+../../../../../bin/zamm migrate
+
+# ❌ Dangerous - never run on root
+./bin/zamm migrate
+```
+
+If you need to test zamm functionality, always use the test data directory or create a temporary directory for testing.
