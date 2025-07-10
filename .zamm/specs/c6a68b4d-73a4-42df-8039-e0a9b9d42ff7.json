@@ -1,5 +1,6 @@
 {
   "id": "c6a68b4d-73a4-42df-8039-e0a9b9d42ff7",
   "title": "Newly created specs should be nested under the currently displayed one",
-  "content": "This refers to the one displayed on the left of spec list view, not the child details displayed to the right.\n\nIf no current node exists because we're at the top-level, then make the new node a top-level node"
+  "content": "This refers to the one displayed on the left of spec list view, not the child details displayed to the right.\n\nIf no current node exists because we're at the top-level, then make the new node a top-level node",
+  "type": "specification"
 }

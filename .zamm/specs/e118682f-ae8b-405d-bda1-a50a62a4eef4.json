@@ -1,5 +1,6 @@
 {
   "id": "e118682f-ae8b-405d-bda1-a50a62a4eef4",
   "title": "CLI",
-  "content": "The CLI should support various commands"
+  "content": "The CLI should support various commands",
+  "type": "specification"
 }

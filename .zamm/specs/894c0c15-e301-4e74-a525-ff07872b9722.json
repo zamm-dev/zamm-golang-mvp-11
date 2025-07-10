@@ -1,5 +1,6 @@
 {
   "id": "894c0c15-e301-4e74-a525-ff07872b9722",
   "title": "Migrations should be embedded into the binary",
-  "content": "for portability"
+  "content": "for portability",
+  "type": "specification"
 }

@@ -1,5 +1,6 @@
 {
   "id": "11d6e5b3-87bd-4e4d-a50a-3d96832e7f28",
   "title": "It should always be possible to view the currently selected node",
-  "content": "Do not hide its details just because there are no child nodes"
+  "content": "Do not hide its details just because there are no child nodes",
+  "type": "specification"
 }

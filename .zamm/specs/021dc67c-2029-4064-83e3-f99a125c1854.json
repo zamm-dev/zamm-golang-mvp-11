@@ -1,5 +1,6 @@
 {
   "id": "021dc67c-2029-4064-83e3-f99a125c1854",
   "title": "Only the `interactive` and `init` commands should create .zamm/ on startup",
-  "content": "All other commands should avoid creaeting such a directory. They should at most error out if they really need that directory to exist.\n\nLogs should always point to ~/.zamm/logs in the home directory"
+  "content": "All other commands should avoid creaeting such a directory. They should at most error out if they really need that directory to exist.\n\nLogs should always point to ~/.zamm/logs in the home directory",
+  "type": "specification"
 }

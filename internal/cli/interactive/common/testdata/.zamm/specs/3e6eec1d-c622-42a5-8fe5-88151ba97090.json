@@ -1,5 +1,6 @@
 {
   "id": "3e6eec1d-c622-42a5-8fe5-88151ba97090",
   "title": "Hello World Function",
-  "content": "Function should be named `hello_world`"
+  "content": "Function should be named `hello_world`",
+  "type": "specification"
 }

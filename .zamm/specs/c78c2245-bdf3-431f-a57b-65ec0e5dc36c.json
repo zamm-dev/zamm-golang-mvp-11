@@ -1,5 +1,6 @@
 {
   "id": "c78c2245-bdf3-431f-a57b-65ec0e5dc36c",
   "title": "Git Service",
-  "content": "This service handles operations related to the linking between Git commits and specs"
+  "content": "This service handles operations related to the linking between Git commits and specs",
+  "type": "specification"
 }

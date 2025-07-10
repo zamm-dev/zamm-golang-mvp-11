@@ -1,5 +1,6 @@
 {
   "id": "8222b0dc-98d7-4798-a776-f8fbc156863e",
   "title": "Spec list view should live inside its own file",
-  "content": "This allows for less context tokens needed for LLM editing"
+  "content": "This allows for less context tokens needed for LLM editing",
+  "type": "specification"
 }

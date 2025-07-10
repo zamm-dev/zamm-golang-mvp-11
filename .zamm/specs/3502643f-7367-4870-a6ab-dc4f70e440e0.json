@@ -1,5 +1,6 @@
 {
   "id": "3502643f-7367-4870-a6ab-dc4f70e440e0",
   "title": "SpecSelector component should use bubbles/list for item storage",
-  "content": "It should not be handling any item storage logic itself"
+  "content": "It should not be handling any item storage logic itself",
+  "type": "specification"
 }

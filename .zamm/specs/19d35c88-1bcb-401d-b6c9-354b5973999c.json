@@ -1,5 +1,6 @@
 {
   "id": "19d35c88-1bcb-401d-b6c9-354b5973999c",
   "title": "User should be able to select options in interactive mode using arrow keys",
-  "content": "A TUI library should be used for this"
+  "content": "A TUI library should be used for this",
+  "type": "specification"
 }

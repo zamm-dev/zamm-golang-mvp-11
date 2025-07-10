@@ -1,5 +1,6 @@
 {
   "id": "201c7092-9367-4a97-837b-98fbbcd7168a",
   "title": "Hello World",
-  "content": "The program should print out \"Hello World\""
+  "content": "The program should print out \"Hello World\"",
+  "type": "specification"
 }

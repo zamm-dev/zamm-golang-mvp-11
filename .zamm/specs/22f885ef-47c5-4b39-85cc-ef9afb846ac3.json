@@ -1,5 +1,6 @@
 {
   "id": "22f885ef-47c5-4b39-85cc-ef9afb846ac3",
   "title": "CLI should support backing up database to location of user's choice",
-  "content": "Otherwise, migrations are dangerous"
+  "content": "Otherwise, migrations are dangerous",
+  "type": "specification"
 }

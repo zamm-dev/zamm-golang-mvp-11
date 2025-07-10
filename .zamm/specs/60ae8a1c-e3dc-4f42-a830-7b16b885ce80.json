@@ -1,5 +1,6 @@
 {
   "id": "60ae8a1c-e3dc-4f42-a830-7b16b885ce80",
   "title": "Commit table styling",
-  "content": "- Its width should span the entire pane\n- Its headers should have a bottom border\n- Its rows should have a uniform regular look (i.e. no select rows)\n- Link type should be 4 characters long (either \"FIX\" or \"IMPL\"), commit should be 8 characters long (7 for beginning of Git hash, followed by ellipsis), and date should be 16 characters long"
+  "content": "- Its width should span the entire pane\n- Its headers should have a bottom border\n- Its rows should have a uniform regular look (i.e. no select rows)\n- Link type should be 4 characters long (either \"FIX\" or \"IMPL\"), commit should be 8 characters long (7 for beginning of Git hash, followed by ellipsis), and date should be 16 characters long",
+  "type": "specification"
 }

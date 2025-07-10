@@ -1,5 +1,6 @@
 {
   "id": "b5326b89-fb18-4326-9e3b-12e4d5c008cc",
   "title": "Interactive mode should stay inside bubbletea even when asking user to input text",
-  "content": "Otherwise, the screen handling is broken when alt mode is exited in order to return to traditional terminal I/O"
+  "content": "Otherwise, the screen handling is broken when alt mode is exited in order to return to traditional terminal I/O",
+  "type": "specification"
 }

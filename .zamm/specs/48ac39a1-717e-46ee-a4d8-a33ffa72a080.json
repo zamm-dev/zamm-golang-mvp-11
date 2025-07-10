@@ -1,5 +1,6 @@
 {
   "id": "48ac39a1-717e-46ee-a4d8-a33ffa72a080",
   "title": "Pressing `d` brings us to the deletion confirmation dialogue",
-  "content": "It is good to confirm"
+  "content": "It is good to confirm",
+  "type": "specification"
 }

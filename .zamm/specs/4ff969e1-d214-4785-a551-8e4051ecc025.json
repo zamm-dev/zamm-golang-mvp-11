@@ -1,5 +1,6 @@
 {
   "id": "4ff969e1-d214-4785-a551-8e4051ecc025",
   "title": "There should be a root spec",
-  "content": "It should be automatically created upon project start. Any other specs without a parent for legacy reasons should be made children of the root spec."
+  "content": "It should be automatically created upon project start. Any other specs without a parent for legacy reasons should be made children of the root spec.",
+  "type": "specification"
 }

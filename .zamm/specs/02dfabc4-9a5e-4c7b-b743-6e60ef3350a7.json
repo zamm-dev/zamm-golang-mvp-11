@@ -1,0 +1,6 @@
+{
+  "id": "02dfabc4-9a5e-4c7b-b743-6e60ef3350a7",
+  "title": "`migrate`",
+  "content": "The `migrate` command should migrate the .zamm directory from an old format to the current one",
+  "type": "specification"
+}
