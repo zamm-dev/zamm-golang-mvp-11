@@ -80,87 +80,98 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 	}
 }
 
-// Spec operations
-// CreateSpecNode creates a new spec node
-func (fs *FileStorage) CreateSpecNode(spec *models.Spec) error {
-	if spec.ID == "" {
-		return fmt.Errorf("spec ID cannot be empty")
+// Node operations
+// CreateNode creates a new node
+func (fs *FileStorage) CreateNode(node models.Node) error {
+	if node.GetID() == "" {
+		return fmt.Errorf("node ID cannot be empty")
 	}
 
-	path := fs.getNodeFilePath(spec.ID)
-	return fs.writeJSONFile(path, spec)
+	path := fs.getNodeFilePath(node.GetID())
+	return fs.writeJSONFile(path, node)
 }
 
-// GetSpecNode retrieves a spec node by ID
-func (fs *FileStorage) GetSpecNode(id string) (*models.Spec, error) {
+// GetNode retrieves a node by ID
+func (fs *FileStorage) GetNode(id string) (models.Node, error) {
 	path := fs.getNodeFilePath(id)
 
-	var spec models.Spec
-	if err := fs.readJSONFile(path, &spec); err != nil {
+	// First read as NodeBase to determine the type
+	var nodeBase models.NodeBase
+	if err := fs.readJSONFile(path, &nodeBase); err != nil {
 		if os.IsNotExist(err) {
-			return nil, models.NewZammError(models.ErrTypeNotFound, "spec not found")
+			return nil, models.NewZammError(models.ErrTypeNotFound, "node not found")
 		}
 		return nil, err
 	}
 
-	return &spec, nil
+	// Based on the type, create the appropriate node
+	switch nodeBase.Type {
+	case "specification":
+		var spec models.Spec
+		if err := fs.readJSONFile(path, &spec); err != nil {
+			return nil, err
+		}
+		return &spec, nil
+	default:
+		return &nodeBase, nil
+	}
 }
 
-// UpdateSpecNode updates an existing spec node
-func (fs *FileStorage) UpdateSpecNode(spec *models.Spec) error {
-	if spec.ID == "" {
-		return fmt.Errorf("spec ID cannot be empty")
+// UpdateNode updates an existing node
+func (fs *FileStorage) UpdateNode(node models.Node) error {
+	if node.GetID() == "" {
+		return fmt.Errorf("node ID cannot be empty")
 	}
 
-	// Check if spec exists
-	_, err := fs.GetSpecNode(spec.ID)
+	// Check if node exists
+	_, err := fs.GetNode(node.GetID())
 	if err != nil {
 		return err
 	}
 
-	path := fs.getNodeFilePath(spec.ID)
-	return fs.writeJSONFile(path, spec)
+	path := fs.getNodeFilePath(node.GetID())
+	return fs.writeJSONFile(path, node)
 }
 
-// DeleteSpecNode deletes a spec node
-func (fs *FileStorage) DeleteSpecNode(id string) error {
+// DeleteNode deletes a node
+func (fs *FileStorage) DeleteNode(id string) error {
 	path := fs.getNodeFilePath(id)
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return models.NewZammError(models.ErrTypeNotFound, "spec not found")
+		return models.NewZammError(models.ErrTypeNotFound, "node not found")
 	}
 
 	return os.Remove(path)
 }
 
-// ListSpecNodes returns all spec nodes
-func (fs *FileStorage) ListSpecNodes() ([]*models.Spec, error) {
+// ListNodes returns all nodes
+func (fs *FileStorage) ListNodes() ([]models.Node, error) {
 	nodesDir := filepath.Join(fs.baseDir, "nodes")
 	entries, err := os.ReadDir(nodesDir)
 	if err != nil {
 		return nil, err
 	}
 
-	var specs []*models.Spec
+	var nodes []models.Node
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
 
 		id := strings.TrimSuffix(entry.Name(), ".json")
-		spec, err := fs.GetSpecNode(id)
+		node, err := fs.GetNode(id)
 		if err != nil {
 			continue // Skip invalid files
 		}
-		specs = append(specs, spec)
+		nodes = append(nodes, node)
 	}
 
 	// Sort by ID for consistent ordering
-	sort.Slice(specs, func(i, j int) bool {
-		return specs[i].ID < specs[j].ID
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].GetID() < nodes[j].GetID()
 	})
 
-	return specs, nil
+	return nodes, nil
 }
 
 // SpecCommitLink operations
@@ -365,11 +376,15 @@ func (fs *FileStorage) GetLinkedSpecs(specID string, direction models.Direction)
 			targetSpecID = link.FromSpecID
 		}
 
-		spec, err := fs.GetSpecNode(targetSpecID)
+		node, err := fs.GetNode(targetSpecID)
 		if err != nil {
 			continue // Skip if spec not found
 		}
-		specs = append(specs, spec)
+
+		// Type assert to Spec
+		if spec, ok := node.(*models.Spec); ok {
+			specs = append(specs, spec)
+		}
 	}
 
 	return specs, nil
@@ -377,7 +392,7 @@ func (fs *FileStorage) GetLinkedSpecs(specID string, direction models.Direction)
 
 // GetOrphanSpecs retrieves all specs that don't have any parent links
 func (fs *FileStorage) GetOrphanSpecs() ([]*models.Spec, error) {
-	allSpecs, err := fs.ListSpecNodes()
+	allNodes, err := fs.ListNodes()
 	if err != nil {
 		return nil, err
 	}
@@ -394,9 +409,12 @@ func (fs *FileStorage) GetOrphanSpecs() ([]*models.Spec, error) {
 	}
 
 	var orphans []*models.Spec
-	for _, spec := range allSpecs {
-		if !hasParents[spec.ID] {
-			orphans = append(orphans, spec)
+	for _, node := range allNodes {
+		// Only include Spec nodes
+		if spec, ok := node.(*models.Spec); ok {
+			if !hasParents[spec.ID] {
+				orphans = append(orphans, spec)
+			}
 		}
 	}
 

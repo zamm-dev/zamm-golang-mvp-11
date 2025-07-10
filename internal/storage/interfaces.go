@@ -12,12 +12,12 @@ type Storage interface {
 	// Get base directory
 	BaseDir() string
 
-	// Spec operations
-	CreateSpecNode(spec *models.Spec) error
-	GetSpecNode(id string) (*models.Spec, error)
-	UpdateSpecNode(spec *models.Spec) error
-	DeleteSpecNode(id string) error
-	ListSpecNodes() ([]*models.Spec, error)
+	// Node operations
+	CreateNode(node models.Node) error
+	GetNode(id string) (models.Node, error)
+	UpdateNode(node models.Node) error
+	DeleteNode(id string) error
+	ListNodes() ([]models.Node, error)
 
 	// SpecCommitLink operations
 	CreateSpecCommitLink(link *models.SpecCommitLink) error
