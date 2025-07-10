@@ -1,6 +1,9 @@
 package services
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/yourorg/zamm-mvp/internal/models"
@@ -25,6 +28,9 @@ type SpecService interface {
 	InitializeRootSpec() error
 	GetRootSpec() (*models.Spec, error)
 	GetOrphanSpecs() ([]*models.Spec, error)
+
+	// Migration operations
+	MigrateSpecTypeField() (int, error)
 }
 
 // specService implements the SpecService interface
@@ -219,6 +225,41 @@ func (s *specService) GetRootSpec() (*models.Spec, error) {
 // GetOrphanSpecs retrieves all specs that don't have any parents
 func (s *specService) GetOrphanSpecs() ([]*models.Spec, error) {
 	return s.storage.GetOrphanSpecs()
+}
+
+// MigrateSpecTypeField migrates the Type field of all specs to "specification"
+func (s *specService) MigrateSpecTypeField() (int, error) {
+	specs, err := s.ListSpecs()
+	if err != nil {
+		return 0, err
+	}
+
+	updatedCount := 0
+	for _, spec := range specs {
+		// Check if the actual JSON file has a type field by reading it directly
+		path := filepath.Join(s.storage.BaseDir(), "specs", spec.ID+".json")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue // skip unreadable files
+		}
+
+		var jsonSpec map[string]interface{}
+		if err := json.Unmarshal(data, &jsonSpec); err != nil {
+			continue // skip invalid JSON
+		}
+
+		// Only update if the JSON file doesn't have a type field
+		if _, ok := jsonSpec["type"]; !ok {
+			// Set the type field in the spec object
+			spec.Type = "specification"
+			// Use the storage layer to write it back
+			if err := s.storage.UpdateSpecNode(spec); err != nil {
+				continue // skip if can't write
+			}
+			updatedCount++
+		}
+	}
+	return updatedCount, nil
 }
 
 // validateSpecInput validates specification input data

@@ -96,3 +96,29 @@ func (a *App) createVersionCommand() *cobra.Command {
 		},
 	}
 }
+
+// createMigrateCommand creates the generic migration command
+func (a *App) createMigrateCommand() *cobra.Command {
+	var migrateSpecType bool
+	cmd := &cobra.Command{
+		Use:   "migrate",
+		Short: "Run database/data migrations (e.g., add missing fields)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			migrationsRun := 0
+			if migrateSpecType {
+				updated, err := a.specService.MigrateSpecTypeField()
+				if err != nil {
+					return err
+				}
+				fmt.Printf("[spec-type] Migration complete. Updated %d spec file(s).\n", updated)
+				migrationsRun++
+			}
+			if migrationsRun == 0 {
+				fmt.Println("No migrations selected. Use --help to see available migrations.")
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&migrateSpecType, "spec-type", true, "Migrate all spec JSON files to include the 'type' field (default: true)")
+	return cmd
+}

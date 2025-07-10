@@ -9,6 +9,9 @@ type Storage interface {
 	// Initialize storage
 	InitializeStorage() error
 
+	// Get base directory
+	BaseDir() string
+
 	// Spec operations
 	CreateSpecNode(spec *models.Spec) error
 	GetSpecNode(id string) (*models.Spec, error)

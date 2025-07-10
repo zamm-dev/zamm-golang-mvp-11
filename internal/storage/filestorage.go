@@ -24,6 +24,11 @@ func NewFileStorage(baseDir string) *FileStorage {
 	}
 }
 
+// BaseDir returns the base directory path
+func (fs *FileStorage) BaseDir() string {
+	return fs.baseDir
+}
+
 // InitializeStorage creates the necessary directory structure
 func (fs *FileStorage) InitializeStorage() error {
 	dirs := []string{
@@ -82,10 +87,6 @@ func (fs *FileStorage) CreateSpecNode(spec *models.Spec) error {
 		return fmt.Errorf("spec ID cannot be empty")
 	}
 
-	if spec.Type == "" {
-		spec.Type = "specification"
-	}
-
 	path := filepath.Join(fs.baseDir, "specs", spec.ID+".json")
 	return fs.writeJSONFile(path, spec)
 }
@@ -102,10 +103,6 @@ func (fs *FileStorage) GetSpecNode(id string) (*models.Spec, error) {
 		return nil, err
 	}
 
-	if spec.Type == "" {
-		spec.Type = "specification"
-	}
-
 	return &spec, nil
 }
 
@@ -113,10 +110,6 @@ func (fs *FileStorage) GetSpecNode(id string) (*models.Spec, error) {
 func (fs *FileStorage) UpdateSpecNode(spec *models.Spec) error {
 	if spec.ID == "" {
 		return fmt.Errorf("spec ID cannot be empty")
-	}
-
-	if spec.Type == "" {
-		spec.Type = "specification"
 	}
 
 	// Check if spec exists
