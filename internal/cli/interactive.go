@@ -780,13 +780,3 @@ func (cs *combinedService) GetRootSpec() (*interactive.Spec, error) {
 		Content: rootNode.Content,
 	}, nil
 }
-
-// getSpecTitle returns the title of a spec by its ID
-func (m *Model) getSpecTitle(specID string) string {
-	for _, spec := range m.specs {
-		if spec.ID == specID {
-			return spec.Title
-		}
-	}
-	return "Unknown Spec"
-}
