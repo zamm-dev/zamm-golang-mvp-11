@@ -723,32 +723,8 @@ func (cs *combinedService) GetCommitsForSpec(specID string) ([]*models.SpecCommi
 	return cs.linkService.GetCommitsForSpec(specID)
 }
 
-func (cs *combinedService) GetChildSpecs(specID *string) ([]*models.Spec, error) {
-	if specID == nil {
-		// Get all specs and filter for top-level ones (those without parents)
-		allSpecs, err := cs.specService.ListSpecs()
-		if err != nil {
-			return nil, err
-		}
-
-		var topLevelSpecs []*models.Spec
-		for _, spec := range allSpecs {
-			// Check if this spec has any parents
-			parents, err := cs.specService.GetParents(spec.ID)
-			if err != nil {
-				continue // Skip specs we can't check
-			}
-
-			// If no parents, it's a top-level spec
-			if len(parents) == 0 {
-				topLevelSpecs = append(topLevelSpecs, spec)
-			}
-		}
-
-		return topLevelSpecs, nil
-	}
-
-	return cs.specService.GetChildren(*specID)
+func (cs *combinedService) GetChildSpecs(specID string) ([]*models.Spec, error) {
+	return cs.specService.GetChildren(specID)
 }
 
 func (cs *combinedService) GetSpecByID(specID string) (*interactive.Spec, error) {

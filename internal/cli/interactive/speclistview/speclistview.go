@@ -39,7 +39,7 @@ type ExitMsg struct{}
 // Model represents the state of the spec list view screen
 type LinkService interface {
 	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
-	GetChildSpecs(specID *string) ([]*models.Spec, error) // nil specID returns top-level specs
+	GetChildSpecs(specID string) ([]*models.Spec, error)
 	GetSpecByID(specID string) (*interactive.Spec, error)
 	GetParentSpec(specID string) (*interactive.Spec, error)
 	GetRootSpec() (*interactive.Spec, error)
@@ -353,7 +353,7 @@ func (m *Model) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 	}
 
 	// Get children of the current spec
-	childSpecNodes, err := m.linkService.GetChildSpecs(&currentSpec.ID)
+	childSpecNodes, err := m.linkService.GetChildSpecs(currentSpec.ID)
 	if err != nil {
 		return nil
 	}
@@ -432,7 +432,7 @@ func (m *Model) updateDetailsForSpec(spec interactive.Spec) {
 		m.table.SetRows([]table.Row{})
 	}
 
-	childSpecs, err := m.linkService.GetChildSpecs(&spec.ID)
+	childSpecs, err := m.linkService.GetChildSpecs(spec.ID)
 	if err == nil {
 		m.childSpecs = childSpecs
 	} else {
