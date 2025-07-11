@@ -493,27 +493,6 @@ func (m *Model) loadSpecsCmd() tea.Cmd {
 	}
 }
 
-// loadLinksForSpecCmd returns a command to load links for the selected spec
-func (m *Model) loadLinksForSpecCmd() tea.Cmd {
-	return func() tea.Msg {
-		links, err := m.app.linkService.GetCommitsForSpec(m.selectedSpecID)
-		if err != nil {
-			return linksLoadedMsg{err: err}
-		}
-
-		linkItems := make([]linkItem, len(links))
-		for i, link := range links {
-			linkItems[i] = linkItem{
-				CommitID:  link.CommitID,
-				RepoPath:  link.RepoPath,
-				LinkLabel: link.LinkLabel,
-			}
-		}
-
-		return linksLoadedMsg{links: linkItems}
-	}
-}
-
 // resetInputs clears all input fields
 func (m *Model) resetInputs() {
 	m.inputTitle = ""
@@ -558,28 +537,6 @@ func (m *Model) updateSpecCmd(specID, title, content string) tea.Cmd {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
 		return operationCompleteMsg{message: fmt.Sprintf("✅ Updated specification: %s. Press Enter to continue...", spec.Title)}
-	}
-}
-
-// createLinkCmd returns a command to create a new link
-func (m *Model) createLinkCmd(specID, commitID, repoPath, label string) tea.Cmd {
-	return func() tea.Msg {
-		_, err := m.app.linkService.LinkSpecToCommit(specID, commitID, repoPath, label)
-		if err != nil {
-			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
-		}
-
-		// Find spec title for display
-		var specTitle string
-		for _, spec := range m.specs {
-			if spec.ID == specID {
-				specTitle = spec.Title
-				break
-			}
-		}
-
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Created link between '%s' and commit %s. Press Enter to continue...",
-			specTitle, commitID[:12]+"...")}
 	}
 }
 
@@ -692,24 +649,6 @@ func (m *Model) renderConfirmDelete() string {
 
 	s += "Press 'y' to confirm, 'n' or Esc to cancel"
 	return s
-}
-
-// getChildSpecs retrieves child specifications for the given spec
-func (m *Model) getChildSpecs(specID string) ([]interactive.Spec, error) {
-	linkedSpecs, err := m.app.specService.GetChildren(specID)
-	if err != nil {
-		return nil, err
-	}
-
-	specs := make([]interactive.Spec, 0, len(linkedSpecs))
-	for _, spec := range linkedSpecs {
-		specs = append(specs, interactive.Spec{
-			ID:      spec.ID,
-			Title:   spec.Title,
-			Content: spec.Content,
-		})
-	}
-	return specs, nil
 }
 
 // combinedService adapts both LinkService and SpecService to provide
