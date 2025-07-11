@@ -11,6 +11,7 @@ test-coverage:
 
 clean:
 	rm -rf bin/ coverage.out coverage.html
+	go clean -testcache
 
 install:
 	go install ./cmd/zamm
