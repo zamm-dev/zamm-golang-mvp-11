@@ -115,6 +115,7 @@ func newBaseSpecEditor(config SpecEditorConfig) baseSpecEditor {
 
 	contentTextarea := textarea.New()
 	contentTextarea.Placeholder = "Enter specification content..."
+	contentTextarea.CharLimit = 0 // Remove character limit
 	if config.InitialContent != "" {
 		contentTextarea.SetValue(config.InitialContent)
 	}
