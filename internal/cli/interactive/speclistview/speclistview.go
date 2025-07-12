@@ -225,7 +225,7 @@ func (m *Model) SetSize(width, height int) {
 }
 
 func (m *Model) paneWidth() int {
-	return (m.width - 1) / 2 // width of each half pane, minus 1 for padding
+	return (m.width - 1) / 2 // width of each half pane, minus 1 for border
 }
 
 // Refresh refreshes the current view data by reloading specs for the current node
@@ -524,7 +524,7 @@ func (m *Model) generateRightPaneContent() string {
 	} else {
 		rightStyle = common.ActiveNodeStyle()
 	}
-	return rightStyle.Width(paneWidth).MarginLeft(1).Render(contentBuilder.String())
+	return rightStyle.Width(paneWidth).Render(contentBuilder.String())
 }
 
 // View renders the spec list view screen
@@ -549,5 +549,12 @@ func (m *Model) View() string {
 	m.viewport.SetContent(m.generateRightPaneContent())
 	right := m.viewport.View()
 
-	return lipgloss.JoinHorizontal(lipgloss.Left, left, right)
+	// Create a vertical border to separate the panes
+	border := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder(), false, true, false, false).
+		BorderForeground(lipgloss.Color("240")).
+		Height(m.height).
+		Render("")
+
+	return lipgloss.JoinHorizontal(lipgloss.Left, left, border, right)
 }
