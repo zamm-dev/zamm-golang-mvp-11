@@ -1,0 +1,77 @@
+---
+description: For situations where you are stuck debugging unexplained phenomena around external libraries
+alwaysApply: false
+---
+
+# Library Source Code Investigation Rule
+
+When you need to understand how an external library actually works—whether due to unexplained behavior, unclear documentation, or any uncertainty about its operation—follow this systematic approach:
+
+## When to Investigate Library Source
+
+Investigate library source code when you encounter:
+- Unexplained or unexpected behavior
+- Gaps or ambiguities in the documentation
+- Results that differ from your expectations
+- Any situation where you need to know exactly what the library is doing internally
+- UI components or APIs that behave differently than you anticipated
+
+## Investigation Process
+
+### 1. Identify the Library and Version
+```bash
+# Check the exact version being used
+go list -m -json <library-name>
+
+# Example:
+go list -m -json github.com/charmbracelet/bubbles
+```
+
+### 2. Locate the Library Source
+```bash
+# Find the library directory
+go list -m -json <library-name> | grep Dir
+
+# Navigate to the specific component
+ls -la <library-dir>/<component-name>/
+```
+
+### 3. Search for Relevant Code, Constants, and Patterns
+```bash
+# Look for key values, logic, and configuration options
+grep -n "default\|limit\|max\|const\|func\|type" <library-dir>/<component-name>/*.go
+
+# Search for specific patterns or keywords relevant to your question
+grep -n "CharLimit\|MaxLength\|Set\|Update\|Behavior" <library-dir>/<component-name>/*.go
+```
+
+### 4. Examine the Implementation
+```bash
+# Look at the specific lines where relevant logic is implemented
+sed -n '<start-line>,<end-line>p' <library-dir>/<component-name>/*.go
+```
+
+## Common Patterns to Look For
+
+- Default values and initializations
+- Configuration options and setters
+- Conditional logic and branching
+- Internal state changes
+- Comments explaining design decisions
+- Public vs. private API boundaries
+
+## Documentation
+
+When you find and fix a library-related issue or clarify its behavior:
+1. Document the relevant findings in code comments or project docs
+2. Add configuration or code to address the issue if needed
+3. Consider creating a helper or wrapper for common patterns
+4. Update this rule with new investigation techniques as you learn them
+
+## Example: Bubbles Textarea Issue
+
+**Problem**: Textarea was limiting content for an unknown reason  
+**Investigation**: Found `defaultCharLimit = 400` in bubbles textarea source  
+**Solution**: Set `contentTextarea.CharLimit = 0` to remove the limit  
+
+This systematic approach helps avoid spending time debugging application code when the issue is actually in library defaults or constraints.
