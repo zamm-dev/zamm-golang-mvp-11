@@ -15,6 +15,10 @@ import (
 	"github.com/yourorg/zamm-mvp/internal/models"
 )
 
+const typeWidth = 6
+const commitWidth = 8
+const repoWidth = 16
+
 // CreateNewSpecMsg signals that the user wants to create a new specification
 type CreateNewSpecMsg struct {
 	ParentSpecID string // ID of parent spec
@@ -153,9 +157,9 @@ func New(linkService LinkService) Model {
 
 	// Initialize table for commits
 	columns := []table.Column{
-		{Title: "TYPE", Width: 4},
-		{Title: "COMMIT", Width: 8},
-		{Title: "REPO", Width: 16},
+		{Title: "TYPE", Width: typeWidth},
+		{Title: "COMMIT", Width: commitWidth},
+		{Title: "REPO", Width: repoWidth},
 	}
 
 	commitsTable := table.New(
@@ -213,9 +217,9 @@ func (m *Model) SetSize(width, height int) {
 	tableWidth := m.paneWidth()
 	extraPadding := 7 // in between the columns
 	columns := []table.Column{
-		{Title: "TYPE", Width: 4},
-		{Title: "COMMIT", Width: 8},
-		{Title: "REPO", Width: tableWidth - 12 - extraPadding},
+		{Title: "TYPE", Width: typeWidth},
+		{Title: "COMMIT", Width: commitWidth},
+		{Title: "REPO", Width: tableWidth - typeWidth - commitWidth - extraPadding},
 	}
 	m.table.SetColumns(columns)
 }
@@ -457,8 +461,16 @@ func (m *Model) updateCommitsTable() {
 		switch link.LinkLabel {
 		case "implements":
 			label = "IMPL"
+		case "updates":
+			label = "UPDATE"
 		case "fixes":
 			label = "FIX"
+		case "refactors":
+			label = "CLEAN"
+		case "documents":
+			label = "DOC"
+		case "tests":
+			label = "TEST"
 		default:
 			label = link.LinkLabel
 		}
