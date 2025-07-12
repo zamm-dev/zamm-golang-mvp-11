@@ -37,7 +37,7 @@ type Model struct {
 	selectedSpecID string
 	message        string
 	showMessage    bool
-	specListView   speclistview.Model
+	specListView   speclistview.SpecExplorer
 
 	terminalWidth  int
 	terminalHeight int
@@ -117,7 +117,7 @@ func (a *App) runInteractiveMode() error {
 		app:            a,
 		state:          SpecListView,
 		textInput:      ti,
-		specListView:   speclistview.New(combinedSvc),
+		specListView:   speclistview.NewSpecExplorer(combinedSvc),
 		linkEditor:     common.NewLinkEditor(common.LinkEditorConfig{Title: "", DefaultRepo: a.config.Git.DefaultRepo, CurrentSpecID: "", CurrentSpecTitle: "", IsUnlinkMode: false, IsMoveMode: false}, a.linkService, a.specService),
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
