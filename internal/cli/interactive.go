@@ -87,19 +87,19 @@ type operationCompleteMsg struct {
 }
 
 // createInteractiveCommand creates the interactive mode command
-func (a *App) createInteractiveCommand() *cobra.Command {
+func (a *App) createInteractiveCommand(debug bool) *cobra.Command {
 	return &cobra.Command{
 		Use:   "interactive",
 		Short: "Interactive mode for managing specs and links",
 		Long:  "Start an interactive session to manage specifications and links using arrow keys for navigation.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.runInteractiveMode()
+			return a.runInteractiveMode(debug)
 		},
 	}
 }
 
 // runInteractiveMode starts the interactive mode with TUI
-func (a *App) runInteractiveMode() error {
+func (a *App) runInteractiveMode(debug bool) error {
 	// Perform complete initialization
 	if err := a.InitializeZamm(); err != nil {
 		return fmt.Errorf("failed to initialize zamm: %w", err)

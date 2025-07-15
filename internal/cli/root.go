@@ -8,6 +8,7 @@ import (
 func (a *App) CreateRootCommand() *cobra.Command {
 	var jsonOutput bool
 	var quiet bool
+	var debug bool
 
 	rootCmd := &cobra.Command{
 		Use:   "zamm",
@@ -18,6 +19,7 @@ func (a *App) CreateRootCommand() *cobra.Command {
 	// Global flags
 	rootCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Quiet output")
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging for bubbletea messages")
 
 	// Add subcommands
 	rootCmd.AddCommand(a.createSpecCommand(jsonOutput, quiet))
@@ -25,7 +27,7 @@ func (a *App) CreateRootCommand() *cobra.Command {
 	rootCmd.AddCommand(a.createInitCommand())
 	rootCmd.AddCommand(a.createStatusCommand(jsonOutput))
 	rootCmd.AddCommand(a.createVersionCommand())
-	rootCmd.AddCommand(a.createInteractiveCommand())
+	rootCmd.AddCommand(a.createInteractiveCommand(debug))
 	rootCmd.AddCommand(a.createMigrateCommand())
 
 	return rootCmd
