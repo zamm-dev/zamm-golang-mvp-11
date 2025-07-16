@@ -2,10 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
 	interactive "github.com/yourorg/zamm-mvp/internal/cli/interactive"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive/common"
@@ -62,6 +65,9 @@ type Model struct {
 
 	// Spec selector components
 	specEditor common.SpecEditor
+
+	// Debug logging
+	debugWriter io.Writer
 }
 
 type linkItem struct {
@@ -87,14 +93,46 @@ type operationCompleteMsg struct {
 }
 
 // createInteractiveCommand creates the interactive mode command
-func (a *App) createInteractiveCommand(debug bool) *cobra.Command {
-	return &cobra.Command{
+func (a *App) createInteractiveCommand() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "interactive",
 		Short: "Interactive mode for managing specs and links",
 		Long:  "Start an interactive session to manage specifications and links using arrow keys for navigation.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Get the debug flag value from this command's local flags
+			debug, err := cmd.Flags().GetBool("debug")
+			if err != nil {
+				return fmt.Errorf("failed to get debug flag: %w", err)
+			}
 			return a.runInteractiveMode(debug)
 		},
+	}
+
+	// Add debug flag specific to this command
+	cmd.Flags().Bool("debug", false, "Enable debug logging for bubbletea messages")
+
+	return cmd
+}
+
+// NewModel creates a new Model with the given debug writer
+func NewModel(app *App, debugWriter io.Writer) *Model {
+	ti := textinput.New()
+	ti.Focus()
+
+	combinedSvc := &combinedService{
+		linkService: app.linkService,
+		specService: app.specService,
+	}
+
+	return &Model{
+		app:            app,
+		state:          SpecListView,
+		textInput:      ti,
+		specListView:   speclistview.NewSpecExplorer(combinedSvc),
+		linkEditor:     common.NewLinkEditor(common.LinkEditorConfig{Title: "", DefaultRepo: app.config.Git.DefaultRepo, CurrentSpecID: "", CurrentSpecTitle: "", IsUnlinkMode: false, IsMoveMode: false}, app.linkService, app.specService),
+		terminalWidth:  80, // Default terminal width
+		terminalHeight: 24, // Default terminal height
+		debugWriter:    debugWriter,
 	}
 }
 
@@ -105,26 +143,30 @@ func (a *App) runInteractiveMode(debug bool) error {
 		return fmt.Errorf("failed to initialize zamm: %w", err)
 	}
 
-	ti := textinput.New()
-	ti.Focus()
-
-	combinedSvc := &combinedService{
-		linkService: a.linkService,
-		specService: a.specService,
+	var debugWriter io.Writer
+	var debugFile *os.File
+	if debug {
+		var err error
+		debugFile, err = createDebugLogFile()
+		if err != nil {
+			return fmt.Errorf("failed to create debug log file: %w", err)
+		}
+		debugWriter = debugFile
 	}
 
-	model := Model{
-		app:            a,
-		state:          SpecListView,
-		textInput:      ti,
-		specListView:   speclistview.NewSpecExplorer(combinedSvc),
-		linkEditor:     common.NewLinkEditor(common.LinkEditorConfig{Title: "", DefaultRepo: a.config.Git.DefaultRepo, CurrentSpecID: "", CurrentSpecTitle: "", IsUnlinkMode: false, IsMoveMode: false}, a.linkService, a.specService),
-		terminalWidth:  80, // Default terminal width
-		terminalHeight: 24, // Default terminal height
-	}
+	model := NewModel(a, debugWriter)
 
-	p := tea.NewProgram(&model, tea.WithAltScreen())
+	p := tea.NewProgram(model, tea.WithAltScreen())
 	_, err := p.Run()
+
+	// Ensure proper cleanup of debug file on program exit
+	if debugFile != nil {
+		if closeErr := debugFile.Close(); closeErr != nil {
+			// Log to stderr but don't override the main error
+			fmt.Fprintf(os.Stderr, "Warning: failed to close debug log file: %v\n", closeErr)
+		}
+	}
+
 	return err
 }
 
@@ -135,6 +177,11 @@ func (m *Model) Init() tea.Cmd {
 
 // Update handles messages and updates the model
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Debug logging: dump all messages when debug writer is available
+	if m.debugWriter != nil {
+		spew.Fdump(m.debugWriter, msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
