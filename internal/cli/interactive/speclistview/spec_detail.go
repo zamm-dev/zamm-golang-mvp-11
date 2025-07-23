@@ -1,0 +1,164 @@
+package speclistview
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/yourorg/zamm-mvp/internal/cli/interactive/common"
+	"github.com/yourorg/zamm-mvp/internal/models"
+)
+
+// SpecDetail encapsulates all state and logic for a spec detail
+// (separated from the viewport logic)
+type SpecDetail struct {
+	spec       models.Spec
+	links      []*models.SpecCommitLink
+	childSpecs []*models.Spec
+	cursor     int
+	table      table.Model
+	width      int
+	height     int
+}
+
+func NewSpecDetail() *SpecDetail {
+	columns := []table.Column{
+		{Title: "TYPE", Width: 6},
+		{Title: "COMMIT", Width: 8},
+		{Title: "REPO", Width: 16},
+	}
+	commitsTable := table.New(
+		table.WithColumns(columns),
+		table.WithRows([]table.Row{}),
+		table.WithFocused(false),
+		table.WithHeight(5),
+	)
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.NoColor{}).
+		Bold(false)
+	commitsTable.SetStyles(s)
+	return &SpecDetail{
+		table:  commitsTable,
+		cursor: -1,
+	}
+}
+
+func (d *SpecDetail) SetSize(width, height int) {
+	d.width = width
+	d.height = height
+	extraPadding := 7
+	columns := []table.Column{
+		{Title: "TYPE", Width: 6},
+		{Title: "COMMIT", Width: 8},
+		{Title: "REPO", Width: width - 6 - 8 - extraPadding},
+	}
+	d.table.SetColumns(columns)
+}
+
+func (d *SpecDetail) SetSpec(spec models.Spec, links []*models.SpecCommitLink, childSpecs []*models.Spec) {
+	d.spec = spec
+	d.links = links
+	d.childSpecs = childSpecs
+	d.updateCommitsTable()
+	d.cursor = -1
+}
+
+func (d *SpecDetail) GetSelectedChild() *models.Spec {
+	if d.cursor >= 0 && d.cursor < len(d.childSpecs) {
+		return d.childSpecs[d.cursor]
+	}
+	return nil
+}
+
+func (d *SpecDetail) SelectNextChild() {
+	if len(d.childSpecs) == 0 {
+		d.cursor = -1
+		return
+	}
+	d.cursor++
+	if d.cursor >= len(d.childSpecs) {
+		d.cursor = len(d.childSpecs) - 1
+	}
+}
+
+func (d *SpecDetail) SelectPrevChild() {
+	if len(d.childSpecs) == 0 {
+		d.cursor = -1
+		return
+	}
+	d.cursor--
+	if d.cursor < 0 {
+		d.cursor = 0
+	}
+}
+
+func (d *SpecDetail) ResetCursor() {
+	d.cursor = -1
+}
+
+func (d *SpecDetail) updateCommitsTable() {
+	if d.links == nil {
+		d.table.SetRows([]table.Row{})
+		return
+	}
+	rows := make([]table.Row, len(d.links))
+	for i, link := range d.links {
+		commitID := link.CommitID
+		repo := link.RepoPath
+		var label string
+		switch link.LinkLabel {
+		case "implements":
+			label = "IMPL"
+		case "updates":
+			label = "UPDATE"
+		case "fixes":
+			label = "FIX"
+		case "refactors":
+			label = "CLEAN"
+		case "documents":
+			label = "DOC"
+		case "tests":
+			label = "TEST"
+		default:
+			label = link.LinkLabel
+		}
+		rows[i] = table.Row{label, commitID, repo}
+	}
+	d.table.SetRows(rows)
+	d.table.SetHeight(len(rows) + 2)
+}
+
+func (d *SpecDetail) View() string {
+	var contentBuilder strings.Builder
+	contentBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n%s\n\n", d.spec.Title, strings.Repeat("=", d.width), d.spec.Content))
+	if len(d.links) == 0 {
+		contentBuilder.WriteString("[No linked commits found]\n")
+	} else {
+		contentBuilder.WriteString(d.table.View())
+	}
+	contentBuilder.WriteString("\n\nChild Specifications:\n")
+	if len(d.childSpecs) == 0 {
+		contentBuilder.WriteString("  -\n")
+	} else {
+		for i, cs := range d.childSpecs {
+			specTitle := cs.Title
+			if len(specTitle) > d.width-2 && d.width > 5 {
+				specTitle = specTitle[:d.width-5] + "..."
+			}
+			if i == d.cursor {
+				contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("> %s", specTitle)))
+				contentBuilder.WriteString("\n")
+			} else {
+				contentBuilder.WriteString(fmt.Sprintf("  %s\n", specTitle))
+			}
+		}
+	}
+	return contentBuilder.String()
+}

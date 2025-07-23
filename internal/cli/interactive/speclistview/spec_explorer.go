@@ -5,8 +5,8 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive/common"
+	"github.com/yourorg/zamm-mvp/internal/models"
 )
 
 type keyMap struct {
@@ -94,8 +94,8 @@ type SpecExplorer struct {
 	leftPane  SpecDetailView
 	rightPane SpecDetailView
 
-	currentSpec interactive.Spec
-	activeSpec  interactive.Spec
+	currentSpec models.Spec
+	activeSpec  models.Spec
 
 	linkService LinkService
 
@@ -214,7 +214,7 @@ func (e *SpecExplorer) Update(msg tea.Msg) (SpecExplorer, tea.Cmd) {
 	return *e, nil
 }
 
-func (e *SpecExplorer) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
+func (e *SpecExplorer) setCurrentNode(currentSpec *models.Spec) tea.Cmd {
 	if currentSpec == nil {
 		// This should only happen during initialization error - try to get root spec
 		rootSpec, err := e.linkService.GetRootSpec()
@@ -229,12 +229,12 @@ func (e *SpecExplorer) setCurrentNode(currentSpec *interactive.Spec) tea.Cmd {
 	e.activeSpec = *currentSpec // Set active spec to current node by default
 
 	// Update details for both panes
-	e.updateDetailsForSpec(e.activeSpec)
+	e.updateDetailsForSpec()
 
 	return nil
 }
 
-func (e *SpecExplorer) navigateToChildren(spec *interactive.Spec) tea.Cmd {
+func (e *SpecExplorer) navigateToChildren(spec *models.Spec) tea.Cmd {
 	return e.setCurrentNode(spec)
 }
 
@@ -255,7 +255,7 @@ func (e *SpecExplorer) navigateBack() tea.Cmd {
 	return e.setCurrentNode(parentSpec)
 }
 
-func (e *SpecExplorer) updateDetailsForSpec(spec interactive.Spec) {
+func (e *SpecExplorer) updateDetailsForSpec() {
 	if e.linkService == nil {
 		return
 	}

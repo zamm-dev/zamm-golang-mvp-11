@@ -713,7 +713,7 @@ func (cs *combinedService) GetChildSpecs(specID string) ([]*models.Spec, error) 
 	return cs.specService.GetChildren(specID)
 }
 
-func (cs *combinedService) GetSpecByID(specID string) (*interactive.Spec, error) {
+func (cs *combinedService) GetSpecByID(specID string) (*models.Spec, error) {
 	spec, err := cs.specService.GetSpec(specID)
 	if err != nil {
 		return nil, err
@@ -722,15 +722,10 @@ func (cs *combinedService) GetSpecByID(specID string) (*interactive.Spec, error)
 		return nil, nil
 	}
 
-	// Convert models.Spec to interactive.Spec
-	return &interactive.Spec{
-		ID:      spec.ID,
-		Title:   spec.Title,
-		Content: spec.Content,
-	}, nil
+	return spec, nil
 }
 
-func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, error) {
+func (cs *combinedService) GetParentSpec(specID string) (*models.Spec, error) {
 	parents, err := cs.specService.GetParents(specID)
 	if err != nil {
 		return nil, err
@@ -743,14 +738,10 @@ func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, erro
 	// For simplicity, return the first parent if multiple exist
 	parent := parents[0]
 
-	return &interactive.Spec{
-		ID:      parent.ID,
-		Title:   parent.Title,
-		Content: parent.Content,
-	}, nil
+	return parent, nil
 }
 
-func (cs *combinedService) GetRootSpec() (*interactive.Spec, error) {
+func (cs *combinedService) GetRootSpec() (*models.Spec, error) {
 	rootNode, err := cs.specService.GetRootSpec()
 	if err != nil {
 		return nil, err
@@ -759,10 +750,5 @@ func (cs *combinedService) GetRootSpec() (*interactive.Spec, error) {
 		return nil, nil
 	}
 
-	// Convert models.Spec to interactive.Spec
-	return &interactive.Spec{
-		ID:      rootNode.ID,
-		Title:   rootNode.Title,
-		Content: rootNode.Content,
-	}, nil
+	return rootNode, nil
 }
