@@ -32,6 +32,10 @@ func NewSpecDetailView() SpecDetailView {
 	}
 }
 
+func (v *SpecDetailView) Init() tea.Cmd {
+	return nil
+}
+
 func (v *SpecDetailView) SetSize(width, height int) {
 	v.width = width
 	v.height = height
@@ -66,7 +70,7 @@ func (v *SpecDetailView) ResetCursor() {
 	v.viewport.SetContent(v.detail.View())
 }
 
-func (v *SpecDetailView) Update(msg tea.Msg) (SpecDetailView, tea.Cmd) {
+func (v *SpecDetailView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	beforeMsg := DebugMsg{
 		Message: fmt.Sprintf(
@@ -83,7 +87,7 @@ func (v *SpecDetailView) Update(msg tea.Msg) (SpecDetailView, tea.Cmd) {
 		),
 	}
 	cmds = append(cmds, func() tea.Msg { return afterMsg })
-	return *v, tea.Batch(cmds...)
+	return v, tea.Batch(cmds...)
 }
 
 func (v *SpecDetailView) View() string {

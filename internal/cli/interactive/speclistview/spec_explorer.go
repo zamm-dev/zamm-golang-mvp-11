@@ -202,8 +202,10 @@ func (e *SpecExplorer) Update(msg tea.Msg) (SpecExplorer, tea.Cmd) {
 		}
 	}
 	var leftCmd, rightCmd tea.Cmd
-	e.leftPane, leftCmd = e.leftPane.Update(msg)
-	e.rightPane, rightCmd = e.rightPane.Update(msg)
+	leftModel, leftCmd := e.leftPane.Update(msg)
+	rightModel, rightCmd := e.rightPane.Update(msg)
+	e.leftPane = *leftModel.(*SpecDetailView)
+	e.rightPane = *rightModel.(*SpecDetailView)
 	if leftCmd != nil && rightCmd != nil {
 		return *e, tea.Batch(leftCmd, rightCmd)
 	} else if leftCmd != nil {
