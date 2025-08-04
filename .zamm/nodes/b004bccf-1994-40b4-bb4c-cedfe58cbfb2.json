@@ -1,0 +1,6 @@
+{
+  "id": "b004bccf-1994-40b4-bb4c-cedfe58cbfb2",
+  "title": "Relations with specs",
+  "content": "Git commits can relate to their specifications in various ways:\n\n- Implements: They can implement a spec\n- Updates: They update a previous implementation to the updated version of the current spec\n- Fixes: They can fix a spec that was no longer being met\n- Refactors: They can clean up code for an implementation of a spec\n- Documents: They can document the particular implementation of a spec\n- Tests: They can test that the spec requirements are met",
+  "type": "specification"
+}

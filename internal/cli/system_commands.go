@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/yourorg/zamm-mvp/internal/config"
@@ -95,4 +97,54 @@ func (a *App) createVersionCommand() *cobra.Command {
 			fmt.Println("ZAMM MVP v0.1.0")
 		},
 	}
+}
+
+// createMigrateCommand creates the generic migration command
+func (a *App) createMigrateCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "migrate",
+		Short: "Run database/data migrations (e.g., add missing fields)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			migrationsRun := 0
+
+			// Run specs-to-nodes migration
+			if err := a.migrateSpecsToNodes(); err != nil {
+				// If specs directory doesn't exist, that's fine - migration already done
+				if !strings.Contains(err.Error(), "specs directory does not exist") {
+					return err
+				}
+			} else {
+				fmt.Printf("[specs-to-nodes] Migration complete. Renamed specs folder to nodes.\n")
+				migrationsRun++
+			}
+
+			if migrationsRun == 0 {
+				fmt.Println("All migrations are up to date.")
+			}
+			return nil
+		},
+	}
+}
+
+// migrateSpecsToNodes renames the specs folder to nodes folder
+func (a *App) migrateSpecsToNodes() error {
+	specsDir := filepath.Join(a.config.Storage.Path, "specs")
+	nodesDir := filepath.Join(a.config.Storage.Path, "nodes")
+
+	// Check if specs directory exists
+	if _, err := os.Stat(specsDir); os.IsNotExist(err) {
+		return fmt.Errorf("specs directory does not exist: %s", specsDir)
+	}
+
+	// Check if nodes directory already exists
+	if _, err := os.Stat(nodesDir); err == nil {
+		return fmt.Errorf("nodes directory already exists: %s", nodesDir)
+	}
+
+	// Rename specs directory to nodes
+	if err := os.Rename(specsDir, nodesDir); err != nil {
+		return fmt.Errorf("failed to rename specs directory to nodes: %w", err)
+	}
+
+	return nil
 }

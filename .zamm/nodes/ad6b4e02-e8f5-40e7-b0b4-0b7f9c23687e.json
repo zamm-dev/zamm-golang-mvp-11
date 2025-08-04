@@ -1,0 +1,6 @@
+{
+  "id": "ad6b4e02-e8f5-40e7-b0b4-0b7f9c23687e",
+  "title": "Spec Editing/Creation Screen",
+  "content": "A single shared TUI component should be responsible for the text editing logic of both spec creation and spec editing. This component should take in the info title to show the user (which indicates whether the user is creating or editing an existing spec), the title of the spec (empty for a new spec), and the description contents of the spec (empty for a new spec). While this component is active, it should handle all input processing until it returns either a cancel message (if the user hits esc to back out of that screen) or a message with the final title and description back to its parent handler for processing",
+  "type": "specification"
+}

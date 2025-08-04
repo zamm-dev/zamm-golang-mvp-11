@@ -83,6 +83,7 @@ func (d gitCommitDelegate) Render(w io.Writer, m list.Model, index int, listItem
 // Predefined link type options
 var defaultLinkTypeOptions = []list.Item{
 	LinkTypeOption{Value: "implements", Label: "Implementation"},
+	LinkTypeOption{Value: "updates", Label: "Update"},
 	LinkTypeOption{Value: "fixes", Label: "Fix"},
 	LinkTypeOption{Value: "refactors", Label: "Refactor"},
 	LinkTypeOption{Value: "documents", Label: "Documentation"},

@@ -13,6 +13,7 @@ require (
 	github.com/rmhubbert/bubbletea-overlay v0.3.2
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
+	github.com/davecgh/go-spew v1.1.1
 )
 
 require (

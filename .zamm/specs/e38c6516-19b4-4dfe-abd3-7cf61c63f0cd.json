@@ -1,5 +1,0 @@
-{
-  "id": "e38c6516-19b4-4dfe-abd3-7cf61c63f0cd",
-  "title": "The confirmation overlay should use the existing overlay widget",
-  "content": "See [this file in particular](https://raw.githubusercontent.com/rmhubbert/bubbletea-overlay/refs/heads/main/example/manager.go) for an example on how to use this library"
-}

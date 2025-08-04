@@ -1,5 +1,0 @@
-{
-  "id": "71eb1ee0-4442-4473-ad4e-5c18c5d59bd2",
-  "title": "Pressing `m` brings us to the spec moving flow",
-  "content": "This is a flow in the link editor where the user chooses a parent spec to remove and another parent spec to add, effectively \"moving\" the target spec into a different spot in the spec hierarchy."
-}

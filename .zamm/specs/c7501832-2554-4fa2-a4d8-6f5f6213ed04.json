@@ -1,5 +1,0 @@
-{
-  "id": "c7501832-2554-4fa2-a4d8-6f5f6213ed04",
-  "title": "Active and current nodes can never be nil",
-  "content": "This should be reflected in the data structure"
-}

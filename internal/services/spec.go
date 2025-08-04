@@ -3,29 +3,28 @@ package services
 import (
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/yourorg/zamm-mvp/internal/models"
 	"github.com/yourorg/zamm-mvp/internal/storage"
 )
 
 // SpecService interface defines operations for managing specifications
 type SpecService interface {
-	CreateSpec(title, content string) (*models.SpecNode, error)
-	GetSpec(id string) (*models.SpecNode, error)
-	UpdateSpec(id, title, content string) (*models.SpecNode, error)
-	ListSpecs() ([]*models.SpecNode, error)
+	CreateSpec(title, content string) (*models.Spec, error)
+	GetSpec(id string) (*models.Spec, error)
+	UpdateSpec(id, title, content string) (*models.Spec, error)
+	ListSpecs() ([]*models.Spec, error)
 	DeleteSpec(id string) error
 
 	// Hierarchical operations
 	AddChildToParent(childSpecID, parentSpecID, label string) (*models.SpecSpecLink, error)
 	RemoveChildFromParent(childSpecID, parentSpecID string) error
-	GetParents(specID string) ([]*models.SpecNode, error)
-	GetChildren(specID string) ([]*models.SpecNode, error)
+	GetParents(specID string) ([]*models.Spec, error)
+	GetChildren(specID string) ([]*models.Spec, error)
 
 	// Root spec operations
 	InitializeRootSpec() error
-	GetRootSpec() (*models.SpecNode, error)
-	GetOrphanSpecs() ([]*models.SpecNode, error)
+	GetRootSpec() (*models.Spec, error)
+	GetOrphanSpecs() ([]*models.Spec, error)
 }
 
 // specService implements the SpecService interface
@@ -41,19 +40,15 @@ func NewSpecService(storage storage.Storage) SpecService {
 }
 
 // CreateSpec creates a new specification
-func (s *specService) CreateSpec(title, content string) (*models.SpecNode, error) {
+func (s *specService) CreateSpec(title, content string) (*models.Spec, error) {
 	// Validate input
 	if err := s.validateSpecInput(title, content); err != nil {
 		return nil, err
 	}
 
-	spec := &models.SpecNode{
-		ID:      uuid.New().String(),
-		Title:   strings.TrimSpace(title),
-		Content: strings.TrimSpace(content),
-	}
+	spec := models.NewSpec(strings.TrimSpace(title), strings.TrimSpace(content))
 
-	if err := s.storage.CreateSpecNode(spec); err != nil {
+	if err := s.storage.CreateNode(spec); err != nil {
 		return nil, err
 	}
 
@@ -61,16 +56,26 @@ func (s *specService) CreateSpec(title, content string) (*models.SpecNode, error
 }
 
 // GetSpec retrieves a specification by ID
-func (s *specService) GetSpec(id string) (*models.SpecNode, error) {
+func (s *specService) GetSpec(id string) (*models.Spec, error) {
 	if id == "" {
 		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
 
-	return s.storage.GetSpecNode(id)
+	node, err := s.storage.GetNode(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Type assert to Spec
+	if spec, ok := node.(*models.Spec); ok {
+		return spec, nil
+	}
+
+	return nil, models.NewZammError(models.ErrTypeValidation, "node is not a spec")
 }
 
 // UpdateSpec updates an existing specification
-func (s *specService) UpdateSpec(id, title, content string) (*models.SpecNode, error) {
+func (s *specService) UpdateSpec(id, title, content string) (*models.Spec, error) {
 	if id == "" {
 		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
@@ -81,17 +86,24 @@ func (s *specService) UpdateSpec(id, title, content string) (*models.SpecNode, e
 	}
 
 	// Get existing spec
-	spec, err := s.storage.GetSpecNode(id)
+	node, err := s.storage.GetNode(id)
 	if err != nil {
 		return nil, err
+	}
+
+	// Type assert to Spec
+	spec, ok := node.(*models.Spec)
+	if !ok {
+		return nil, models.NewZammError(models.ErrTypeValidation, "node is not a spec")
 	}
 
 	// Update fields
 	spec.Title = strings.TrimSpace(title)
 	spec.Content = strings.TrimSpace(content)
+	spec.Type = "specification"
 
 	// Save changes
-	if err := s.storage.UpdateSpecNode(spec); err != nil {
+	if err := s.storage.UpdateNode(spec); err != nil {
 		return nil, err
 	}
 
@@ -99,8 +111,20 @@ func (s *specService) UpdateSpec(id, title, content string) (*models.SpecNode, e
 }
 
 // ListSpecs retrieves all specifications
-func (s *specService) ListSpecs() ([]*models.SpecNode, error) {
-	return s.storage.ListSpecNodes()
+func (s *specService) ListSpecs() ([]*models.Spec, error) {
+	nodes, err := s.storage.ListNodes()
+	if err != nil {
+		return nil, err
+	}
+
+	var specs []*models.Spec
+	for _, node := range nodes {
+		if spec, ok := node.(*models.Spec); ok {
+			specs = append(specs, spec)
+		}
+	}
+
+	return specs, nil
 }
 
 // DeleteSpec deletes a specification
@@ -109,7 +133,7 @@ func (s *specService) DeleteSpec(id string) error {
 		return models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
 
-	return s.storage.DeleteSpecNode(id)
+	return s.storage.DeleteNode(id)
 }
 
 // AddChildToParent adds a parent-child relationship by specifying the child and parent
@@ -126,13 +150,20 @@ func (s *specService) AddChildToParent(childSpecID, parentSpecID, label string) 
 	}
 
 	// Verify both specs exist
-	_, err := s.storage.GetSpecNode(childSpecID)
+	childNode, err := s.storage.GetNode(childSpecID)
 	if err != nil {
 		return nil, models.NewZammError(models.ErrTypeValidation, "child spec not found")
 	}
-	_, err = s.storage.GetSpecNode(parentSpecID)
+	if _, ok := childNode.(*models.Spec); !ok {
+		return nil, models.NewZammError(models.ErrTypeValidation, "child node is not a spec")
+	}
+
+	parentNode, err := s.storage.GetNode(parentSpecID)
 	if err != nil {
 		return nil, models.NewZammError(models.ErrTypeValidation, "parent spec not found")
+	}
+	if _, ok := parentNode.(*models.Spec); !ok {
+		return nil, models.NewZammError(models.ErrTypeValidation, "parent node is not a spec")
 	}
 
 	// Use provided link type or default to "child"
@@ -166,7 +197,7 @@ func (s *specService) RemoveChildFromParent(childSpecID, parentSpecID string) er
 }
 
 // GetParents retrieves all parent specs for a given spec
-func (s *specService) GetParents(specID string) ([]*models.SpecNode, error) {
+func (s *specService) GetParents(specID string) ([]*models.Spec, error) {
 	if specID == "" {
 		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
@@ -175,7 +206,7 @@ func (s *specService) GetParents(specID string) ([]*models.SpecNode, error) {
 }
 
 // GetChildren retrieves all child specs for a given spec
-func (s *specService) GetChildren(specID string) ([]*models.SpecNode, error) {
+func (s *specService) GetChildren(specID string) ([]*models.Spec, error) {
 	if specID == "" {
 		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
@@ -207,7 +238,7 @@ func (s *specService) InitializeRootSpec() error {
 }
 
 // GetRootSpec retrieves the root specification
-func (s *specService) GetRootSpec() (*models.SpecNode, error) {
+func (s *specService) GetRootSpec() (*models.Spec, error) {
 	metadata, err := s.storage.GetProjectMetadata()
 	if err != nil {
 		return nil, err
@@ -217,11 +248,21 @@ func (s *specService) GetRootSpec() (*models.SpecNode, error) {
 		return nil, models.NewZammError(models.ErrTypeNotFound, "root spec ID not set in project metadata")
 	}
 
-	return s.storage.GetSpecNode(*metadata.RootSpecID)
+	node, err := s.storage.GetNode(*metadata.RootSpecID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Type assert to Spec
+	if spec, ok := node.(*models.Spec); ok {
+		return spec, nil
+	}
+
+	return nil, models.NewZammError(models.ErrTypeValidation, "root node is not a spec")
 }
 
 // GetOrphanSpecs retrieves all specs that don't have any parents
-func (s *specService) GetOrphanSpecs() ([]*models.SpecNode, error) {
+func (s *specService) GetOrphanSpecs() ([]*models.Spec, error) {
 	return s.storage.GetOrphanSpecs()
 }
 

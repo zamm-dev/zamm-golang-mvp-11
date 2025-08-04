@@ -9,8 +9,12 @@ test:
 test-coverage:
 	go tool cover -html=coverage.out -o coverage.html
 
+update-golden:
+	go test ./internal/cli/interactive/common/... -v -update
+
 clean:
 	rm -rf bin/ coverage.out coverage.html
+	go clean -testcache
 
 install:
 	go install ./cmd/zamm

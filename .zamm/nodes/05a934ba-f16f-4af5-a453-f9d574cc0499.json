@@ -1,0 +1,6 @@
+{
+  "id": "05a934ba-f16f-4af5-a453-f9d574cc0499",
+  "title": "Child specs list should display full spec names",
+  "content": "Truncation with ellipsis is okay if it is longer than the pane width",
+  "type": "specification"
+}

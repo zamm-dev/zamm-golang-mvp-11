@@ -1,0 +1,6 @@
+{
+  "id": "d64475a3-c93e-4b2d-8595-31cb5fc26c9d",
+  "title": "Bubbles v0.21.0 is to be avoided",
+  "content": "There is [a bug](https://github.com/charmbracelet/bubbles/issues/779) around only the initial letter being shown in the placeholder, which affects our Git form fields",
+  "type": "specification"
+}

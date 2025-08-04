@@ -1,5 +1,9 @@
 package models
 
+import (
+	"github.com/google/uuid"
+)
+
 // Direction represents which part of a hierarchical relationship to retrieve
 type Direction int
 
@@ -8,11 +12,48 @@ const (
 	Incoming                  // Get parents (specs that point to this spec)
 )
 
-// SpecNode represents a specification node in the system
-type SpecNode struct {
+// NodeBase represents the base structure for all nodes in the system
+type NodeBase struct {
 	ID      string `json:"id"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
+	Type    string `json:"type"`
+}
+
+// Node interface that all node types must implement
+type Node interface {
+	GetID() string
+	GetTitle() string
+	GetContent() string
+	GetType() string
+	SetTitle(string)
+	SetContent(string)
+}
+
+// Implement Node interface for NodeBase
+func (n *NodeBase) GetID() string             { return n.ID }
+func (n *NodeBase) GetTitle() string          { return n.Title }
+func (n *NodeBase) GetContent() string        { return n.Content }
+func (n *NodeBase) GetType() string           { return n.Type }
+func (n *NodeBase) SetTitle(title string)     { n.Title = title }
+func (n *NodeBase) SetContent(content string) { n.Content = content }
+
+// Spec represents a specification node in the system
+type Spec struct {
+	NodeBase
+	// Add any additional fields from SpecNode here if needed
+}
+
+// NewSpec creates a new Spec with the type field set
+func NewSpec(title, content string) *Spec {
+	return &Spec{
+		NodeBase: NodeBase{
+			ID:      uuid.New().String(),
+			Title:   title,
+			Content: content,
+			Type:    "specification",
+		},
+	}
 }
 
 // SpecCommitLink represents a link between a spec and a git commit

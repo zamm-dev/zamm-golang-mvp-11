@@ -1,5 +1,0 @@
-{
-  "id": "ab7f17c5-7c2b-44ed-b950-4a1f902ffd87",
-  "title": "`l` and `r` should lead to type selection page for selecting what type of link we want to add or remove",
-  "content": "Link types can be a Git commit or a parent spec"
-}

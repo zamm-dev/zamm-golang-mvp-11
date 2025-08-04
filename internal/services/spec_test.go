@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/yourorg/zamm-mvp/internal/models"
 	"github.com/yourorg/zamm-mvp/internal/storage"
 )
@@ -39,12 +38,8 @@ func setupTestService(t *testing.T) (SpecService, func()) {
 }
 
 // createTestSpec creates a test specification
-func createTestSpec(title, content string) *models.SpecNode {
-	return &models.SpecNode{
-		ID:      uuid.New().String(),
-		Title:   title,
-		Content: content,
-	}
+func createTestSpec(title, content string) *models.Spec {
+	return models.NewSpec(title, content)
 }
 
 // TestRemoveChildFromParent tests the specific bug that was fixed
@@ -78,7 +73,7 @@ func TestRemoveChildFromParent(t *testing.T) {
 	}
 
 	// Find parent and child by title
-	var parent, child *models.SpecNode
+	var parent, child *models.Spec
 	for _, spec := range specs {
 		if spec.Title == "Parent Specification" {
 			parent = spec

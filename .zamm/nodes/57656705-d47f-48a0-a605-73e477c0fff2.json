@@ -1,0 +1,6 @@
+{
+  "id": "57656705-d47f-48a0-a605-73e477c0fff2",
+  "title": "This screen should use textarea",
+  "content": "Textarea already has support for multiline editing that would be useful here",
+  "type": "specification"
+}

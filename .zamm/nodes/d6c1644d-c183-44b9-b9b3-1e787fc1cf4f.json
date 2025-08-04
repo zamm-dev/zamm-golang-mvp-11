@@ -1,0 +1,6 @@
+{
+  "id": "d6c1644d-c183-44b9-b9b3-1e787fc1cf4f",
+  "title": "Debug logging should include generic debug message",
+  "content": "This allows for an analogous \"print debugging\" for quick debugging statements",
+  "type": "specification"
+}

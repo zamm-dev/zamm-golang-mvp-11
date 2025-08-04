@@ -1,0 +1,6 @@
+{
+  "id": "ecb02f19-13e7-45f2-9cf1-f15aff07606e",
+  "title": "This screen should always have the same layout",
+  "content": "It should consist solely of the title, the textinput, textarea, and instructions at the bottom. Do not have a completely separate screen just for description editing; rather, use tab and shift-tab to shift in between the different fields.",
+  "type": "specification"
+}

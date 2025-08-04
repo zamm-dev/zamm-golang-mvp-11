@@ -1,0 +1,6 @@
+{
+  "id": "102e4d2e-4245-4c9d-a8a2-f1f63e80ce69",
+  "title": "Child selection should not wrap around",
+  "content": "When we reach the top or bottom of the list based on arrow key selection, pressing up or down one more time (respectively) should keep the same selection instead of wrapping around the list.",
+  "type": "specification"
+}

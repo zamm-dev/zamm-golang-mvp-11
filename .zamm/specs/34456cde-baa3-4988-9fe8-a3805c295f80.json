@@ -1,5 +1,0 @@
-{
-  "id": "34456cde-baa3-4988-9fe8-a3805c295f80",
-  "title": "Spec Service should have higher-level operations",
-  "content": "They should consist of\n\n- AddChildToParent\n- RemoveChildFromParent\n- GetParents\n- GetChildren"
-}

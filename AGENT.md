@@ -13,7 +13,7 @@
 
 ## Architecture
 - **CLI Tool**: Go-based CLI for linking specs to Git commits
-- **Storage**: .zamm/ folder in the project directory with `specs/<id>.json` files for spec definitions, spec-links.csv for links between specs, commit-links.csv for links between specs and commits, and project_metadata.json for root node metadata
+- **Storage**: .zamm/ folder in the project directory with `nodes/<id>.json` files for spec definitions, spec-links.csv for links between specs, commit-links.csv for links between specs and commits, and project_metadata.json for root node metadata
 - **Data Models**: Spec Nodes that use UUIDs for spec node IDs
 - **Structure**: cmd/zamm (CLI entry), internal/{storage,services,models,config,cli}
 - **Config**: YAML config at ~/.zamm/config.yaml

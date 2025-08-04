@@ -19,7 +19,7 @@ func (a *App) outputJSON(data interface{}) error {
 	return encoder.Encode(data)
 }
 
-func (a *App) outputSpecTable(specs []*models.SpecNode) error {
+func (a *App) outputSpecTable(specs []*models.Spec) error {
 	if len(specs) == 0 {
 		fmt.Println("No specifications found")
 		return nil
@@ -42,7 +42,7 @@ func (a *App) outputSpecTable(specs []*models.SpecNode) error {
 	return w.Flush()
 }
 
-func (a *App) outputSpecDetails(spec *models.SpecNode) error {
+func (a *App) outputSpecDetails(spec *models.Spec) error {
 	fmt.Printf("ID: %s\n", spec.ID)
 	fmt.Printf("Title: %s\n", spec.Title)
 	fmt.Printf("\nContent:\n%s\n", strings.Repeat("-", 40))

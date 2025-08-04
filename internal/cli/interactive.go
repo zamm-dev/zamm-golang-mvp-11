@@ -2,10 +2,13 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
 	interactive "github.com/yourorg/zamm-mvp/internal/cli/interactive"
 	"github.com/yourorg/zamm-mvp/internal/cli/interactive/common"
@@ -37,7 +40,7 @@ type Model struct {
 	selectedSpecID string
 	message        string
 	showMessage    bool
-	specListView   speclistview.Model
+	specListView   speclistview.SpecExplorer
 
 	terminalWidth  int
 	terminalHeight int
@@ -62,6 +65,9 @@ type Model struct {
 
 	// Spec selector components
 	specEditor common.SpecEditor
+
+	// Debug logging
+	debugWriter io.Writer
 }
 
 type linkItem struct {
@@ -88,43 +94,79 @@ type operationCompleteMsg struct {
 
 // createInteractiveCommand creates the interactive mode command
 func (a *App) createInteractiveCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "interactive",
 		Short: "Interactive mode for managing specs and links",
 		Long:  "Start an interactive session to manage specifications and links using arrow keys for navigation.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return a.runInteractiveMode()
+			// Get the debug flag value from this command's local flags
+			debug, err := cmd.Flags().GetBool("debug")
+			if err != nil {
+				return fmt.Errorf("failed to get debug flag: %w", err)
+			}
+			return a.runInteractiveMode(debug)
 		},
+	}
+
+	// Add debug flag specific to this command
+	cmd.Flags().Bool("debug", false, "Enable debug logging for bubbletea messages")
+
+	return cmd
+}
+
+// NewModel creates a new Model with the given debug writer
+func NewModel(app *App, debugWriter io.Writer) *Model {
+	ti := textinput.New()
+	ti.Focus()
+
+	combinedSvc := &combinedService{
+		linkService: app.linkService,
+		specService: app.specService,
+	}
+
+	return &Model{
+		app:            app,
+		state:          SpecListView,
+		textInput:      ti,
+		specListView:   speclistview.NewSpecExplorer(combinedSvc),
+		linkEditor:     common.NewLinkEditor(common.LinkEditorConfig{Title: "", DefaultRepo: app.config.Git.DefaultRepo, CurrentSpecID: "", CurrentSpecTitle: "", IsUnlinkMode: false, IsMoveMode: false}, app.linkService, app.specService),
+		terminalWidth:  80, // Default terminal width
+		terminalHeight: 24, // Default terminal height
+		debugWriter:    debugWriter,
 	}
 }
 
 // runInteractiveMode starts the interactive mode with TUI
-func (a *App) runInteractiveMode() error {
+func (a *App) runInteractiveMode(debug bool) error {
 	// Perform complete initialization
 	if err := a.InitializeZamm(); err != nil {
 		return fmt.Errorf("failed to initialize zamm: %w", err)
 	}
 
-	ti := textinput.New()
-	ti.Focus()
-
-	combinedSvc := &combinedService{
-		linkService: a.linkService,
-		specService: a.specService,
+	var debugWriter io.Writer
+	var debugFile *os.File
+	if debug {
+		var err error
+		debugFile, err = createDebugLogFile()
+		if err != nil {
+			return fmt.Errorf("failed to create debug log file: %w", err)
+		}
+		debugWriter = debugFile
 	}
 
-	model := Model{
-		app:            a,
-		state:          SpecListView,
-		textInput:      ti,
-		specListView:   speclistview.New(combinedSvc),
-		linkEditor:     common.NewLinkEditor(common.LinkEditorConfig{Title: "", DefaultRepo: a.config.Git.DefaultRepo, CurrentSpecID: "", CurrentSpecTitle: "", IsUnlinkMode: false, IsMoveMode: false}, a.linkService, a.specService),
-		terminalWidth:  80, // Default terminal width
-		terminalHeight: 24, // Default terminal height
-	}
+	model := NewModel(a, debugWriter)
 
-	p := tea.NewProgram(&model, tea.WithAltScreen())
+	p := tea.NewProgram(model, tea.WithAltScreen())
 	_, err := p.Run()
+
+	// Ensure proper cleanup of debug file on program exit
+	if debugFile != nil {
+		if closeErr := debugFile.Close(); closeErr != nil {
+			// Log to stderr but don't override the main error
+			fmt.Fprintf(os.Stderr, "Warning: failed to close debug log file: %v\n", closeErr)
+		}
+	}
+
 	return err
 }
 
@@ -135,6 +177,11 @@ func (m *Model) Init() tea.Cmd {
 
 // Update handles messages and updates the model
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Debug logging: dump all messages when debug writer is available
+	if m.debugWriter != nil {
+		spew.Fdump(m.debugWriter, msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
@@ -493,27 +540,6 @@ func (m *Model) loadSpecsCmd() tea.Cmd {
 	}
 }
 
-// loadLinksForSpecCmd returns a command to load links for the selected spec
-func (m *Model) loadLinksForSpecCmd() tea.Cmd {
-	return func() tea.Msg {
-		links, err := m.app.linkService.GetCommitsForSpec(m.selectedSpecID)
-		if err != nil {
-			return linksLoadedMsg{err: err}
-		}
-
-		linkItems := make([]linkItem, len(links))
-		for i, link := range links {
-			linkItems[i] = linkItem{
-				CommitID:  link.CommitID,
-				RepoPath:  link.RepoPath,
-				LinkLabel: link.LinkLabel,
-			}
-		}
-
-		return linksLoadedMsg{links: linkItems}
-	}
-}
-
 // resetInputs clears all input fields
 func (m *Model) resetInputs() {
 	m.inputTitle = ""
@@ -558,28 +584,6 @@ func (m *Model) updateSpecCmd(specID, title, content string) tea.Cmd {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
 		return operationCompleteMsg{message: fmt.Sprintf("✅ Updated specification: %s. Press Enter to continue...", spec.Title)}
-	}
-}
-
-// createLinkCmd returns a command to create a new link
-func (m *Model) createLinkCmd(specID, commitID, repoPath, label string) tea.Cmd {
-	return func() tea.Msg {
-		_, err := m.app.linkService.LinkSpecToCommit(specID, commitID, repoPath, label)
-		if err != nil {
-			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
-		}
-
-		// Find spec title for display
-		var specTitle string
-		for _, spec := range m.specs {
-			if spec.ID == specID {
-				specTitle = spec.Title
-				break
-			}
-		}
-
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Created link between '%s' and commit %s. Press Enter to continue...",
-			specTitle, commitID[:12]+"...")}
 	}
 }
 
@@ -694,24 +698,6 @@ func (m *Model) renderConfirmDelete() string {
 	return s
 }
 
-// getChildSpecs retrieves child specifications for the given spec
-func (m *Model) getChildSpecs(specID string) ([]interactive.Spec, error) {
-	linkedSpecs, err := m.app.specService.GetChildren(specID)
-	if err != nil {
-		return nil, err
-	}
-
-	specs := make([]interactive.Spec, 0, len(linkedSpecs))
-	for _, spec := range linkedSpecs {
-		specs = append(specs, interactive.Spec{
-			ID:      spec.ID,
-			Title:   spec.Title,
-			Content: spec.Content,
-		})
-	}
-	return specs, nil
-}
-
 // combinedService adapts both LinkService and SpecService to provide
 // the interface needed by speclistview
 type combinedService struct {
@@ -723,52 +709,23 @@ func (cs *combinedService) GetCommitsForSpec(specID string) ([]*models.SpecCommi
 	return cs.linkService.GetCommitsForSpec(specID)
 }
 
-func (cs *combinedService) GetChildSpecs(specID *string) ([]*models.SpecNode, error) {
-	if specID == nil {
-		// Get all specs and filter for top-level ones (those without parents)
-		allSpecs, err := cs.specService.ListSpecs()
-		if err != nil {
-			return nil, err
-		}
-
-		var topLevelSpecs []*models.SpecNode
-		for _, spec := range allSpecs {
-			// Check if this spec has any parents
-			parents, err := cs.specService.GetParents(spec.ID)
-			if err != nil {
-				continue // Skip specs we can't check
-			}
-
-			// If no parents, it's a top-level spec
-			if len(parents) == 0 {
-				topLevelSpecs = append(topLevelSpecs, spec)
-			}
-		}
-
-		return topLevelSpecs, nil
-	}
-
-	return cs.specService.GetChildren(*specID)
+func (cs *combinedService) GetChildSpecs(specID string) ([]*models.Spec, error) {
+	return cs.specService.GetChildren(specID)
 }
 
-func (cs *combinedService) GetSpecByID(specID string) (*interactive.Spec, error) {
-	specNode, err := cs.specService.GetSpec(specID)
+func (cs *combinedService) GetSpecByID(specID string) (*models.Spec, error) {
+	spec, err := cs.specService.GetSpec(specID)
 	if err != nil {
 		return nil, err
 	}
-	if specNode == nil {
+	if spec == nil {
 		return nil, nil
 	}
 
-	// Convert models.SpecNode to interactive.Spec
-	return &interactive.Spec{
-		ID:      specNode.ID,
-		Title:   specNode.Title,
-		Content: specNode.Content,
-	}, nil
+	return spec, nil
 }
 
-func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, error) {
+func (cs *combinedService) GetParentSpec(specID string) (*models.Spec, error) {
 	parents, err := cs.specService.GetParents(specID)
 	if err != nil {
 		return nil, err
@@ -781,14 +738,10 @@ func (cs *combinedService) GetParentSpec(specID string) (*interactive.Spec, erro
 	// For simplicity, return the first parent if multiple exist
 	parent := parents[0]
 
-	return &interactive.Spec{
-		ID:      parent.ID,
-		Title:   parent.Title,
-		Content: parent.Content,
-	}, nil
+	return parent, nil
 }
 
-func (cs *combinedService) GetRootSpec() (*interactive.Spec, error) {
+func (cs *combinedService) GetRootSpec() (*models.Spec, error) {
 	rootNode, err := cs.specService.GetRootSpec()
 	if err != nil {
 		return nil, err
@@ -797,20 +750,5 @@ func (cs *combinedService) GetRootSpec() (*interactive.Spec, error) {
 		return nil, nil
 	}
 
-	// Convert models.SpecNode to interactive.Spec
-	return &interactive.Spec{
-		ID:      rootNode.ID,
-		Title:   rootNode.Title,
-		Content: rootNode.Content,
-	}, nil
-}
-
-// getSpecTitle returns the title of a spec by its ID
-func (m *Model) getSpecTitle(specID string) string {
-	for _, spec := range m.specs {
-		if spec.ID == specID {
-			return spec.Title
-		}
-	}
-	return "Unknown Spec"
+	return rootNode, nil
 }

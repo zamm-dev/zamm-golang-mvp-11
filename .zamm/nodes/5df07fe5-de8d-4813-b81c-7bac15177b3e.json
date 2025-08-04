@@ -1,0 +1,6 @@
+{
+  "id": "5df07fe5-de8d-4813-b81c-7bac15177b3e",
+  "title": "Link editing component",
+  "content": "All link editing operations (picking what type of link, selecting commit/spec to link to, etc.) should be contained inside of a single package\n\nThis allows us to compartmentalize the FSM states and transitions for link-editing specifically",
+  "type": "specification"
+}

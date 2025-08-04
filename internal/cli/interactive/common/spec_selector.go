@@ -20,13 +20,6 @@ type SpecSelectorConfig struct {
 	Title string
 }
 
-// DefaultSpecSelectorConfig returns sensible default configuration
-func DefaultSpecSelectorConfig() SpecSelectorConfig {
-	return SpecSelectorConfig{
-		Title: "Select Specification",
-	}
-}
-
 // specDelegate handles rendering of spec items in the list
 type specDelegate struct {
 	isInFocus bool // Whether the list is currently in focus

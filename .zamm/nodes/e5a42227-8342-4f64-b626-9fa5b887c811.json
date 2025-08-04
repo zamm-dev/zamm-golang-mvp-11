@@ -1,0 +1,6 @@
+{
+  "id": "e5a42227-8342-4f64-b626-9fa5b887c811",
+  "title": "Spec Selection Screen",
+  "content": "There should be a common screen for selecting a spec for linking/viewing.\n\nAll spec selection logic, including that in the main spec list, should make use of this common element",
+  "type": "specification"
+}

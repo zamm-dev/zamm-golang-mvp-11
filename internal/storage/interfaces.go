@@ -9,12 +9,15 @@ type Storage interface {
 	// Initialize storage
 	InitializeStorage() error
 
-	// SpecNode operations
-	CreateSpecNode(spec *models.SpecNode) error
-	GetSpecNode(id string) (*models.SpecNode, error)
-	UpdateSpecNode(spec *models.SpecNode) error
-	DeleteSpecNode(id string) error
-	ListSpecNodes() ([]*models.SpecNode, error)
+	// Get base directory
+	BaseDir() string
+
+	// Node operations
+	CreateNode(node models.Node) error
+	GetNode(id string) (models.Node, error)
+	UpdateNode(node models.Node) error
+	DeleteNode(id string) error
+	ListNodes() ([]models.Node, error)
 
 	// SpecCommitLink operations
 	CreateSpecCommitLink(link *models.SpecCommitLink) error
@@ -32,8 +35,8 @@ type Storage interface {
 	DeleteSpecLinkBySpecs(fromSpecID, toSpecID string) error
 
 	// Hierarchical operations
-	GetLinkedSpecs(specID string, direction models.Direction) ([]*models.SpecNode, error)
-	GetOrphanSpecs() ([]*models.SpecNode, error)
+	GetLinkedSpecs(specID string, direction models.Direction) ([]*models.Spec, error)
+	GetOrphanSpecs() ([]*models.Spec, error)
 
 	// ProjectMetadata operations
 	GetProjectMetadata() (*models.ProjectMetadata, error)

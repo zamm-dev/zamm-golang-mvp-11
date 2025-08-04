@@ -1,0 +1,6 @@
+{
+  "id": "22703eef-9164-436b-9b3b-8c95fa8d46e8",
+  "title": "Storage Layer",
+  "content": "A storage layer should exist in the form of a .zamm directory in the project. That directory should follow the following structure:\n\nIt contains a `specs/` folder with a separate JSON file for each spec, a `spec-links.csv` file with links between specs, a `commit-links.csv` file with links between specs and commits, and a `project_metadata.json` file with project metadata.",
+  "type": "specification"
+}
