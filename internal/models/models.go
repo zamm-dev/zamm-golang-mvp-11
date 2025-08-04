@@ -8,78 +8,11 @@ const (
 	Incoming                  // Get parents (specs that point to this spec)
 )
 
-// Node represents a base node in the system with common fields
-type Node struct {
+// SpecNode represents a specification node in the system
+type SpecNode struct {
 	ID      string `json:"id"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
-	Type    string `json:"type"`
-}
-
-// Spec represents a specification node in the system
-type Spec struct {
-	Node
-}
-
-// NewSpec creates a new Spec with the type field set
-func NewSpec(id, title, content string) *Spec {
-	return &Spec{
-		Node: Node{
-			ID:      id,
-			Title:   title,
-			Content: content,
-			Type:    "Spec",
-		},
-	}
-}
-
-// SpecNode is an alias for Spec to maintain backward compatibility
-// TODO: Remove this alias after migrating all references
-type SpecNode = Spec
-
-// Implementation represents an implementation node with additional context
-type Implementation struct {
-	Node
-	RepoPath   string `json:"repo_path"`   // Repository identifier
-	FolderPath string `json:"folder_path"` // Relative path within repo
-}
-
-// NewImplementation creates a new Implementation with the type field set
-func NewImplementation(id, title, content, repoPath, folderPath string) *Implementation {
-	return &Implementation{
-		Node: Node{
-			ID:      id,
-			Title:   title,
-			Content: content,
-			Type:    "Implementation",
-		},
-		RepoPath:   repoPath,
-		FolderPath: folderPath,
-	}
-}
-
-// SpecImplementationLink represents a link between a spec and its implementation
-type SpecImplementationLink struct {
-	Node
-	SpecID               string            `json:"spec_id"`
-	ImplementationID     string            `json:"implementation_id"`
-	FilePaths            []string          `json:"file_paths,omitempty"`        // Files that implement this spec
-	FilePathSummaries    map[string]string `json:"file_path_summaries,omitempty"` // File path -> summary mapping
-	CommitIDs            []string          `json:"commit_ids,omitempty"`        // Commits related to this implementation
-}
-
-// NewSpecImplementationLink creates a new SpecImplementationLink with the type field set
-func NewSpecImplementationLink(id, title, content, specID, implementationID string) *SpecImplementationLink {
-	return &SpecImplementationLink{
-		Node: Node{
-			ID:      id,
-			Title:   title,
-			Content: content,
-			Type:    "SpecImplementationLink",
-		},
-		SpecID:           specID,
-		ImplementationID: implementationID,
-	}
 }
 
 // SpecCommitLink represents a link between a spec and a git commit

@@ -48,12 +48,9 @@ func (s *specService) CreateSpec(title, content string) (*models.SpecNode, error
 	}
 
 	spec := &models.SpecNode{
-		Node: models.Node{
-			ID:      uuid.New().String(),
-			Title:   strings.TrimSpace(title),
-			Content: strings.TrimSpace(content),
-			Type:    "Spec",
-		},
+		ID:      uuid.New().String(),
+		Title:   strings.TrimSpace(title),
+		Content: strings.TrimSpace(content),
 	}
 
 	if err := s.storage.CreateSpecNode(spec); err != nil {
