@@ -160,7 +160,7 @@ func (d *SpecDetail) View() string {
 			}
 		}
 	}
-	
+
 	// Use lipgloss to constrain the entire output to the component width
 	style := lipgloss.NewStyle().Width(d.width)
 	return style.Render(contentBuilder.String())
