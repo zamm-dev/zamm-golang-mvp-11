@@ -27,6 +27,7 @@ func (a *App) CreateRootCommand() *cobra.Command {
 	rootCmd.AddCommand(a.createVersionCommand())
 	rootCmd.AddCommand(a.createInteractiveCommand())
 	rootCmd.AddCommand(a.createMigrateCommand())
+	rootCmd.AddCommand(a.createRedirectCommand())
 
 	return rootCmd
 }
