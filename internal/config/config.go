@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -39,19 +40,69 @@ type CLIConfig struct {
 	Color        string `mapstructure:"color"`
 }
 
+// LocalMetadata represents the structure of local-metadata.json
+type LocalMetadata struct {
+	DataRedirect string `json:"data-redirect,omitempty"`
+}
+
+// resolveZammDir determines the correct zamm directory to use,
+// checking for data-redirect in local-metadata.json
+func resolveZammDir(workingDir string) (string, error) {
+	localZammDir := filepath.Join(workingDir, ".zamm")
+	metadataPath := filepath.Join(localZammDir, "local-metadata.json")
+
+	// Check if local-metadata.json exists
+	if _, err := os.Stat(metadataPath); err == nil {
+		// Read the metadata file
+		data, err := os.ReadFile(metadataPath)
+		if err != nil {
+			return "", models.NewZammErrorWithCause(models.ErrTypeSystem, fmt.Sprintf("failed to read local-metadata.json: %s", metadataPath), err)
+		}
+
+		var metadata LocalMetadata
+		if err := json.Unmarshal(data, &metadata); err != nil {
+			return "", models.NewZammErrorWithCause(models.ErrTypeSystem, fmt.Sprintf("failed to parse local-metadata.json: %s", metadataPath), err)
+		}
+
+		// If data-redirect is specified, use it
+		if metadata.DataRedirect != "" {
+			redirectPath := metadata.DataRedirect
+
+			// Convert relative paths to absolute
+			if !filepath.IsAbs(redirectPath) {
+				redirectPath = filepath.Join(workingDir, redirectPath)
+			}
+
+			// Verify the redirected directory exists
+			if _, err := os.Stat(redirectPath); os.IsNotExist(err) {
+				return "", models.NewZammErrorWithCause(models.ErrTypeSystem, fmt.Sprintf("data-redirect directory does not exist: %s", redirectPath), nil)
+			}
+
+			return redirectPath, nil
+		}
+	}
+
+	// Use default local .zamm directory
+	return localZammDir, nil
+}
+
 // Load loads configuration from file and environment variables
 func Load() (*Config, error) {
 	// Set up viper
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 
-	// Add config paths - use local .zamm directory
+	// Add config paths - use resolved .zamm directory
 	workingDir, err := os.Getwd()
 	if err != nil {
 		return nil, models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get working directory", err)
 	}
 
-	zammDir := filepath.Join(workingDir, ".zamm")
+	zammDir, err := resolveZammDir(workingDir)
+	if err != nil {
+		return nil, err
+	}
+
 	viper.AddConfigPath(zammDir)
 	viper.AddConfigPath(".")
 
@@ -195,7 +246,11 @@ func WriteDefaultConfig() error {
 		return models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get working directory", err)
 	}
 
-	zammDir := filepath.Join(workingDir, ".zamm")
+	zammDir, err := resolveZammDir(workingDir)
+	if err != nil {
+		return err
+	}
+
 	configPath := filepath.Join(zammDir, "config.yaml")
 
 	// Check if config already exists
@@ -249,5 +304,10 @@ func GetConfigPath() (string, error) {
 		return "", models.NewZammErrorWithCause(models.ErrTypeSystem, "failed to get working directory", err)
 	}
 
-	return filepath.Join(workingDir, ".zamm", "config.yaml"), nil
+	zammDir, err := resolveZammDir(workingDir)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(zammDir, "config.yaml"), nil
 }
