@@ -1,0 +1,21 @@
+pre-commit:
+  parallel: true
+  commands:
+    go-fmt:
+      glob: "*.go"
+      run: go fmt {staged_files}
+      stage_fixed: true
+    go-imports:
+      glob: "*.go"
+      run: goimports -w {staged_files}
+      stage_fixed: true
+    go-mod-tidy:
+      glob: "{go.mod,go.sum,*.go}"
+      run: go mod tidy
+      stage_fixed: true
+    golangci-lint:
+      glob: "*.go"
+      run: golangci-lint run --fix {staged_files}
+      stage_fixed: true
+    go-build:
+      run: make
