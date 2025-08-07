@@ -1,0 +1,6 @@
+{
+  "id": "d9762441-ebec-4422-889b-655c35a9a823",
+  "title": "Use lefthook",
+  "content": "Install via the command `go install github.com/evilmartians/lefthook@latest`, as mentioned in the [README](https://github.com/golangci/golangci-lint)",
+  "type": "specification"
+}

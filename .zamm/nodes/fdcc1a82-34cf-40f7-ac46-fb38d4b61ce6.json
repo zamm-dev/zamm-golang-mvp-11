@@ -1,0 +1,6 @@
+{
+  "id": "fdcc1a82-34cf-40f7-ac46-fb38d4b61ce6",
+  "title": "Git hooks",
+  "content": "The following hooks should run before commit:\n\n- Formatting\n- Import fixes\n- Tidy module requirements\n- Linting\n\nThe following hooks should run before push:\n\n- Tests",
+  "type": "specification"
+}
