@@ -38,8 +38,8 @@ func (a *App) createSpecCommand(jsonOutput, quiet bool) *cobra.Command {
 	}
 	createCmd.Flags().StringVar(&title, "title", "", "Specification title (required)")
 	createCmd.Flags().StringVar(&content, "content", "", "Specification content (required)")
-	createCmd.MarkFlagRequired("title")
-	createCmd.MarkFlagRequired("content")
+	_ = createCmd.MarkFlagRequired("title")
+	_ = createCmd.MarkFlagRequired("content")
 
 	// spec list
 	listCmd := &cobra.Command{

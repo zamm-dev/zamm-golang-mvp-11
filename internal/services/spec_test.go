@@ -31,7 +31,9 @@ func setupTestService(t *testing.T) (SpecService, func()) {
 	}
 
 	cleanup := func() {
-		os.RemoveAll(tmpDir)
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
 	}
 
 	return service, cleanup
@@ -75,9 +77,10 @@ func TestRemoveChildFromParent(t *testing.T) {
 	// Find parent and child by title
 	var parent, child *models.Spec
 	for _, spec := range specs {
-		if spec.Title == "Parent Specification" {
+		switch spec.Title {
+		case "Parent Specification":
 			parent = spec
-		} else if spec.Title == "Child Specification" {
+		case "Child Specification":
 			child = spec
 		}
 	}

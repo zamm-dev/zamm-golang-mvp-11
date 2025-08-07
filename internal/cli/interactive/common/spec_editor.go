@@ -210,9 +210,10 @@ func (s baseSpecEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Update the appropriate input field
 	var cmd tea.Cmd
-	if s.mode == EditingTitle {
+	switch s.mode {
+	case EditingTitle:
 		s.titleInput, cmd = s.titleInput.Update(msg)
-	} else if s.mode == EditingContent {
+	case EditingContent:
 		s.contentTextarea, cmd = s.contentTextarea.Update(msg)
 	}
 

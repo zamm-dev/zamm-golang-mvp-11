@@ -44,10 +44,10 @@ func (d specDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 	if index == m.Index() && d.isInFocus {
 		// Show selector and highlight when this item is selected and list is in focus
-		fmt.Fprint(w, HighlightStyle().Render("> "+str))
+		_, _ = fmt.Fprint(w, HighlightStyle().Render("> "+str))
 	} else {
 		// No selector when list is not in focus or item is not selected
-		fmt.Fprint(w, defaultStyle.Render("  "+str))
+		_, _ = fmt.Fprint(w, defaultStyle.Render("  "+str))
 	}
 }
 

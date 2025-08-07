@@ -490,9 +490,10 @@ func (m *Model) updateConfirmDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.resetInputs()
 		return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
 	case "y":
-		if m.confirmAction == "delete_spec" {
+		switch m.confirmAction {
+		case "delete_spec":
 			return m, m.deleteSpecCmd(m.selectedSpecID)
-		} else if m.confirmAction == "delete_link" {
+		case "delete_link":
 			if m.cursor < len(m.links) {
 				selectedLink := m.links[m.cursor]
 				return m, m.deleteLinkCmd(m.selectedSpecID, selectedLink.CommitID, selectedLink.RepoPath)

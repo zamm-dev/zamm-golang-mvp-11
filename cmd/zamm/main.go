@@ -14,7 +14,11 @@ func main() {
 		handleError(err)
 		os.Exit(2)
 	}
-	defer app.Close()
+	defer func() {
+		if err := app.Close(); err != nil {
+			handleError(err)
+		}
+	}()
 
 	rootCmd := app.CreateRootCommand()
 	if err := rootCmd.Execute(); err != nil {

@@ -73,10 +73,10 @@ func (d gitCommitDelegate) Render(w io.Writer, m list.Model, index int, listItem
 		} else {
 			style = defaultStyle
 		}
-		fmt.Fprint(w, style.Render("> "+option.Label))
+		_, _ = fmt.Fprint(w, style.Render("> "+option.Label))
 	} else {
 		// No selector when item is not selected
-		fmt.Fprint(w, defaultStyle.Render("  "+option.Label))
+		_, _ = fmt.Fprint(w, defaultStyle.Render("  "+option.Label))
 	}
 }
 

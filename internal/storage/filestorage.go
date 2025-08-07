@@ -589,7 +589,9 @@ func (fs *FileStorage) readCSVFile(path string) ([][]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close() // Explicitly ignore error in defer
+	}()
 
 	reader := csv.NewReader(file)
 	return reader.ReadAll()
@@ -601,7 +603,9 @@ func (fs *FileStorage) writeCSVFile(path string, records [][]string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close() // Explicitly ignore error in defer
+	}()
 
 	writer := csv.NewWriter(file)
 	defer writer.Flush()

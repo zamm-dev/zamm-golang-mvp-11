@@ -69,10 +69,10 @@ func (d linkDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 	if index == m.Index() {
 		// Show selector and highlight when this item is selected and list is in focus
-		fmt.Fprint(w, HighlightStyle().Render("> "+option.Label))
+		_, _ = fmt.Fprint(w, HighlightStyle().Render("> "+option.Label))
 	} else {
 		// No selector when list is not in focus or item is not selected
-		fmt.Fprint(w, defaultStyle.Render("  "+option.Label))
+		_, _ = fmt.Fprint(w, defaultStyle.Render("  "+option.Label))
 	}
 }
 

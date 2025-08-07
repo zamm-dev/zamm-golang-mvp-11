@@ -46,8 +46,8 @@ func (a *App) createLinkCommand(jsonOutput, quiet bool) *cobra.Command {
 	createCmd.Flags().StringVar(&commitID, "commit", "", "Commit hash (required)")
 	createCmd.Flags().StringVar(&repoPath, "repo", "", "Repository path (default: current directory)")
 	createCmd.Flags().StringVar(&label, "type", "implements", "Link type (implements or fixes)")
-	createCmd.MarkFlagRequired("spec")
-	createCmd.MarkFlagRequired("commit")
+	_ = createCmd.MarkFlagRequired("spec")
+	_ = createCmd.MarkFlagRequired("commit")
 
 	// link list-by-spec
 	listBySpecCmd := &cobra.Command{
@@ -114,8 +114,8 @@ func (a *App) createLinkCommand(jsonOutput, quiet bool) *cobra.Command {
 	deleteCmd.Flags().StringVar(&specID, "spec", "", "Specification ID (required)")
 	deleteCmd.Flags().StringVar(&commitID, "commit", "", "Commit hash (required)")
 	deleteCmd.Flags().StringVar(&repoPath, "repo", "", "Repository path (default: current directory)")
-	deleteCmd.MarkFlagRequired("spec")
-	deleteCmd.MarkFlagRequired("commit")
+	_ = deleteCmd.MarkFlagRequired("spec")
+	_ = deleteCmd.MarkFlagRequired("commit")
 
 	linkCmd.AddCommand(createCmd, listBySpecCmd, listByCommitCmd, deleteCmd)
 	return linkCmd

@@ -26,14 +26,14 @@ func (a *App) outputSpecTable(specs []*models.Spec) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tTITLE")
+	_, _ = fmt.Fprintln(w, "ID\tTITLE")
 
 	for _, spec := range specs {
 		title := spec.Title
 		if len(title) > 50 {
 			title = title[:47] + "..."
 		}
-		fmt.Fprintf(w, "%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\n",
 			spec.ID,
 			title,
 		)
@@ -57,11 +57,11 @@ func (a *App) outputLinkTable(links []*models.SpecCommitLink) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "COMMIT\tREPO\tTYPE")
+	_, _ = fmt.Fprintln(w, "COMMIT\tREPO\tTYPE")
 
 	for _, link := range links {
 		repoName := filepath.Base(link.RepoPath)
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
 			link.CommitID[:12]+"...",
 			repoName,
 			link.LinkLabel,

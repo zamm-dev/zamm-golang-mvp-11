@@ -38,19 +38,33 @@ func TestCreateDebugLogFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Override home directory for testing
 	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", tempDir)
-	defer os.Setenv("HOME", originalHome)
+	if err := os.Setenv("HOME", tempDir); err != nil {
+		t.Fatalf("Failed to set HOME: %v", err)
+	}
+	defer func() {
+		if err := os.Setenv("HOME", originalHome); err != nil {
+			t.Logf("Failed to restore HOME: %v", err)
+		}
+	}()
 
 	// Test creating debug log file
 	file, err := createDebugLogFile()
 	if err != nil {
 		t.Fatalf("createDebugLogFile() failed: %v", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Logf("Failed to close file: %v", err)
+		}
+	}()
 
 	// Verify file was created
 	if file == nil {
@@ -80,7 +94,11 @@ func TestCreateDebugLogFilePermissionError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create a read-only directory to simulate permission error
 	readOnlyDir := filepath.Join(tempDir, "readonly")
@@ -90,14 +108,22 @@ func TestCreateDebugLogFilePermissionError(t *testing.T) {
 
 	// Override home directory to point to read-only directory
 	originalHome := os.Getenv("HOME")
-	os.Setenv("HOME", readOnlyDir)
-	defer os.Setenv("HOME", originalHome)
+	if err := os.Setenv("HOME", readOnlyDir); err != nil {
+		t.Fatalf("Failed to set HOME: %v", err)
+	}
+	defer func() {
+		if err := os.Setenv("HOME", originalHome); err != nil {
+			t.Logf("Failed to restore HOME: %v", err)
+		}
+	}()
 
 	// Test creating debug log file should fail
 	file, err := createDebugLogFile()
 	if err == nil {
 		if file != nil {
-			file.Close()
+			if closeErr := file.Close(); closeErr != nil {
+				t.Logf("Failed to close file: %v", closeErr)
+			}
 		}
 		t.Fatal("Expected createDebugLogFile() to fail with permission error")
 	}
