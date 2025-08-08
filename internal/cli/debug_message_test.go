@@ -18,7 +18,7 @@ func TestMessageDumpingWithDebugWriter(t *testing.T) {
 
 	// Create a minimal app for testing
 	cfg := &config.Config{}
-	fileStorage := storage.NewFileStorage("testdata")
+	fileStorage := storage.NewFileStorage("interactive/common/testdata/.zamm")
 	specService := services.NewSpecService(fileStorage)
 	linkService := services.NewLinkService(fileStorage)
 
@@ -48,9 +48,9 @@ func TestMessageDumpingWithDebugWriter(t *testing.T) {
 			expectedStr: "tea.KeyMsg",
 		},
 		{
-			name:        "Custom specsLoadedMsg",
-			message:     specsLoadedMsg{specs: []interactive.Spec{}, err: nil},
-			expectedStr: "specsLoadedMsg",
+			name:        "Custom nodesLoadedMsg",
+			message:     nodesLoadedMsg{nodes: []interactive.Spec{}, err: nil},
+			expectedStr: "nodesLoadedMsg",
 		},
 		{
 			name:        "Custom operationCompleteMsg",
@@ -84,7 +84,7 @@ func TestMessageDumpingWithDebugWriter(t *testing.T) {
 func TestMessageDumpingWithoutDebugWriter(t *testing.T) {
 	// Create a minimal app for testing
 	cfg := &config.Config{}
-	fileStorage := storage.NewFileStorage("testdata")
+	fileStorage := storage.NewFileStorage("interactive/common/testdata/.zamm")
 	specService := services.NewSpecService(fileStorage)
 	linkService := services.NewLinkService(fileStorage)
 
@@ -113,7 +113,7 @@ func TestMessageDumpingWithoutDebugWriter(t *testing.T) {
 func TestDebugWriterFieldExists(t *testing.T) {
 	// Create a minimal app for testing
 	cfg := &config.Config{}
-	fileStorage := storage.NewFileStorage("testdata")
+	fileStorage := storage.NewFileStorage("interactive/common/testdata/.zamm")
 	specService := services.NewSpecService(fileStorage)
 	linkService := services.NewLinkService(fileStorage)
 

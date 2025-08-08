@@ -65,13 +65,21 @@ func TestRemoveChildFromParent(t *testing.T) {
 	}
 
 	// Get the actual specs with their generated IDs
-	specs, err := service.ListSpecs()
+	nodes, err := service.ListNodes()
 	if err != nil {
-		t.Fatalf("Failed to list specs: %v", err)
+		t.Fatalf("Failed to list nodes: %v", err)
 	}
 
-	if len(specs) != 3 { // 2 created specs + 1 root spec
-		t.Fatalf("Expected 3 specs (including root), got %d", len(specs))
+	// Filter to specs only
+	var specs []*models.Spec
+	for _, node := range nodes {
+		if spec, ok := node.(*models.Spec); ok {
+			specs = append(specs, spec)
+		}
+	}
+
+	if len(specs) != 2 { // 2 created specs (root is now a Project)
+		t.Fatalf("Expected 2 specs, got %d", len(specs))
 	}
 
 	// Find parent and child by title
@@ -110,8 +118,8 @@ func TestRemoveChildFromParent(t *testing.T) {
 			t.Fatalf("Expected 1 child, got %d", len(children))
 		}
 
-		if children[0].ID != child.ID {
-			t.Errorf("Expected child ID %s, got %s", child.ID, children[0].ID)
+		if children[0].GetID() != child.ID {
+			t.Errorf("Expected child ID %s, got %s", child.ID, children[0].GetID())
 		}
 
 		// Verify reverse relationship
@@ -124,8 +132,8 @@ func TestRemoveChildFromParent(t *testing.T) {
 			t.Fatalf("Expected 1 parent, got %d", len(parents))
 		}
 
-		if parents[0].ID != parent.ID {
-			t.Errorf("Expected parent ID %s, got %s", parent.ID, parents[0].ID)
+		if parents[0].GetID() != parent.ID {
+			t.Errorf("Expected parent ID %s, got %s", parent.ID, parents[0].GetID())
 		}
 	})
 
@@ -253,7 +261,7 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get root children: %v", err)
 		}
-		if len(children) != 1 || children[0].ID != level1Spec.ID {
+		if len(children) != 1 || children[0].GetID() != level1Spec.ID {
 			t.Error("Root should have Level1 as child")
 		}
 
@@ -262,7 +270,7 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get level1 children: %v", err)
 		}
-		if len(children) != 1 || children[0].ID != level2Spec.ID {
+		if len(children) != 1 || children[0].GetID() != level2Spec.ID {
 			t.Error("Level1 should have Level2 as child")
 		}
 
@@ -297,7 +305,7 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get level1 children after removal: %v", err)
 		}
-		if len(children) != 1 || children[0].ID != level2Spec.ID {
+		if len(children) != 1 || children[0].GetID() != level2Spec.ID {
 			t.Error("Level1 should still have Level2 as child")
 		}
 	})

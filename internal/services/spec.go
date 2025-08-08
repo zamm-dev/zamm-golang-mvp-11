@@ -11,17 +11,17 @@ import (
 type SpecService interface {
 	CreateSpec(title, content string) (*models.Spec, error)
 	CreateProject(title, content string) (*models.Project, error)
-	GetSpec(id string) (*models.Spec, error)
+	GetNode(id string) (models.Node, error)
 	GetProject(id string) (*models.Project, error)
 	UpdateSpec(id, title, content string) (*models.Spec, error)
-	ListSpecs() ([]*models.Spec, error)
+	ListNodes() ([]models.Node, error)
 	DeleteSpec(id string) error
 
 	// Hierarchical operations
 	AddChildToParent(childSpecID, parentSpecID, label string) (*models.SpecSpecLink, error)
 	RemoveChildFromParent(childSpecID, parentSpecID string) error
-	GetParents(specID string) ([]*models.Spec, error)
-	GetChildren(specID string) ([]*models.Spec, error)
+	GetParents(specID string) ([]models.Node, error)
+	GetChildren(specID string) ([]models.Node, error)
 
 	// Root spec operations
 	InitializeRootSpec() error
@@ -92,8 +92,8 @@ func (s *specService) GetProject(id string) (*models.Project, error) {
 	return nil, models.NewZammError(models.ErrTypeValidation, "node is not a project")
 }
 
-// GetSpec retrieves a specification by ID
-func (s *specService) GetSpec(id string) (*models.Spec, error) {
+// GetNode retrieves a node by ID
+func (s *specService) GetNode(id string) (models.Node, error) {
 	if id == "" {
 		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
@@ -103,12 +103,7 @@ func (s *specService) GetSpec(id string) (*models.Spec, error) {
 		return nil, err
 	}
 
-	// Type assert to Spec
-	if spec, ok := node.(*models.Spec); ok {
-		return spec, nil
-	}
-
-	return nil, models.NewZammError(models.ErrTypeValidation, "node is not a spec")
+	return node, nil
 }
 
 // UpdateSpec updates an existing specification
@@ -147,21 +142,14 @@ func (s *specService) UpdateSpec(id, title, content string) (*models.Spec, error
 	return spec, nil
 }
 
-// ListSpecs retrieves all specifications
-func (s *specService) ListSpecs() ([]*models.Spec, error) {
+// ListNodes retrieves all nodes regardless of type
+func (s *specService) ListNodes() ([]models.Node, error) {
 	nodes, err := s.storage.ListNodes()
 	if err != nil {
 		return nil, err
 	}
 
-	var specs []*models.Spec
-	for _, node := range nodes {
-		if spec, ok := node.(*models.Spec); ok {
-			specs = append(specs, spec)
-		}
-	}
-
-	return specs, nil
+	return nodes, nil
 }
 
 // DeleteSpec deletes a specification
@@ -183,24 +171,18 @@ func (s *specService) AddChildToParent(childSpecID, parentSpecID, label string) 
 		return nil, models.NewZammError(models.ErrTypeValidation, "parent spec ID cannot be empty")
 	}
 	if childSpecID == parentSpecID {
-		return nil, models.NewZammError(models.ErrTypeValidation, "cannot link a spec to itself")
+		return nil, models.NewZammError(models.ErrTypeValidation, "cannot link a node to itself")
 	}
 
-	// Verify both specs exist
-	childNode, err := s.storage.GetNode(childSpecID)
+	// Verify both nodes exist
+	_, err := s.storage.GetNode(childSpecID)
 	if err != nil {
-		return nil, models.NewZammError(models.ErrTypeValidation, "child spec not found")
-	}
-	if _, ok := childNode.(*models.Spec); !ok {
-		return nil, models.NewZammError(models.ErrTypeValidation, "child node is not a spec")
+		return nil, models.NewZammError(models.ErrTypeValidation, "child node not found")
 	}
 
-	parentNode, err := s.storage.GetNode(parentSpecID)
+	_, err = s.storage.GetNode(parentSpecID)
 	if err != nil {
-		return nil, models.NewZammError(models.ErrTypeValidation, "parent spec not found")
-	}
-	if _, ok := parentNode.(*models.Spec); !ok {
-		return nil, models.NewZammError(models.ErrTypeValidation, "parent node is not a spec")
+		return nil, models.NewZammError(models.ErrTypeValidation, "parent node not found")
 	}
 
 	// Use provided link type or default to "child"
@@ -233,22 +215,22 @@ func (s *specService) RemoveChildFromParent(childSpecID, parentSpecID string) er
 	return s.storage.DeleteSpecLinkBySpecs(childSpecID, parentSpecID)
 }
 
-// GetParents retrieves all parent specs for a given spec
-func (s *specService) GetParents(specID string) ([]*models.Spec, error) {
+// GetParents retrieves all parent nodes for a given node
+func (s *specService) GetParents(specID string) ([]models.Node, error) {
 	if specID == "" {
-		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
+		return nil, models.NewZammError(models.ErrTypeValidation, "node ID cannot be empty")
 	}
 
-	return s.storage.GetLinkedSpecs(specID, models.Outgoing)
+	return s.storage.GetLinkedNodes(specID, models.Outgoing)
 }
 
-// GetChildren retrieves all child specs for a given spec
-func (s *specService) GetChildren(specID string) ([]*models.Spec, error) {
+// GetChildren retrieves all child nodes for a given node
+func (s *specService) GetChildren(specID string) ([]models.Node, error) {
 	if specID == "" {
-		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
+		return nil, models.NewZammError(models.ErrTypeValidation, "node ID cannot be empty")
 	}
 
-	return s.storage.GetLinkedSpecs(specID, models.Incoming)
+	return s.storage.GetLinkedNodes(specID, models.Incoming)
 }
 
 // InitializeRootSpec creates the root specification if it doesn't exist

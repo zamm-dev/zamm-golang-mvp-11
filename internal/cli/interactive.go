@@ -78,8 +78,8 @@ type linkItem struct {
 }
 
 // Custom messages
-type specsLoadedMsg struct {
-	specs []interactive.Spec
+type nodesLoadedMsg struct {
+	nodes []interactive.Spec
 	err   error
 }
 
@@ -222,13 +222,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateConfirmDelete(msg)
 		}
 
-	case specsLoadedMsg:
+	case nodesLoadedMsg:
 		if msg.err != nil {
 			m.message = fmt.Sprintf("Error loading specs: %v", msg.err)
 			m.showMessage = true
 			return m, nil
 		}
-		m.specs = msg.specs
+		m.specs = msg.nodes
 		return m, nil
 
 	case linksLoadedMsg:
@@ -523,21 +523,22 @@ func (m *Model) executeLinkAction() (tea.Model, tea.Cmd) {
 // loadSpecsCmd returns a command to load specs
 func (m *Model) loadSpecsCmd() tea.Cmd {
 	return func() tea.Msg {
-		specs, err := m.app.specService.ListSpecs()
+		nodes, err := m.app.specService.ListNodes()
 		if err != nil {
-			return specsLoadedMsg{err: err}
+			return nodesLoadedMsg{err: err}
 		}
 
-		specItems := make([]interactive.Spec, len(specs))
-		for i, spec := range specs {
-			specItems[i] = interactive.Spec{
-				ID:      spec.ID,
-				Title:   spec.Title,
-				Content: spec.Content,
-			}
+		// Include all node types (specs, projects, implementations)
+		var nodeItems []interactive.Spec
+		for _, node := range nodes {
+			nodeItems = append(nodeItems, interactive.Spec{
+				ID:      node.GetID(),
+				Title:   node.GetTitle(),
+				Content: node.GetContent(),
+			})
 		}
 
-		return specsLoadedMsg{specs: specItems}
+		return nodesLoadedMsg{nodes: nodeItems}
 	}
 }
 
@@ -710,23 +711,26 @@ func (cs *combinedService) GetCommitsForSpec(specID string) ([]*models.SpecCommi
 	return cs.linkService.GetCommitsForSpec(specID)
 }
 
-func (cs *combinedService) GetChildSpecs(specID string) ([]*models.Spec, error) {
-	return cs.specService.GetChildren(specID)
-}
-
-func (cs *combinedService) GetSpecByID(specID string) (*models.Spec, error) {
-	spec, err := cs.specService.GetSpec(specID)
+func (cs *combinedService) GetChildNodes(specID string) ([]models.Node, error) {
+	nodes, err := cs.specService.GetChildren(specID)
 	if err != nil {
 		return nil, err
 	}
-	if spec == nil {
-		return nil, nil
-	}
 
-	return spec, nil
+	// Return all nodes, not just specs
+	return nodes, nil
 }
 
-func (cs *combinedService) GetParentSpec(specID string) (*models.Spec, error) {
+func (cs *combinedService) GetNodeByID(specID string) (models.Node, error) {
+	node, err := cs.specService.GetNode(specID)
+	if err != nil {
+		return nil, err
+	}
+
+	return node, nil
+}
+
+func (cs *combinedService) GetParentNode(specID string) (models.Node, error) {
 	parents, err := cs.specService.GetParents(specID)
 	if err != nil {
 		return nil, err
@@ -737,12 +741,10 @@ func (cs *combinedService) GetParentSpec(specID string) (*models.Spec, error) {
 	}
 
 	// For simplicity, return the first parent if multiple exist
-	parent := parents[0]
-
-	return parent, nil
+	return parents[0], nil
 }
 
-func (cs *combinedService) GetRootSpec() (*models.Spec, error) {
+func (cs *combinedService) GetRootNode() (models.Node, error) {
 	rootNode, err := cs.specService.GetRootSpec()
 	if err != nil {
 		return nil, err

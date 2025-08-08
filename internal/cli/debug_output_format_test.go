@@ -17,7 +17,7 @@ func TestSpewOutputFormat(t *testing.T) {
 
 	// Create a minimal app for testing
 	cfg := &config.Config{}
-	fileStorage := storage.NewFileStorage("testdata")
+	fileStorage := storage.NewFileStorage("interactive/common/testdata/.zamm")
 	specService := services.NewSpecService(fileStorage)
 	linkService := services.NewLinkService(fileStorage)
 
@@ -66,7 +66,7 @@ func TestComplexMessageTypeFormatting(t *testing.T) {
 
 	// Create a minimal app for testing
 	cfg := &config.Config{}
-	fileStorage := storage.NewFileStorage("testdata")
+	fileStorage := storage.NewFileStorage("interactive/common/testdata/.zamm")
 	specService := services.NewSpecService(fileStorage)
 	linkService := services.NewLinkService(fileStorage)
 

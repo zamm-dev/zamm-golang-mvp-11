@@ -42,11 +42,36 @@ func (a *App) outputSpecTable(specs []*models.Spec) error {
 	return w.Flush()
 }
 
-func (a *App) outputSpecDetails(spec *models.Spec) error {
-	fmt.Printf("ID: %s\n", spec.ID)
-	fmt.Printf("Title: %s\n", spec.Title)
+func (a *App) outputNodeTable(nodes []models.Node) error {
+	if len(nodes) == 0 {
+		fmt.Println("No nodes found")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintln(w, "ID\tTYPE\tTITLE")
+
+	for _, node := range nodes {
+		title := node.GetTitle()
+		if len(title) > 50 {
+			title = title[:47] + "..."
+		}
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
+			node.GetID(),
+			node.GetType(),
+			title,
+		)
+	}
+
+	return w.Flush()
+}
+
+func (a *App) outputSpecDetails(node models.Node) error {
+	fmt.Printf("ID: %s\n", node.GetID())
+	fmt.Printf("Title: %s\n", node.GetTitle())
+	fmt.Printf("Type: %s\n", node.GetType())
 	fmt.Printf("\nContent:\n%s\n", strings.Repeat("-", 40))
-	fmt.Printf("%s\n", spec.Content)
+	fmt.Printf("%s\n", node.GetContent())
 	return nil
 }
 

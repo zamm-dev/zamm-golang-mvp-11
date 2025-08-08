@@ -402,6 +402,33 @@ func (fs *FileStorage) GetLinkedSpecs(specID string, direction models.Direction)
 	return specs, nil
 }
 
+// GetLinkedNodes retrieves nodes linked to a given node
+func (fs *FileStorage) GetLinkedNodes(nodeID string, direction models.Direction) ([]models.Node, error) {
+	links, err := fs.GetSpecSpecLinks(nodeID, direction)
+	if err != nil {
+		return nil, err
+	}
+
+	var nodes []models.Node
+	for _, link := range links {
+		var targetNodeID string
+		if direction == models.Outgoing {
+			targetNodeID = link.ToSpecID
+		} else {
+			targetNodeID = link.FromSpecID
+		}
+
+		node, err := fs.GetNode(targetNodeID)
+		if err != nil {
+			continue // Skip if node not found
+		}
+
+		nodes = append(nodes, node)
+	}
+
+	return nodes, nil
+}
+
 // GetOrphanSpecs retrieves all specs that don't have any parent links
 func (fs *FileStorage) GetOrphanSpecs() ([]*models.Spec, error) {
 	allNodes, err := fs.ListNodes()

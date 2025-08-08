@@ -36,6 +36,7 @@ type Storage interface {
 
 	// Hierarchical operations
 	GetLinkedSpecs(specID string, direction models.Direction) ([]*models.Spec, error)
+	GetLinkedNodes(nodeID string, direction models.Direction) ([]models.Node, error)
 	GetOrphanSpecs() ([]*models.Spec, error)
 
 	// ProjectMetadata operations

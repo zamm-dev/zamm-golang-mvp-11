@@ -38,19 +38,19 @@ func TestSpecDetailViewInitialRender(t *testing.T) {
 	specService := services.NewSpecService(storage)
 
 	// Get "Hello World" spec and its data
-	spec, err := specService.GetSpec("f38191af-1b23-4129-854b-5ba754a30c3c")
+	spec, err := specService.GetNode("f38191af-1b23-4129-854b-5ba754a30c3c")
 	if err != nil {
 		t.Fatalf("Failed to get test spec: %v", err)
 	}
 
 	// Get links for the spec
-	links, err := linkService.GetCommitsForSpec(spec.ID)
+	links, err := linkService.GetCommitsForSpec(spec.GetID())
 	if err != nil {
 		t.Fatalf("Failed to get links for spec: %v", err)
 	}
 
 	// Get child specs
-	childSpecs, err := specService.GetChildren(spec.ID)
+	childNodes, err := specService.GetChildren(spec.GetID())
 	if err != nil {
 		t.Fatalf("Failed to get child specs: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestSpecDetailViewInitialRender(t *testing.T) {
 	// Create spec detail view
 	view := NewSpecDetailView()
 	view.SetSize(80, 24)
-	view.SetSpec(*spec, links, childSpecs)
+	view.SetSpec(spec, links, childNodes)
 
 	tm := teatest.NewTestModel(t, &view, teatest.WithInitialTermSize(80, 24))
 
@@ -74,19 +74,19 @@ func TestSpecDetailViewScrolling(t *testing.T) {
 	specService := services.NewSpecService(storage)
 
 	// Get a spec from testdata
-	spec, err := specService.GetSpec("f38191af-1b23-4129-854b-5ba754a30c3c") // "Hello World Function"
+	spec, err := specService.GetNode("f38191af-1b23-4129-854b-5ba754a30c3c") // "Hello World Function"
 	if err != nil {
 		t.Fatalf("Failed to get test spec: %v", err)
 	}
 
 	// Get links for the spec
-	links, err := linkService.GetCommitsForSpec(spec.ID)
+	links, err := linkService.GetCommitsForSpec(spec.GetID())
 	if err != nil {
 		t.Fatalf("Failed to get links for spec: %v", err)
 	}
 
 	// Get child specs
-	childSpecs, err := specService.GetChildren(spec.ID)
+	childNodes, err := specService.GetChildren(spec.GetID())
 	if err != nil {
 		t.Fatalf("Failed to get child specs: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestSpecDetailViewScrolling(t *testing.T) {
 	// Create spec detail view with smaller height to force scrolling
 	view := NewSpecDetailView()
 	view.SetSize(80, 24)
-	view.SetSpec(*spec, links, childSpecs)
+	view.SetSpec(spec, links, childNodes)
 
 	tm := teatest.NewTestModel(t, &view, teatest.WithInitialTermSize(80, 24))
 

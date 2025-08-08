@@ -47,14 +47,14 @@ func (a *App) createStatusCommand(jsonOutput bool) *cobra.Command {
 		Use:   "status",
 		Short: "Show system status and statistics",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			specs, err := a.specService.ListSpecs()
+			nodes, err := a.specService.ListNodes()
 			if err != nil {
 				// If storage doesn't exist, show uninitialized status
 				if jsonOutput {
 					status := map[string]interface{}{
 						"config_path":  a.config.Storage.Path,
 						"storage_path": a.config.Storage.Path,
-						"spec_count":   0,
+						"node_count":   0,
 						"initialized":  false,
 						"error":        err.Error(),
 					}
@@ -64,7 +64,7 @@ func (a *App) createStatusCommand(jsonOutput bool) *cobra.Command {
 				fmt.Printf("ZAMM Status\n")
 				fmt.Printf("===========\n")
 				fmt.Printf("Storage: %s (not initialized)\n", a.config.Storage.Path)
-				fmt.Printf("Specifications: 0\n")
+				fmt.Printf("Nodes: 0\n")
 				fmt.Printf("Error: %s\n", err.Error())
 				return nil
 			}
@@ -72,7 +72,7 @@ func (a *App) createStatusCommand(jsonOutput bool) *cobra.Command {
 			status := map[string]interface{}{
 				"config_path":  a.config.Storage.Path,
 				"storage_path": a.config.Storage.Path,
-				"spec_count":   len(specs),
+				"node_count":   len(nodes),
 				"initialized":  true,
 			}
 
@@ -83,7 +83,7 @@ func (a *App) createStatusCommand(jsonOutput bool) *cobra.Command {
 			fmt.Printf("ZAMM Status\n")
 			fmt.Printf("===========\n")
 			fmt.Printf("Storage: %s\n", a.config.Storage.Path)
-			fmt.Printf("Specifications: %d\n", len(specs))
+			fmt.Printf("Nodes: %d\n", len(nodes))
 			return nil
 		},
 	}

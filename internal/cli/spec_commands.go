@@ -44,18 +44,18 @@ func (a *App) createSpecCommand(jsonOutput, quiet bool) *cobra.Command {
 	// spec list
 	listCmd := &cobra.Command{
 		Use:   "list",
-		Short: "List all specifications",
+		Short: "List all nodes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			specs, err := a.specService.ListSpecs()
+			nodes, err := a.specService.ListNodes()
 			if err != nil {
 				return err
 			}
 
 			if jsonOutput {
-				return a.outputJSON(specs)
+				return a.outputJSON(nodes)
 			}
 
-			return a.outputSpecTable(specs)
+			return a.outputNodeTable(nodes)
 		},
 	}
 
@@ -65,7 +65,7 @@ func (a *App) createSpecCommand(jsonOutput, quiet bool) *cobra.Command {
 		Short: "Show a specification",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			spec, err := a.specService.GetSpec(args[0])
+			spec, err := a.specService.GetNode(args[0])
 			if err != nil {
 				return err
 			}

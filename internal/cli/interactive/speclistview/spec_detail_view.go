@@ -45,13 +45,13 @@ func (v *SpecDetailView) SetSize(width, height int) {
 	v.viewport.SetContent(v.detail.View())
 }
 
-func (v *SpecDetailView) SetSpec(spec models.Spec, links []*models.SpecCommitLink, childSpecs []*models.Spec) {
-	v.detail.SetSpec(spec, links, childSpecs)
+func (v *SpecDetailView) SetSpec(node models.Node, links []*models.SpecCommitLink, childNodes []models.Node) {
+	v.detail.SetSpec(node, links, childNodes)
 	v.viewport.SetContent(v.detail.View())
 	v.viewport.SetYOffset(0)
 }
 
-func (v *SpecDetailView) GetSelectedChild() *models.Spec {
+func (v *SpecDetailView) GetSelectedChild() models.Node {
 	return v.detail.GetSelectedChild()
 }
 

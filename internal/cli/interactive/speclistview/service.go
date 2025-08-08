@@ -7,8 +7,8 @@ import (
 // LinkService interface for data access
 type LinkService interface {
 	GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error)
-	GetChildSpecs(specID string) ([]*models.Spec, error)
-	GetSpecByID(specID string) (*models.Spec, error)
-	GetParentSpec(specID string) (*models.Spec, error)
-	GetRootSpec() (*models.Spec, error)
+	GetChildNodes(specID string) ([]models.Node, error)
+	GetNodeByID(specID string) (models.Node, error)
+	GetParentNode(specID string) (models.Node, error)
+	GetRootNode() (models.Node, error)
 }

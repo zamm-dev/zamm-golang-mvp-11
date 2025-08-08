@@ -169,23 +169,24 @@ func (l *LinkEditor) SetSize(width, height int) {
 // loadSpecsExceptCurrent loads all specs except the current one for selection
 func (l *LinkEditor) loadSpecsExceptCurrent() tea.Cmd {
 	return func() tea.Msg {
-		specs, err := l.specService.ListSpecs()
+		nodes, err := l.specService.ListNodes()
 		if err != nil {
-			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading specs: %v", err)}
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading nodes: %v", err)}
 		}
 
-		// Filter out the current spec and for move mode, also filter out the old parent
-		filteredSpecs := make([]interactive.Spec, 0, len(specs))
-		for _, spec := range specs {
-			if spec.ID != l.config.CurrentSpecID {
+		// Include all node types and exclude current spec and old parent if in move mode
+		filteredSpecs := make([]interactive.Spec, 0)
+		for _, node := range nodes {
+			// Exclude current node and old parent if in move mode
+			if node.GetID() != l.config.CurrentSpecID {
 				// For move mode's second step, also filter out the old parent
-				if l.config.IsMoveMode && l.mode == MoveNewParentSelection && spec.ID == l.moveOldParentID {
+				if l.config.IsMoveMode && l.mode == MoveNewParentSelection && node.GetID() == l.moveOldParentID {
 					continue
 				}
 				filteredSpecs = append(filteredSpecs, interactive.Spec{
-					ID:      spec.ID,
-					Title:   spec.Title,
-					Content: spec.Content,
+					ID:      node.GetID(),
+					Title:   node.GetTitle(),
+					Content: node.GetContent(),
 				})
 			}
 		}
@@ -197,17 +198,17 @@ func (l *LinkEditor) loadSpecsExceptCurrent() tea.Cmd {
 // loadChildSpecs loads child specs that can be unlinked
 func (l *LinkEditor) loadChildSpecs() tea.Cmd {
 	return func() tea.Msg {
-		linkedSpecs, err := l.specService.GetChildren(l.config.CurrentSpecID)
+		linkedNodes, err := l.specService.GetChildren(l.config.CurrentSpecID)
 		if err != nil {
-			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading linked specs: %v", err)}
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading linked nodes: %v", err)}
 		}
 
-		specs := make([]interactive.Spec, 0, len(linkedSpecs))
-		for _, spec := range linkedSpecs {
+		specs := make([]interactive.Spec, 0, len(linkedNodes))
+		for _, node := range linkedNodes {
 			specs = append(specs, interactive.Spec{
-				ID:      spec.ID,
-				Title:   spec.Title,
-				Content: spec.Content,
+				ID:      node.GetID(),
+				Title:   node.GetTitle(),
+				Content: node.GetContent(),
 			})
 		}
 
@@ -218,17 +219,17 @@ func (l *LinkEditor) loadChildSpecs() tea.Cmd {
 // loadParentSpecs loads parent specs that can be unlinked
 func (l *LinkEditor) loadParentSpecs() tea.Cmd {
 	return func() tea.Msg {
-		linkedSpecs, err := l.specService.GetParents(l.config.CurrentSpecID)
+		linkedNodes, err := l.specService.GetParents(l.config.CurrentSpecID)
 		if err != nil {
-			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading linked parent specs: %v", err)}
+			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading linked parent nodes: %v", err)}
 		}
 
-		specs := make([]interactive.Spec, 0, len(linkedSpecs))
-		for _, spec := range linkedSpecs {
+		specs := make([]interactive.Spec, 0, len(linkedNodes))
+		for _, node := range linkedNodes {
 			specs = append(specs, interactive.Spec{
-				ID:      spec.ID,
-				Title:   spec.Title,
-				Content: spec.Content,
+				ID:      node.GetID(),
+				Title:   node.GetTitle(),
+				Content: node.GetContent(),
 			})
 		}
 

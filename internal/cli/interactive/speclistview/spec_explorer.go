@@ -1,6 +1,8 @@
 package speclistview
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -94,8 +96,8 @@ type SpecExplorer struct {
 	leftPane  SpecDetailView
 	rightPane SpecDetailView
 
-	currentSpec models.Spec
-	activeSpec  models.Spec
+	currentSpec models.Node
+	activeSpec  models.Node
 
 	linkService LinkService
 
@@ -108,6 +110,10 @@ type SpecExplorer struct {
 }
 
 func NewSpecExplorer(linkService LinkService) SpecExplorer {
+	if linkService == nil {
+		panic("linkService cannot be nil in NewSpecExplorer")
+	}
+
 	explorer := SpecExplorer{
 		leftPane:    NewSpecDetailView(),
 		rightPane:   NewSpecDetailView(),
@@ -116,14 +122,19 @@ func NewSpecExplorer(linkService LinkService) SpecExplorer {
 		help:        help.New(),
 		showHelp:    false,
 	}
-	if linkService != nil {
-		rootSpec, err := linkService.GetRootSpec()
-		if err == nil && rootSpec != nil {
-			explorer.currentSpec = *rootSpec
-			explorer.activeSpec = *rootSpec
-			explorer.setCurrentNode(&explorer.currentSpec)
-		}
+
+	rootSpec, err := linkService.GetRootNode()
+	if err != nil {
+		panic(fmt.Sprintf("failed to get root node in NewSpecExplorer: %v", err))
 	}
+	if rootSpec == nil {
+		panic("root node is nil in NewSpecExplorer - this should never happen")
+	}
+
+	explorer.currentSpec = rootSpec
+	explorer.activeSpec = rootSpec
+	explorer.setCurrentNode(rootSpec)
+
 	return explorer
 }
 
@@ -141,10 +152,18 @@ func (e *SpecExplorer) paneWidth() int {
 }
 
 func (e *SpecExplorer) Refresh() tea.Cmd {
-	return e.setCurrentNode(&e.currentSpec)
+	return e.setCurrentNode(e.currentSpec)
 }
 
 func (e *SpecExplorer) Update(msg tea.Msg) (SpecExplorer, tea.Cmd) {
+	// Assert that specs are never nil
+	if e.currentSpec == nil {
+		panic("currentSpec is nil in SpecExplorer.Update")
+	}
+	if e.activeSpec == nil {
+		panic("activeSpec is nil in SpecExplorer.Update")
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -161,7 +180,7 @@ func (e *SpecExplorer) Update(msg tea.Msg) (SpecExplorer, tea.Cmd) {
 			// Update active spec based on selection
 			selectedChild := e.leftPane.GetSelectedChild()
 			if selectedChild != nil {
-				e.activeSpec = *selectedChild
+				e.activeSpec = selectedChild
 			} else {
 				e.activeSpec = e.currentSpec
 			}
@@ -170,22 +189,22 @@ func (e *SpecExplorer) Update(msg tea.Msg) (SpecExplorer, tea.Cmd) {
 			return *e, nil
 		case key.Matches(msg, e.keys.Select):
 			// Navigate to the active spec if it's different from current
-			if e.activeSpec.ID != e.currentSpec.ID {
-				return *e, e.navigateToChildren(&e.activeSpec)
+			if e.activeSpec.GetID() != e.currentSpec.GetID() {
+				return *e, e.navigateToChildren(e.activeSpec)
 			}
 			return *e, nil
 		case key.Matches(msg, e.keys.Create):
-			return *e, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: e.activeSpec.ID} }
+			return *e, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Edit):
-			return *e, func() tea.Msg { return EditSpecMsg{SpecID: e.activeSpec.ID} }
+			return *e, func() tea.Msg { return EditSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Delete):
-			return *e, func() tea.Msg { return DeleteSpecMsg{SpecID: e.activeSpec.ID} }
+			return *e, func() tea.Msg { return DeleteSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Link):
-			return *e, func() tea.Msg { return LinkCommitSpecMsg{SpecID: e.activeSpec.ID} }
+			return *e, func() tea.Msg { return LinkCommitSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Remove):
-			return *e, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: e.activeSpec.ID} }
+			return *e, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Move):
-			return *e, func() tea.Msg { return MoveSpecMsg{SpecID: e.activeSpec.ID} }
+			return *e, func() tea.Msg { return MoveSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Back):
 			// If a child is selected, clear selection
 			if e.leftPane.GetSelectedChild() != nil {
@@ -216,19 +235,19 @@ func (e *SpecExplorer) Update(msg tea.Msg) (SpecExplorer, tea.Cmd) {
 	return *e, nil
 }
 
-func (e *SpecExplorer) setCurrentNode(currentSpec *models.Spec) tea.Cmd {
-	if currentSpec == nil {
+func (e *SpecExplorer) setCurrentNode(currentNode models.Node) tea.Cmd {
+	if currentNode == nil {
 		// This should only happen during initialization error - try to get root spec
-		rootSpec, err := e.linkService.GetRootSpec()
+		rootSpec, err := e.linkService.GetRootNode()
 		if err != nil {
 			return nil
 		}
-		currentSpec = rootSpec
+		currentNode = rootSpec
 	}
 
 	// Update model state
-	e.currentSpec = *currentSpec
-	e.activeSpec = *currentSpec // Set active spec to current node by default
+	e.currentSpec = currentNode
+	e.activeSpec = currentNode // Set active spec to current node by default
 
 	// Update details for both panes
 	e.updateDetailsForSpec()
@@ -236,17 +255,17 @@ func (e *SpecExplorer) setCurrentNode(currentSpec *models.Spec) tea.Cmd {
 	return nil
 }
 
-func (e *SpecExplorer) navigateToChildren(spec *models.Spec) tea.Cmd {
-	return e.setCurrentNode(spec)
+func (e *SpecExplorer) navigateToChildren(node models.Node) tea.Cmd {
+	return e.setCurrentNode(node)
 }
 
 func (e *SpecExplorer) navigateBack() tea.Cmd {
 	// Get parent spec
-	parentSpec, err := e.linkService.GetParentSpec(e.currentSpec.ID)
+	parentSpec, err := e.linkService.GetParentNode(e.currentSpec.GetID())
 	if err != nil || parentSpec == nil {
 		// No parent found - check if we're already at root
-		rootSpec, err := e.linkService.GetRootSpec()
-		if err != nil || rootSpec == nil || rootSpec.ID == e.currentSpec.ID {
+		rootSpec, err := e.linkService.GetRootNode()
+		if err != nil || rootSpec == nil || rootSpec.GetID() == e.currentSpec.GetID() {
 			// Already at root or can't get root, stay where we are
 			return nil
 		}
@@ -263,32 +282,38 @@ func (e *SpecExplorer) updateDetailsForSpec() {
 	}
 
 	// Left pane always shows current node details
-	currentLinks, err := e.linkService.GetCommitsForSpec(e.currentSpec.ID)
+	currentLinks, err := e.linkService.GetCommitsForSpec(e.currentSpec.GetID())
 	if err != nil {
 		currentLinks = nil
 	}
 
-	currentChildSpecs, err := e.linkService.GetChildSpecs(e.currentSpec.ID)
+	currentChildSpecs, err := e.linkService.GetChildNodes(e.currentSpec.GetID())
 	if err != nil {
 		currentChildSpecs = nil
 	}
 
 	// Right pane shows active spec details (selected child or current node)
-	activeLinks, err := e.linkService.GetCommitsForSpec(e.activeSpec.ID)
+	activeLinks, err := e.linkService.GetCommitsForSpec(e.activeSpec.GetID())
 	if err != nil {
 		activeLinks = nil
 	}
 
-	activeChildSpecs, err := e.linkService.GetChildSpecs(e.activeSpec.ID)
+	activeChildSpecs, err := e.linkService.GetChildNodes(e.activeSpec.GetID())
 	if err != nil {
 		activeChildSpecs = nil
 	}
 
 	// Update left pane with current node data (preserve cursor)
-	e.leftPane.SetSpec(e.currentSpec, currentLinks, currentChildSpecs)
+	// Convert currentChildSpecs to nodes
+	var currentChildNodes []models.Node
+	currentChildNodes = append(currentChildNodes, currentChildSpecs...)
+	e.leftPane.SetSpec(e.currentSpec, currentLinks, currentChildNodes)
 
 	// Update right pane with active spec data
-	e.rightPane.SetSpec(e.activeSpec, activeLinks, activeChildSpecs)
+	// Convert activeChildSpecs to nodes
+	var activeChildNodes []models.Node
+	activeChildNodes = append(activeChildNodes, activeChildSpecs...)
+	e.rightPane.SetSpec(e.activeSpec, activeLinks, activeChildNodes)
 }
 
 // updateRightPaneOnly updates only the right pane without affecting left pane cursor
@@ -298,21 +323,32 @@ func (e *SpecExplorer) updateRightPaneOnly() {
 	}
 
 	// Right pane shows active spec details (selected child or current node)
-	activeLinks, err := e.linkService.GetCommitsForSpec(e.activeSpec.ID)
+	activeLinks, err := e.linkService.GetCommitsForSpec(e.activeSpec.GetID())
 	if err != nil {
 		activeLinks = nil
 	}
 
-	activeChildSpecs, err := e.linkService.GetChildSpecs(e.activeSpec.ID)
+	activeChildSpecs, err := e.linkService.GetChildNodes(e.activeSpec.GetID())
 	if err != nil {
 		activeChildSpecs = nil
 	}
 
 	// Update right pane with active spec data
-	e.rightPane.SetSpec(e.activeSpec, activeLinks, activeChildSpecs)
+	// Convert activeChildSpecs to nodes
+	var activeChildNodes []models.Node
+	activeChildNodes = append(activeChildNodes, activeChildSpecs...)
+	e.rightPane.SetSpec(e.activeSpec, activeLinks, activeChildNodes)
 }
 
 func (e *SpecExplorer) View() string {
+	// Assert that specs are never nil
+	if e.currentSpec == nil {
+		panic("currentSpec is nil in SpecExplorer.View")
+	}
+	if e.activeSpec == nil {
+		panic("activeSpec is nil in SpecExplorer.View")
+	}
+
 	left := e.leftPane.View()
 	if e.showHelp {
 		left = lipgloss.JoinVertical(lipgloss.Top, left, e.help.View(e.keys))
@@ -320,7 +356,7 @@ func (e *SpecExplorer) View() string {
 
 	// Determine right pane content based on whether a child is selected
 	var right string
-	if e.activeSpec.ID == e.currentSpec.ID {
+	if e.activeSpec.GetID() == e.currentSpec.GetID() {
 		// No child selected - show instruction message
 		right = "Select a child specification to view its details"
 	} else {
@@ -330,7 +366,7 @@ func (e *SpecExplorer) View() string {
 
 	// Apply styling based on which spec is active
 	var leftStyle, rightStyle lipgloss.Style
-	if e.activeSpec.ID == e.currentSpec.ID {
+	if e.activeSpec.GetID() == e.currentSpec.GetID() {
 		// No child selected - left pane is active
 		leftStyle = common.ActiveNodeStyle()
 		rightStyle = lipgloss.NewStyle()

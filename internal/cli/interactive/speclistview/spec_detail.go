@@ -13,9 +13,9 @@ import (
 // SpecDetail encapsulates all state and logic for a spec detail
 // (separated from the viewport logic)
 type SpecDetail struct {
-	spec       models.Spec
+	node       models.Node
 	links      []*models.SpecCommitLink
-	childSpecs []*models.Spec
+	childNodes []models.Node
 	cursor     int
 	table      table.Model
 	width      int
@@ -62,34 +62,34 @@ func (d *SpecDetail) SetSize(width, height int) {
 	d.table.SetColumns(columns)
 }
 
-func (d *SpecDetail) SetSpec(spec models.Spec, links []*models.SpecCommitLink, childSpecs []*models.Spec) {
-	d.spec = spec
+func (d *SpecDetail) SetSpec(node models.Node, links []*models.SpecCommitLink, childNodes []models.Node) {
+	d.node = node
 	d.links = links
-	d.childSpecs = childSpecs
+	d.childNodes = childNodes
 	d.updateCommitsTable()
 	d.cursor = -1
 }
 
-func (d *SpecDetail) GetSelectedChild() *models.Spec {
-	if d.cursor >= 0 && d.cursor < len(d.childSpecs) {
-		return d.childSpecs[d.cursor]
+func (d *SpecDetail) GetSelectedChild() models.Node {
+	if d.cursor >= 0 && d.cursor < len(d.childNodes) {
+		return d.childNodes[d.cursor]
 	}
 	return nil
 }
 
 func (d *SpecDetail) SelectNextChild() {
-	if len(d.childSpecs) == 0 {
+	if len(d.childNodes) == 0 {
 		d.cursor = -1
 		return
 	}
 	d.cursor++
-	if d.cursor >= len(d.childSpecs) {
-		d.cursor = len(d.childSpecs) - 1
+	if d.cursor >= len(d.childNodes) {
+		d.cursor = len(d.childNodes) - 1
 	}
 }
 
 func (d *SpecDetail) SelectPrevChild() {
-	if len(d.childSpecs) == 0 {
+	if len(d.childNodes) == 0 {
 		d.cursor = -1
 		return
 	}
@@ -136,27 +136,32 @@ func (d *SpecDetail) updateCommitsTable() {
 }
 
 func (d *SpecDetail) View() string {
+	// Handle case where node hasn't been set yet
+	if d.node == nil {
+		return "No specification selected"
+	}
+
 	var contentBuilder strings.Builder
-	contentBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n%s\n\n", d.spec.Title, strings.Repeat("=", d.width), d.spec.Content))
+	contentBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n%s\n\n", d.node.GetTitle(), strings.Repeat("=", d.width), d.node.GetContent()))
 	if len(d.links) == 0 {
 		contentBuilder.WriteString("[No linked commits found]\n")
 	} else {
 		contentBuilder.WriteString(d.table.View())
 	}
-	contentBuilder.WriteString("\n\nChild Specifications:\n")
-	if len(d.childSpecs) == 0 {
+	contentBuilder.WriteString("\n\nChild Nodes:\n")
+	if len(d.childNodes) == 0 {
 		contentBuilder.WriteString("  -\n")
 	} else {
-		for i, cs := range d.childSpecs {
-			specTitle := cs.Title
-			if len(specTitle) > d.width-2 && d.width > 5 {
-				specTitle = specTitle[:d.width-5] + "..."
+		for i, childNode := range d.childNodes {
+			nodeTitle := childNode.GetTitle()
+			if len(nodeTitle) > d.width-2 && d.width > 5 {
+				nodeTitle = nodeTitle[:d.width-5] + "..."
 			}
 			if i == d.cursor {
-				contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("> %s", specTitle)))
+				contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("> %s", nodeTitle)))
 				contentBuilder.WriteString("\n")
 			} else {
-				contentBuilder.WriteString(fmt.Sprintf("  %s\n", specTitle))
+				contentBuilder.WriteString(fmt.Sprintf("  %s\n", nodeTitle))
 			}
 		}
 	}
