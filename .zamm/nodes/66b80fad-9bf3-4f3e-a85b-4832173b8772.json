@@ -1,6 +1,0 @@
-{
-  "id": "66b80fad-9bf3-4f3e-a85b-4832173b8772",
-  "title": "Spec List view should be responsible for getting its own data",
-  "content": "It should not have a SetSpecs function for an external entity to interfere with its state",
-  "type": "specification"
-}

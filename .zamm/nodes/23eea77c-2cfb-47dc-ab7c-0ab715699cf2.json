@@ -1,6 +1,0 @@
-{
-  "id": "23eea77c-2cfb-47dc-ab7c-0ab715699cf2",
-  "title": "Node",
-  "content": "The node is the fundamental base abstraction in ZAMM. All nodes should have the following attributes:\n\n- ID (for the code)\n- Title (for the human/LLM)\n- Content (for the human/LLM)\n- Type (for all)\n\nSpecifications are a type of node.",
-  "type": "specification"
-}
