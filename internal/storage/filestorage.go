@@ -112,6 +112,18 @@ func (fs *FileStorage) GetNode(id string) (models.Node, error) {
 			return nil, err
 		}
 		return &spec, nil
+	case "project":
+		var project models.Project
+		if err := fs.readJSONFile(path, &project); err != nil {
+			return nil, err
+		}
+		return &project, nil
+	case "implementation":
+		var implementation models.Implementation
+		if err := fs.readJSONFile(path, &implementation); err != nil {
+			return nil, err
+		}
+		return &implementation, nil
 	default:
 		return &nodeBase, nil
 	}

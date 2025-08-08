@@ -56,6 +56,45 @@ func NewSpec(title, content string) *Spec {
 	}
 }
 
+// Project represents a project node in the system
+type Project struct {
+	NodeBase
+	Implementations []string `json:"implementations"` // List of Implementation IDs
+}
+
+// NewProject creates a new Project with the type field set
+func NewProject(title, content string) *Project {
+	return &Project{
+		NodeBase: NodeBase{
+			ID:      uuid.New().String(),
+			Title:   title,
+			Content: content,
+			Type:    "project",
+		},
+		Implementations: make([]string, 0),
+	}
+}
+
+// Implementation represents an implementation node in the system
+type Implementation struct {
+	NodeBase
+	RepoURL    *string `json:"repo_url,omitempty"`    // Optional repository URL
+	Branch     *string `json:"branch,omitempty"`      // Optional branch name
+	FolderPath *string `json:"folder_path,omitempty"` // Optional folder path within the repo
+}
+
+// NewImplementation creates a new Implementation with the type field set
+func NewImplementation(title, content string) *Implementation {
+	return &Implementation{
+		NodeBase: NodeBase{
+			ID:      uuid.New().String(),
+			Title:   title,
+			Content: content,
+			Type:    "implementation",
+		},
+	}
+}
+
 // SpecCommitLink represents a link between a spec and a git commit
 type SpecCommitLink struct {
 	SpecID    string `json:"spec_id"`

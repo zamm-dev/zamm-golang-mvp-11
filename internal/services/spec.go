@@ -10,7 +10,9 @@ import (
 // SpecService interface defines operations for managing specifications
 type SpecService interface {
 	CreateSpec(title, content string) (*models.Spec, error)
+	CreateProject(title, content string) (*models.Project, error)
 	GetSpec(id string) (*models.Spec, error)
+	GetProject(id string) (*models.Project, error)
 	UpdateSpec(id, title, content string) (*models.Spec, error)
 	ListSpecs() ([]*models.Spec, error)
 	DeleteSpec(id string) error
@@ -53,6 +55,41 @@ func (s *specService) CreateSpec(title, content string) (*models.Spec, error) {
 	}
 
 	return spec, nil
+}
+
+// CreateProject creates a new project
+func (s *specService) CreateProject(title, content string) (*models.Project, error) {
+	// Validate input
+	if err := s.validateSpecInput(title, content); err != nil {
+		return nil, err
+	}
+
+	project := models.NewProject(strings.TrimSpace(title), strings.TrimSpace(content))
+
+	if err := s.storage.CreateNode(project); err != nil {
+		return nil, err
+	}
+
+	return project, nil
+}
+
+// GetProject retrieves a project by ID
+func (s *specService) GetProject(id string) (*models.Project, error) {
+	if id == "" {
+		return nil, models.NewZammError(models.ErrTypeValidation, "project ID cannot be empty")
+	}
+
+	node, err := s.storage.GetNode(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Type assert to Project
+	if project, ok := node.(*models.Project); ok {
+		return project, nil
+	}
+
+	return nil, models.NewZammError(models.ErrTypeValidation, "node is not a project")
 }
 
 // GetSpec retrieves a specification by ID
@@ -215,22 +252,47 @@ func (s *specService) GetChildren(specID string) ([]*models.Spec, error) {
 }
 
 // InitializeRootSpec creates the root specification if it doesn't exist
-// and links all orphaned specs to it
+// and links all orphaned specs to it. On interactive mode startup, converts
+// the root node to a Project node if it isn't already one.
 func (s *specService) InitializeRootSpec() error {
-	// Check if root spec already exists
-	rootSpec, err := s.GetRootSpec()
+	metadata, err := s.storage.GetProjectMetadata()
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get project metadata", err)
+	}
 
-	if err != nil || rootSpec == nil {
-		// Create root spec
-		newRootSpec, err := s.CreateSpec("New Project", "Requirement: This project should exist.")
+	if metadata.RootSpecID == nil {
+		// Create root project
+		newRootProject, err := s.CreateProject("New Project", "Requirement: This project should exist.")
 		if err != nil {
-			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create root spec", err)
+			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to create root project", err)
 		}
 
 		// Set it as the root spec in metadata
-		err = s.storage.SetRootSpecID(&newRootSpec.ID)
+		err = s.storage.SetRootSpecID(&newRootProject.ID)
 		if err != nil {
 			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to set root spec ID", err)
+		}
+		return nil
+	}
+
+	// Root exists, check if it's a Project
+	rootNode, err := s.storage.GetNode(*metadata.RootSpecID)
+	if err != nil {
+		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get root node", err)
+	}
+
+	// If it's already a Project, we're done
+	if rootNode.GetType() == "project" {
+		return nil
+	} else { // otherwise, convert it to a Project
+		// Create a new Project with the same content
+		newProject := models.NewProject(rootNode.GetTitle(), rootNode.GetContent())
+		// Keep the same ID to maintain references
+		newProject.ID = rootNode.GetID()
+
+		// Update the node in storage
+		if err := s.storage.UpdateNode(newProject); err != nil {
+			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to convert root spec to project", err)
 		}
 	}
 
@@ -253,12 +315,24 @@ func (s *specService) GetRootSpec() (*models.Spec, error) {
 		return nil, err
 	}
 
-	// Type assert to Spec
-	if spec, ok := node.(*models.Spec); ok {
+	// Handle both Spec and Project types for backward compatibility
+	switch n := node.(type) {
+	case *models.Spec:
+		return n, nil
+	case *models.Project:
+		// Convert Project to Spec for backward compatibility
+		spec := &models.Spec{
+			NodeBase: models.NodeBase{
+				ID:      n.ID,
+				Title:   n.Title,
+				Content: n.Content,
+				Type:    "specification", // Present as spec for compatibility
+			},
+		}
 		return spec, nil
+	default:
+		return nil, models.NewZammError(models.ErrTypeValidation, "root node is not a spec or project")
 	}
-
-	return nil, models.NewZammError(models.ErrTypeValidation, "root node is not a spec")
 }
 
 // GetOrphanSpecs retrieves all specs that don't have any parents
