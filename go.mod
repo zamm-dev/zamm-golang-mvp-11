@@ -1,4 +1,4 @@
-module github.com/yourorg/zamm-mvp
+module github.com/zamm-dev/zamm-golang-mvp-11
 
 go 1.23.4
 

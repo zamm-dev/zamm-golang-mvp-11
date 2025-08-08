@@ -7,8 +7,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
-	"github.com/yourorg/zamm-mvp/internal/services"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
 )
 
 // LinkEditorMode represents the current state of the link editor

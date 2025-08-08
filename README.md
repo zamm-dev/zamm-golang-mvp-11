@@ -22,7 +22,7 @@ A Go-based CLI tool for linking specification nodes to Git commits, enabling tra
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourorg/zamm-mvp
+git clone https://github.com/zamm-dev/zamm-golang-mvp-11
 cd zamm-mvp
 
 # Set up development environment

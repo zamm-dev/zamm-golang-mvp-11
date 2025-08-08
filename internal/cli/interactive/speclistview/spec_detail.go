@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/yourorg/zamm-mvp/internal/cli/interactive/common"
-	"github.com/yourorg/zamm-mvp/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/common"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 )
 
 // SpecDetail encapsulates all state and logic for a spec detail

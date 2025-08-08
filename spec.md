@@ -387,7 +387,7 @@ migrations-up:
 #### 11.2 Dependencies
 ```go
 // go.mod
-module github.com/yourorg/zamm-mvp
+module github.com/zamm-dev/zamm-golang-mvp-11
 
 go 1.21
 

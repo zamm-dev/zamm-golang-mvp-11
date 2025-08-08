@@ -7,8 +7,8 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/yourorg/zamm-mvp/internal/cli/interactive/common"
-	"github.com/yourorg/zamm-mvp/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/common"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 )
 
 type keyMap struct {

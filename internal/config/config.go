@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/viper"
-	"github.com/yourorg/zamm-mvp/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 )
 
 // Config holds all configuration for the application

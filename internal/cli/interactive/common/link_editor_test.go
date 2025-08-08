@@ -8,8 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
-	"github.com/yourorg/zamm-mvp/internal/services"
-	"github.com/yourorg/zamm-mvp/internal/storage"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 )
 
 func requireGoldenAfterWaitFor(t *testing.T, tm *teatest.TestModel, waitFor []byte) {

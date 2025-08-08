@@ -5,7 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/yourorg/zamm-mvp/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 )
 
 // DebugMsg is a generic debug message for logging

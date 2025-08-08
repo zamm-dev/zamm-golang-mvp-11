@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/yourorg/zamm-mvp/internal/models"
-	"github.com/yourorg/zamm-mvp/internal/storage"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 )
 
 // LinkService interface defines operations for managing spec-commit links

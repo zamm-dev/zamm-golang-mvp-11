@@ -10,11 +10,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
-	interactive "github.com/yourorg/zamm-mvp/internal/cli/interactive"
-	"github.com/yourorg/zamm-mvp/internal/cli/interactive/common"
-	"github.com/yourorg/zamm-mvp/internal/cli/interactive/speclistview"
-	"github.com/yourorg/zamm-mvp/internal/models"
-	"github.com/yourorg/zamm-mvp/internal/services"
+	interactive "github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/common"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/speclistview"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
 )
 
 // MenuState represents the current state of the interactive menu

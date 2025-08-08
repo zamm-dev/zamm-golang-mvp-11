@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	interactive "github.com/yourorg/zamm-mvp/internal/cli/interactive"
-	"github.com/yourorg/zamm-mvp/internal/config"
-	"github.com/yourorg/zamm-mvp/internal/services"
-	"github.com/yourorg/zamm-mvp/internal/storage"
+	interactive "github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/config"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 )
 
 func TestMessageDumpingWithDebugWriter(t *testing.T) {

@@ -3,9 +3,9 @@ package cli
 import (
 	"fmt"
 
-	"github.com/yourorg/zamm-mvp/internal/config"
-	"github.com/yourorg/zamm-mvp/internal/services"
-	"github.com/yourorg/zamm-mvp/internal/storage"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/config"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 )
 
 // App represents the CLI application

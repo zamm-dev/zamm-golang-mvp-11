@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/yourorg/zamm-mvp/internal/models"
-	"github.com/yourorg/zamm-mvp/internal/storage"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 )
 
 // setupTestService creates a new test service with temporary file storage

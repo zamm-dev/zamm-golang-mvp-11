@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/yourorg/zamm-mvp/internal/config"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/config"
 )
 
 // createInitCommand creates the init command

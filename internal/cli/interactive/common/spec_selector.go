@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/yourorg/zamm-mvp/internal/cli/interactive"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive"
 )
 
 // SpecSelectedMsg is sent when a spec is selected
