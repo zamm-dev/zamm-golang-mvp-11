@@ -1,0 +1,6 @@
+{
+  "id": "9bba352a-2661-4723-8fe4-f30c3c1238d6",
+  "title": "Node Creation/Editing Flow",
+  "content": "There should be a single flow for node creation and editing.\n\nDuring creation, the screens should be presented in the following order:\n\n1. Screen to select what node type to create\n2. Screen to enter generic node details (title and description of node)\n3. Screen to enter type-specific details, if any (e.g. for implementation nodes, offer a form for entering Git repo details)",
+  "type": "specification"
+}
