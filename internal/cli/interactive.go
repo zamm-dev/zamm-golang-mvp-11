@@ -22,8 +22,10 @@ type MenuState int
 
 const (
 	SpecListView MenuState = iota
+	NodeTypeSelection
 	LinkSelection
 	SpecEditor
+	ImplementationForm
 	ConfirmDelete
 	// New states for link editing components
 	LinkEditor
@@ -65,6 +67,16 @@ type Model struct {
 
 	// Spec selector components
 	specEditor common.SpecEditor
+
+	// Node type selection
+	nodeTypeSelector *common.NodeTypeSelector
+	pendingNodeType  common.NodeType
+
+	// Implementation form data
+	implForm       common.ImplementationForm
+	implRepoURL    *string
+	implBranch     *string
+	implFolderPath *string
 
 	// Debug logging
 	debugWriter io.Writer
@@ -189,6 +201,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.specListView.SetSize(msg.Width, msg.Height)
 		m.specEditor.SetSize(msg.Width, msg.Height)
 		m.linkEditor.SetSize(msg.Width, msg.Height)
+		if m.nodeTypeSelector != nil {
+			m.nodeTypeSelector.SetSize(msg.Width, msg.Height)
+		}
 	case tea.KeyMsg:
 		if m.showMessage {
 			if msg.String() == "enter" || msg.String() == " " || msg.String() == "esc" {
@@ -259,14 +274,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resetInputs()
 			m.parentSpecID = msg.ParentSpecID // Store parent spec ID for later use
 
-			config := common.SpecEditorConfig{
-				Title:          "📝 Create New Specification",
-				InitialTitle:   "",
-				InitialContent: "",
-			}
-			m.specEditor = common.NewSpecEditor(config)
-			m.specEditor.SetSize(m.terminalWidth, m.terminalHeight)
-			m.state = SpecEditor
+			// First show node type selector
+			nts := common.NewNodeTypeSelector("Choose node type to create:")
+			m.nodeTypeSelector = &nts
+			m.nodeTypeSelector.SetSize(m.terminalWidth, m.terminalHeight)
+			m.state = NodeTypeSelection
 			return m, nil
 		}
 
@@ -402,9 +414,58 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Edit existing spec
 				return m, m.updateSpecCmd(m.editingSpecID, msg.Title, msg.Content)
 			} else {
-				// Create new spec
+				// If creating an implementation, collect extra fields next
+				if m.pendingNodeType == common.NodeTypeImplementation {
+					m.inputTitle = msg.Title
+					m.inputContent = msg.Content
+					m.implForm = common.NewImplementationForm("🔧 Implementation Details")
+					m.implForm.SetSize(m.terminalWidth, m.terminalHeight)
+					m.state = ImplementationForm
+					return m, nil
+				}
+				// Otherwise create a spec immediately
 				return m, m.createSpecCmd(msg.Title, msg.Content)
 			}
+		}
+
+	case common.ImplementationFormSubmitMsg:
+		if m.state == ImplementationForm {
+			m.implRepoURL = msg.RepoURL
+			m.implBranch = msg.Branch
+			m.implFolderPath = msg.FolderPath
+			// Use stashed title/content
+			return m, m.createImplementationCmd(m.inputTitle, m.inputContent)
+		}
+
+	case common.ImplementationFormCancelMsg:
+		if m.state == ImplementationForm {
+			m.state = SpecListView
+			m.resetInputs()
+			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+		}
+
+	case common.NodeTypeSelectedMsg:
+		if m.state == NodeTypeSelection {
+			m.pendingNodeType = msg.Type
+			// Open the editor with an appropriate title
+			var title string
+			if msg.Type == common.NodeTypeImplementation {
+				title = "🧩 Create New Implementation"
+			} else {
+				title = "📝 Create New Specification"
+			}
+			config := common.SpecEditorConfig{Title: title, InitialTitle: "", InitialContent: ""}
+			m.specEditor = common.NewSpecEditor(config)
+			m.specEditor.SetSize(m.terminalWidth, m.terminalHeight)
+			m.state = SpecEditor
+			return m, nil
+		}
+
+	case common.NodeTypeCancelledMsg:
+		if m.state == NodeTypeSelection {
+			m.state = SpecListView
+			m.resetInputs()
+			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
 		}
 
 	case common.SpecEditorCancelMsg:
@@ -441,6 +502,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Handle unhandled messages based on state
 	switch m.state {
+	case NodeTypeSelection:
+		var cmd tea.Cmd
+		selector, cmd := m.nodeTypeSelector.Update(msg)
+		if nts, ok := selector.(*common.NodeTypeSelector); ok {
+			m.nodeTypeSelector = nts
+		}
+		return m, cmd
+	case ImplementationForm:
+		var cmd tea.Cmd
+		formModel, cmd := m.implForm.Update(msg)
+		if f, ok := formModel.(common.ImplementationForm); ok {
+			m.implForm = f
+		}
+		return m, cmd
 	case LinkEditor:
 		var cmd tea.Cmd
 		editor, cmd := m.linkEditor.Update(msg)
@@ -554,8 +629,12 @@ func (m *Model) resetInputs() {
 	m.contentLines = []string{}
 	m.confirmAction = ""
 	m.parentSpecID = ""
+	m.implRepoURL = nil
+	m.implBranch = nil
+	m.implFolderPath = nil
 	m.textInput.Reset()
 	m.textInput.Blur()
+	m.nodeTypeSelector = nil
 }
 
 // createSpecCmd returns a command to create a new spec
@@ -575,6 +654,26 @@ func (m *Model) createSpecCmd(title, content string) tea.Cmd {
 		}
 
 		return operationCompleteMsg{message: fmt.Sprintf("✅ Created specification: %s. Press Enter to continue...", spec.Title)}
+	}
+}
+
+// createImplementationCmd returns a command to create a new implementation node
+func (m *Model) createImplementationCmd(title, content string) tea.Cmd {
+	return func() tea.Msg {
+		impl, err := m.app.specService.CreateImplementation(title, content, m.implRepoURL, m.implBranch, m.implFolderPath)
+		if err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
+		}
+
+		// If there's a parent spec ID, create the parent-child relationship
+		if m.parentSpecID != "" {
+			_, err := m.app.specService.AddChildToParent(impl.ID, m.parentSpecID, "child")
+			if err != nil {
+				return operationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
+			}
+		}
+
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Created implementation: %s. Press Enter to continue...", impl.Title)}
 	}
 }
 
@@ -631,6 +730,13 @@ func (m *Model) View() string {
 		return m.renderLinkSelection()
 	case SpecEditor:
 		return m.specEditor.View()
+	case ImplementationForm:
+		return m.implForm.View()
+	case NodeTypeSelection:
+		if m.nodeTypeSelector != nil {
+			return m.nodeTypeSelector.View()
+		}
+		return "Choose node type..."
 	case LinkEditor:
 		return m.linkEditor.View()
 	case ConfirmDelete:

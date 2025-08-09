@@ -11,6 +11,7 @@ import (
 type SpecService interface {
 	CreateSpec(title, content string) (*models.Spec, error)
 	CreateProject(title, content string) (*models.Project, error)
+	CreateImplementation(title, content string, repoURL, branch, folderPath *string) (*models.Implementation, error)
 	GetNode(id string) (models.Node, error)
 	GetProject(id string) (*models.Project, error)
 	UpdateSpec(id, title, content string) (*models.Spec, error)
@@ -71,6 +72,35 @@ func (s *specService) CreateProject(title, content string) (*models.Project, err
 	}
 
 	return project, nil
+}
+
+// CreateImplementation creates a new implementation node
+func (s *specService) CreateImplementation(title, content string, repoURL, branch, folderPath *string) (*models.Implementation, error) {
+	// Validate input
+	if err := s.validateSpecInput(title, content); err != nil {
+		return nil, err
+	}
+
+	impl := models.NewImplementation(strings.TrimSpace(title), strings.TrimSpace(content))
+	// Set optional fields if provided
+	if repoURL != nil && strings.TrimSpace(*repoURL) != "" {
+		v := strings.TrimSpace(*repoURL)
+		impl.RepoURL = &v
+	}
+	if branch != nil && strings.TrimSpace(*branch) != "" {
+		v := strings.TrimSpace(*branch)
+		impl.Branch = &v
+	}
+	if folderPath != nil && strings.TrimSpace(*folderPath) != "" {
+		v := strings.TrimSpace(*folderPath)
+		impl.FolderPath = &v
+	}
+
+	if err := s.storage.CreateNode(impl); err != nil {
+		return nil, err
+	}
+
+	return impl, nil
 }
 
 // GetProject retrieves a project by ID
