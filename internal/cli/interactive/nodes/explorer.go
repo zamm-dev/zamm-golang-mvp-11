@@ -1,4 +1,4 @@
-package speclistview
+package nodes
 
 import (
 	"fmt"
@@ -91,10 +91,10 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	}
 }
 
-// SpecExplorer represents the main two-pane spec exploration interface
-type SpecExplorer struct {
-	leftPane  SpecDetailView
-	rightPane SpecDetailView
+// NodeExplorer represents the main two-pane spec exploration interface
+type NodeExplorer struct {
+	leftPane  NodeDetailView
+	rightPane NodeDetailView
 
 	currentSpec models.Node
 	activeSpec  models.Node
@@ -109,14 +109,14 @@ type SpecExplorer struct {
 	showHelp bool
 }
 
-func NewSpecExplorer(linkService LinkService) SpecExplorer {
+func NewSpecExplorer(linkService LinkService) NodeExplorer {
 	if linkService == nil {
 		panic("linkService cannot be nil in NewSpecExplorer")
 	}
 
-	explorer := SpecExplorer{
-		leftPane:    NewSpecDetailView(),
-		rightPane:   NewSpecDetailView(),
+	explorer := NodeExplorer{
+		leftPane:    NewNodeDetailView(),
+		rightPane:   NewNodeDetailView(),
 		linkService: linkService,
 		keys:        keys,
 		help:        help.New(),
@@ -138,7 +138,7 @@ func NewSpecExplorer(linkService LinkService) SpecExplorer {
 	return explorer
 }
 
-func (e *SpecExplorer) SetSize(width, height int) {
+func (e *NodeExplorer) SetSize(width, height int) {
 	e.width = width
 	e.height = height
 	paneWidth := e.paneWidth()
@@ -147,15 +147,15 @@ func (e *SpecExplorer) SetSize(width, height int) {
 	e.help.Width = paneWidth
 }
 
-func (e *SpecExplorer) paneWidth() int {
+func (e *NodeExplorer) paneWidth() int {
 	return (e.width - 1) / 2
 }
 
-func (e *SpecExplorer) Refresh() tea.Cmd {
+func (e *NodeExplorer) Refresh() tea.Cmd {
 	return e.setCurrentNode(e.currentSpec)
 }
 
-func (e *SpecExplorer) Update(msg tea.Msg) (SpecExplorer, tea.Cmd) {
+func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 	// Assert that specs are never nil
 	if e.currentSpec == nil {
 		panic("currentSpec is nil in SpecExplorer.Update")
@@ -223,8 +223,8 @@ func (e *SpecExplorer) Update(msg tea.Msg) (SpecExplorer, tea.Cmd) {
 	var leftCmd, rightCmd tea.Cmd
 	leftModel, leftCmd := e.leftPane.Update(msg)
 	rightModel, rightCmd := e.rightPane.Update(msg)
-	e.leftPane = *leftModel.(*SpecDetailView)
-	e.rightPane = *rightModel.(*SpecDetailView)
+	e.leftPane = *leftModel.(*NodeDetailView)
+	e.rightPane = *rightModel.(*NodeDetailView)
 	if leftCmd != nil && rightCmd != nil {
 		return *e, tea.Batch(leftCmd, rightCmd)
 	} else if leftCmd != nil {
@@ -235,7 +235,7 @@ func (e *SpecExplorer) Update(msg tea.Msg) (SpecExplorer, tea.Cmd) {
 	return *e, nil
 }
 
-func (e *SpecExplorer) setCurrentNode(currentNode models.Node) tea.Cmd {
+func (e *NodeExplorer) setCurrentNode(currentNode models.Node) tea.Cmd {
 	if currentNode == nil {
 		// This should only happen during initialization error - try to get root spec
 		rootSpec, err := e.linkService.GetRootNode()
@@ -255,11 +255,11 @@ func (e *SpecExplorer) setCurrentNode(currentNode models.Node) tea.Cmd {
 	return nil
 }
 
-func (e *SpecExplorer) navigateToChildren(node models.Node) tea.Cmd {
+func (e *NodeExplorer) navigateToChildren(node models.Node) tea.Cmd {
 	return e.setCurrentNode(node)
 }
 
-func (e *SpecExplorer) navigateBack() tea.Cmd {
+func (e *NodeExplorer) navigateBack() tea.Cmd {
 	// Get parent spec
 	parentSpec, err := e.linkService.GetParentNode(e.currentSpec.GetID())
 	if err != nil || parentSpec == nil {
@@ -276,7 +276,7 @@ func (e *SpecExplorer) navigateBack() tea.Cmd {
 	return e.setCurrentNode(parentSpec)
 }
 
-func (e *SpecExplorer) updateDetailsForSpec() {
+func (e *NodeExplorer) updateDetailsForSpec() {
 	if e.linkService == nil {
 		return
 	}
@@ -317,7 +317,7 @@ func (e *SpecExplorer) updateDetailsForSpec() {
 }
 
 // updateRightPaneOnly updates only the right pane without affecting left pane cursor
-func (e *SpecExplorer) updateRightPaneOnly() {
+func (e *NodeExplorer) updateRightPaneOnly() {
 	if e.linkService == nil {
 		return
 	}
@@ -340,7 +340,7 @@ func (e *SpecExplorer) updateRightPaneOnly() {
 	e.rightPane.SetSpec(e.activeSpec, activeLinks, activeChildNodes)
 }
 
-func (e *SpecExplorer) View() string {
+func (e *NodeExplorer) View() string {
 	// Assert that specs are never nil
 	if e.currentSpec == nil {
 		panic("currentSpec is nil in SpecExplorer.View")

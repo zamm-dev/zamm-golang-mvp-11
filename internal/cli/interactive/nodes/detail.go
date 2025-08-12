@@ -1,4 +1,4 @@
-package speclistview
+package nodes
 
 import (
 	"fmt"
@@ -10,9 +10,9 @@ import (
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 )
 
-// SpecDetail encapsulates all state and logic for a spec detail
+// NodeDetail encapsulates all state and logic for a spec detail
 // (separated from the viewport logic)
-type SpecDetail struct {
+type NodeDetail struct {
 	node       models.Node
 	links      []*models.SpecCommitLink
 	childNodes []models.Node
@@ -22,7 +22,7 @@ type SpecDetail struct {
 	height     int
 }
 
-func NewSpecDetail() *SpecDetail {
+func NewNodeDetail() *NodeDetail {
 	columns := []table.Column{
 		{Title: "TYPE", Width: 6},
 		{Title: "COMMIT", Width: 8},
@@ -44,13 +44,13 @@ func NewSpecDetail() *SpecDetail {
 		Foreground(lipgloss.NoColor{}).
 		Bold(false)
 	commitsTable.SetStyles(s)
-	return &SpecDetail{
+	return &NodeDetail{
 		table:  commitsTable,
 		cursor: -1,
 	}
 }
 
-func (d *SpecDetail) SetSize(width, height int) {
+func (d *NodeDetail) SetSize(width, height int) {
 	d.width = width
 	d.height = height
 	extraPadding := 7
@@ -62,7 +62,7 @@ func (d *SpecDetail) SetSize(width, height int) {
 	d.table.SetColumns(columns)
 }
 
-func (d *SpecDetail) SetSpec(node models.Node, links []*models.SpecCommitLink, childNodes []models.Node) {
+func (d *NodeDetail) SetSpec(node models.Node, links []*models.SpecCommitLink, childNodes []models.Node) {
 	d.node = node
 	d.links = links
 	d.childNodes = childNodes
@@ -70,14 +70,14 @@ func (d *SpecDetail) SetSpec(node models.Node, links []*models.SpecCommitLink, c
 	d.cursor = -1
 }
 
-func (d *SpecDetail) GetSelectedChild() models.Node {
+func (d *NodeDetail) GetSelectedChild() models.Node {
 	if d.cursor >= 0 && d.cursor < len(d.childNodes) {
 		return d.childNodes[d.cursor]
 	}
 	return nil
 }
 
-func (d *SpecDetail) SelectNextChild() {
+func (d *NodeDetail) SelectNextChild() {
 	if len(d.childNodes) == 0 {
 		d.cursor = -1
 		return
@@ -88,7 +88,7 @@ func (d *SpecDetail) SelectNextChild() {
 	}
 }
 
-func (d *SpecDetail) SelectPrevChild() {
+func (d *NodeDetail) SelectPrevChild() {
 	if len(d.childNodes) == 0 {
 		d.cursor = -1
 		return
@@ -99,11 +99,11 @@ func (d *SpecDetail) SelectPrevChild() {
 	}
 }
 
-func (d *SpecDetail) ResetCursor() {
+func (d *NodeDetail) ResetCursor() {
 	d.cursor = -1
 }
 
-func (d *SpecDetail) updateCommitsTable() {
+func (d *NodeDetail) updateCommitsTable() {
 	if d.links == nil {
 		d.table.SetRows([]table.Row{})
 		return
@@ -135,7 +135,7 @@ func (d *SpecDetail) updateCommitsTable() {
 	d.table.SetHeight(len(rows) + 2)
 }
 
-func (d *SpecDetail) View() string {
+func (d *NodeDetail) View() string {
 	// Handle case where node hasn't been set yet
 	if d.node == nil {
 		return "No specification selected"

@@ -1,4 +1,4 @@
-package speclistview
+package nodes
 
 import (
 	"bytes"
@@ -30,7 +30,7 @@ func waitForGoldenOutput(t *testing.T, tm *teatest.TestModel, waitFor []byte, go
 	teatest.RequireEqualOutput(t, capturedOutput)
 }
 
-func TestSpecDetailViewInitialRender(t *testing.T) {
+func TestNodeDetailViewInitialRender(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("..", "common", "testdata", ".zamm")
 	storage := storage.NewFileStorage(testDataPath)
@@ -56,17 +56,17 @@ func TestSpecDetailViewInitialRender(t *testing.T) {
 	}
 
 	// Create spec detail view
-	view := NewSpecDetailView()
+	view := NewNodeDetailView()
 	view.SetSize(80, 24)
 	view.SetSpec(spec, links, childNodes)
 
 	tm := teatest.NewTestModel(t, &view, teatest.WithInitialTermSize(80, 24))
 
 	// Wait for initial render and capture golden output
-	waitForGoldenOutput(t, tm, []byte("Lorem ipsum"), "TestSpecDetailViewInitialRender.golden")
+	waitForGoldenOutput(t, tm, []byte("Lorem ipsum"), "TestNodeDetailViewInitialRender.golden")
 }
 
-func TestSpecDetailViewScrolling(t *testing.T) {
+func TestNodeDetailViewScrolling(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("..", "common", "testdata", ".zamm")
 	storage := storage.NewFileStorage(testDataPath)
@@ -92,7 +92,7 @@ func TestSpecDetailViewScrolling(t *testing.T) {
 	}
 
 	// Create spec detail view with smaller height to force scrolling
-	view := NewSpecDetailView()
+	view := NewNodeDetailView()
 	view.SetSize(80, 24)
 	view.SetSpec(spec, links, childNodes)
 
@@ -102,5 +102,5 @@ func TestSpecDetailViewScrolling(t *testing.T) {
 	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
 
 	// Wait for scrolling and capture golden output
-	waitForGoldenOutput(t, tm, []byte("Nullam quis"), "TestSpecDetailViewScrolling.golden")
+	waitForGoldenOutput(t, tm, []byte("Nullam quis"), "TestNodeDetailViewScrolling.golden")
 }

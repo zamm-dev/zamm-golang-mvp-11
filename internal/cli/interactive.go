@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	interactive "github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/common"
-	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/speclistview"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/nodes"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
 )
@@ -42,7 +42,7 @@ type Model struct {
 	selectedSpecID string
 	message        string
 	showMessage    bool
-	specListView   speclistview.SpecExplorer
+	specListView   nodes.NodeExplorer
 
 	terminalWidth  int
 	terminalHeight int
@@ -140,7 +140,7 @@ func NewModel(app *App, debugWriter io.Writer) *Model {
 		app:            app,
 		state:          SpecListView,
 		textInput:      ti,
-		specListView:   speclistview.NewSpecExplorer(combinedSvc),
+		specListView:   nodes.NewSpecExplorer(combinedSvc),
 		linkEditor:     common.NewLinkEditor(common.LinkEditorConfig{Title: "", DefaultRepo: app.config.Git.DefaultRepo, CurrentSpecID: "", CurrentSpecTitle: "", IsUnlinkMode: false, IsMoveMode: false}, app.linkService, app.specService),
 		terminalWidth:  80, // Default terminal width
 		terminalHeight: 24, // Default terminal height
@@ -269,7 +269,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.showMessage = true
 		return m, nil
 
-	case speclistview.CreateNewSpecMsg:
+	case nodes.CreateNewSpecMsg:
 		if m.state == SpecListView {
 			m.resetInputs()
 			m.parentSpecID = msg.ParentSpecID // Store parent spec ID for later use
@@ -282,7 +282,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-	case speclistview.EditSpecMsg:
+	case nodes.EditSpecMsg:
 		if m.state == SpecListView {
 			m.resetInputs()
 			m.editingSpecID = msg.SpecID
@@ -310,7 +310,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-	case speclistview.LinkCommitSpecMsg:
+	case nodes.LinkCommitSpecMsg:
 		if m.state == SpecListView {
 			m.resetInputs()
 			m.selectedSpecID = msg.SpecID
@@ -340,7 +340,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-	case speclistview.DeleteSpecMsg:
+	case nodes.DeleteSpecMsg:
 		if m.state == SpecListView {
 			m.resetInputs()
 			m.selectedSpecID = msg.SpecID
@@ -349,7 +349,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-	case speclistview.RemoveLinkSpecMsg:
+	case nodes.RemoveLinkSpecMsg:
 		if m.state == SpecListView {
 			m.resetInputs()
 			m.selectedSpecID = msg.SpecID
@@ -379,7 +379,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-	case speclistview.MoveSpecMsg:
+	case nodes.MoveSpecMsg:
 		if m.state == SpecListView {
 			m.resetInputs()
 			m.selectedSpecID = msg.SpecID
@@ -534,7 +534,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case speclistview.ExitMsg:
+	case nodes.ExitMsg:
 		return m, tea.Quit
 	}
 

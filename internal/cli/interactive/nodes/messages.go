@@ -1,4 +1,4 @@
-package speclistview
+package nodes
 
 // Message types for communication
 type CreateNewSpecMsg struct {

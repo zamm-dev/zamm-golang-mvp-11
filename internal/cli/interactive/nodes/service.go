@@ -1,4 +1,4 @@
-package speclistview
+package nodes
 
 import (
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
