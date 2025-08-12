@@ -10,34 +10,42 @@ import (
 	overlay "github.com/rmhubbert/bubbletea-overlay"
 )
 
-// SpecEditorMode represents the current editing mode
-type SpecEditorMode int
+// NodeEditorMode represents the current editing mode
+type NodeEditorMode int
 
 const (
-	EditingTitle SpecEditorMode = iota
+	EditingTitle NodeEditorMode = iota
 	EditingContent
 )
 
-// SpecEditorConfig configures the behavior of the spec editor
-type SpecEditorConfig struct {
-	Title          string // Title shown to user (e.g., "Create New Specification" or "Edit Specification")
-	InitialTitle   string // Initial title value (empty for new spec)
-	InitialContent string // Initial content value (empty for new spec)
+// NodeEditorConfig configures the behavior of the node editor
+type NodeEditorConfig struct {
+	Title          string // Title shown to user (e.g., "Create New Node" or "Edit Node")
+	InitialTitle   string // Initial title value (empty for new node)
+	InitialContent string // Initial content value (empty for new node)
+	NodeType       string // Type of node being edited (e.g., "specification", "implementation", "project")
 }
 
-// SpecEditorCompleteMsg is sent when editing is complete
-type SpecEditorCompleteMsg struct {
+// NodeEditorCompleteMsg is sent when editing is complete
+type NodeEditorCompleteMsg struct {
+	Title    string
+	Content  string
+	NodeType string
+}
+
+// NodeEditorCancelMsg is sent when user cancels editing
+type NodeEditorCancelMsg struct{}
+
+// NodeEditorImplementationFormMsg is sent when user should be taken to implementation form
+type NodeEditorImplementationFormMsg struct {
 	Title   string
 	Content string
 }
 
-// SpecEditorCancelMsg is sent when user cancels editing
-type SpecEditorCancelMsg struct{}
-
-// baseSpecEditor contains the core editor logic without overlay management
-type baseSpecEditor struct {
-	config          SpecEditorConfig
-	mode            SpecEditorMode
+// baseNodeEditor contains the core editor logic without overlay management
+type baseNodeEditor struct {
+	config          NodeEditorConfig
+	mode            NodeEditorMode
 	titleInput      textinput.Model
 	contentTextarea textarea.Model
 	width           int
@@ -73,7 +81,7 @@ func (c *ConfirmationDialog) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "y", "Y":
 			return c, func() tea.Msg {
-				return SpecEditorCancelMsg{}
+				return NodeEditorCancelMsg{}
 			}
 		case "n", "N", "esc":
 			// Return to editing mode immediately
@@ -106,15 +114,15 @@ func (c *ConfirmationDialog) View() string {
 // ConfirmationDismissMsg is sent when user dismisses the confirmation dialog
 type ConfirmationDismissMsg struct{}
 
-// newBaseSpecEditor creates a new base spec editor component
-func newBaseSpecEditor(config SpecEditorConfig) baseSpecEditor {
+// newBaseNodeEditor creates a new base node editor component
+func newBaseNodeEditor(config NodeEditorConfig) baseNodeEditor {
 	titleInput := textinput.New()
-	titleInput.Placeholder = "Enter specification title"
+	titleInput.Placeholder = "Enter node title"
 	titleInput.Focus()
 	titleInput.SetValue(config.InitialTitle)
 
 	contentTextarea := textarea.New()
-	contentTextarea.Placeholder = "Enter specification content..."
+	contentTextarea.Placeholder = "Enter node content..."
 	contentTextarea.CharLimit = 0 // Remove character limit
 	if config.InitialContent != "" {
 		contentTextarea.SetValue(config.InitialContent)
@@ -123,7 +131,7 @@ func newBaseSpecEditor(config SpecEditorConfig) baseSpecEditor {
 	contentTextarea.Focus()
 	contentTextarea.Blur()
 
-	return baseSpecEditor{
+	return baseNodeEditor{
 		config:          config,
 		mode:            EditingTitle, // Start with title focused
 		titleInput:      titleInput,
@@ -134,13 +142,13 @@ func newBaseSpecEditor(config SpecEditorConfig) baseSpecEditor {
 	}
 }
 
-// Init initializes the base spec editor
-func (s baseSpecEditor) Init() tea.Cmd {
+// Init initializes the base node editor
+func (s baseNodeEditor) Init() tea.Cmd {
 	return nil
 }
 
-// SetSize sets the dimensions of the base spec editor
-func (s *baseSpecEditor) SetSize(width, height int) {
+// SetSize sets the dimensions of the base node editor
+func (s *baseNodeEditor) SetSize(width, height int) {
 	s.width = width
 	s.height = height
 	s.titleInput.Width = width
@@ -150,7 +158,7 @@ func (s *baseSpecEditor) SetSize(width, height int) {
 }
 
 // checkForChanges checks if there are unsaved changes
-func (s *baseSpecEditor) checkForChanges() bool {
+func (s *baseNodeEditor) checkForChanges() bool {
 	currentTitle := strings.TrimSpace(s.titleInput.Value())
 	currentContent := strings.TrimSpace(s.contentTextarea.Value())
 
@@ -158,7 +166,7 @@ func (s *baseSpecEditor) checkForChanges() bool {
 }
 
 // Update handles tea messages and updates the base component
-func (s baseSpecEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (s baseNodeEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		s.SetSize(msg.Width, msg.Height)
@@ -167,7 +175,7 @@ func (s baseSpecEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			return s, func() tea.Msg {
-				return SpecEditorCancelMsg{}
+				return NodeEditorCancelMsg{}
 			}
 		case tea.KeyTab:
 			if s.mode == EditingTitle {
@@ -199,10 +207,21 @@ func (s baseSpecEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return s, nil // Don't save with empty title
 			}
 
+			// For implementation nodes, redirect to implementation form
+			if s.config.NodeType == "implementation" {
+				return s, func() tea.Msg {
+					return NodeEditorImplementationFormMsg{
+						Title:   title,
+						Content: content,
+					}
+				}
+			}
+
 			return s, func() tea.Msg {
-				return SpecEditorCompleteMsg{
-					Title:   title,
-					Content: content,
+				return NodeEditorCompleteMsg{
+					Title:    title,
+					Content:  content,
+					NodeType: s.config.NodeType,
 				}
 			}
 		}
@@ -220,8 +239,8 @@ func (s baseSpecEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return s, cmd
 }
 
-// View renders the base spec editor
-func (s baseSpecEditor) View() string {
+// View renders the base node editor
+func (s baseNodeEditor) View() string {
 	s.contentTextarea.SetWidth(s.width)
 	s.contentTextarea.SetHeight(s.height - 8)
 
@@ -236,32 +255,36 @@ func (s baseSpecEditor) View() string {
 	sb.WriteString(s.contentTextarea.View() + "\n\n")
 
 	// Instructions
-	sb.WriteString("Press Tab/Shift+Tab to switch fields, Ctrl+S to save, Esc to cancel")
+	instructions := "Press Tab/Shift+Tab to switch fields, Ctrl+S to save, Esc to cancel"
+	if s.config.NodeType == "implementation" {
+		instructions = "Press Tab/Shift+Tab to switch fields, Ctrl+S to proceed to implementation details, Esc to cancel"
+	}
+	sb.WriteString(instructions)
 
 	return sb.String()
 }
 
-// SpecEditor manages the overlay state and wraps baseSpecEditor
-type SpecEditor struct {
-	state              SpecEditorState
-	baseEditor         baseSpecEditor
+// NodeEditor manages the overlay state and wraps baseNodeEditor
+type NodeEditor struct {
+	state              NodeEditorState
+	baseEditor         baseNodeEditor
 	confirmationDialog *ConfirmationDialog
 	overlay            tea.Model
 	width              int
 	height             int
 }
 
-// SpecEditorState represents the current state
-type SpecEditorState int
+// NodeEditorState represents the current state
+type NodeEditorState int
 
 const (
-	Editing SpecEditorState = iota
+	Editing NodeEditorState = iota
 	ShowingConfirmation
 )
 
-// NewSpecEditor creates a new spec editor component
-func NewSpecEditor(config SpecEditorConfig) SpecEditor {
-	baseEditor := newBaseSpecEditor(config)
+// NewNodeEditor creates a new node editor component
+func NewNodeEditor(config NodeEditorConfig) NodeEditor {
+	baseEditor := newBaseNodeEditor(config)
 	confirmationDialog := NewConfirmationDialog("You have unsaved changes. Are you sure you want to exit?")
 
 	overlay := overlay.New(
@@ -273,7 +296,7 @@ func NewSpecEditor(config SpecEditorConfig) SpecEditor {
 		0,
 	)
 
-	return SpecEditor{
+	return NodeEditor{
 		state:              Editing,
 		baseEditor:         baseEditor,
 		confirmationDialog: confirmationDialog,
@@ -281,20 +304,20 @@ func NewSpecEditor(config SpecEditorConfig) SpecEditor {
 	}
 }
 
-// Init initializes the spec editor
-func (s *SpecEditor) Init() tea.Cmd {
+// Init initializes the node editor
+func (s *NodeEditor) Init() tea.Cmd {
 	return nil
 }
 
-// SetSize sets the dimensions of the spec editor
-func (s *SpecEditor) SetSize(width, height int) {
+// SetSize sets the dimensions of the node editor
+func (s *NodeEditor) SetSize(width, height int) {
 	s.width = width
 	s.height = height
 	s.baseEditor.SetSize(width, height)
 }
 
 // Update handles tea messages and updates the component
-func (s *SpecEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (s *NodeEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		s.SetSize(msg.Width, msg.Height)
@@ -309,7 +332,7 @@ func (s *SpecEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s.state == ShowingConfirmation {
 			switch msg.String() {
 			case "y", "Y":
-				return s, func() tea.Msg { return SpecEditorCancelMsg{} }
+				return s, func() tea.Msg { return NodeEditorCancelMsg{} }
 			case "n", "N", "esc":
 				s.state = Editing
 				return s, nil
@@ -324,14 +347,14 @@ func (s *SpecEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				// No changes, exit immediately
 				return s, func() tea.Msg {
-					return SpecEditorCancelMsg{}
+					return NodeEditorCancelMsg{}
 				}
 			}
 		}
 
 		// Update the base editor
 		baseEditor, cmd := s.baseEditor.Update(msg)
-		if updatedBase, ok := baseEditor.(baseSpecEditor); ok {
+		if updatedBase, ok := baseEditor.(baseNodeEditor); ok {
 			s.baseEditor = updatedBase
 		}
 		return s, cmd
@@ -339,10 +362,10 @@ func (s *SpecEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Handle confirmation dialog messages
 	switch msg.(type) {
-	case SpecEditorCancelMsg:
+	case NodeEditorCancelMsg:
 		// User confirmed exit
 		return s, func() tea.Msg {
-			return SpecEditorCancelMsg{}
+			return NodeEditorCancelMsg{}
 		}
 	case ConfirmationDismissMsg:
 		// User dismissed confirmation, return to editing
@@ -352,14 +375,14 @@ func (s *SpecEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Update the base editor for other messages
 	baseEditor, cmd := s.baseEditor.Update(msg)
-	if updatedBase, ok := baseEditor.(baseSpecEditor); ok {
+	if updatedBase, ok := baseEditor.(baseNodeEditor); ok {
 		s.baseEditor = updatedBase
 	}
 	return s, cmd
 }
 
-// View renders the spec editor
-func (s *SpecEditor) View() string {
+// View renders the node editor
+func (s *NodeEditor) View() string {
 	if s.state == ShowingConfirmation {
 		// Recreate the overlay with the current base editor state
 		overlay := overlay.New(

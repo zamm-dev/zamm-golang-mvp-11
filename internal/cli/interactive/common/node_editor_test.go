@@ -28,12 +28,13 @@ func waitForGoldenOutput(t *testing.T, tm *teatest.TestModel, waitFor []byte, go
 }
 
 func TestSpecEditorEscWithDirtyFormShowsOverlay(t *testing.T) {
-	config := SpecEditorConfig{
+	config := NodeEditorConfig{
 		Title:          "Test Spec Editor",
 		InitialTitle:   "Initial Title",
 		InitialContent: "Initial Content",
+		NodeType:       "spec",
 	}
-	editor := NewSpecEditor(config)
+	editor := NewNodeEditor(config)
 	tm := teatest.NewTestModel(t, &editor, teatest.WithInitialTermSize(80, 24))
 
 	// Simulate editing the title (dirty form)
@@ -47,12 +48,13 @@ func TestSpecEditorEscWithDirtyFormShowsOverlay(t *testing.T) {
 }
 
 func TestSpecEditorPressNToDismissOverlay(t *testing.T) {
-	config := SpecEditorConfig{
+	config := NodeEditorConfig{
 		Title:          "Test Spec Editor",
 		InitialTitle:   "Initial Title",
 		InitialContent: "Initial Content",
+		NodeType:       "spec",
 	}
-	editor := NewSpecEditor(config)
+	editor := NewNodeEditor(config)
 	tm := teatest.NewTestModel(t, &editor, teatest.WithInitialTermSize(80, 24))
 
 	// Simulate editing the title (dirty form)

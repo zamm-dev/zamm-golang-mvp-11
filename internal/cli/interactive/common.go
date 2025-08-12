@@ -6,6 +6,7 @@ type Spec struct {
 	ID      string
 	Title   string
 	Content string
+	Type    string
 }
 
 func (s Spec) FilterValue() string {

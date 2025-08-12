@@ -24,7 +24,7 @@ const (
 	SpecListView MenuState = iota
 	NodeTypeSelection
 	LinkSelection
-	SpecEditor
+	NodeEditor
 	ImplementationForm
 	ConfirmDelete
 	// New states for link editing components
@@ -65,8 +65,8 @@ type Model struct {
 	// Link editing components
 	linkEditor common.LinkEditor
 
-	// Spec selector components
-	specEditor common.SpecEditor
+	// Node editor components
+	nodeEditor common.NodeEditor
 
 	// Node type selection
 	nodeTypeSelector *common.NodeTypeSelector
@@ -199,7 +199,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
 		m.specListView.SetSize(msg.Width, msg.Height)
-		m.specEditor.SetSize(msg.Width, msg.Height)
+		m.nodeEditor.SetSize(msg.Width, msg.Height)
 		m.linkEditor.SetSize(msg.Width, msg.Height)
 		if m.nodeTypeSelector != nil {
 			m.nodeTypeSelector.SetSize(msg.Width, msg.Height)
@@ -224,11 +224,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		case LinkSelection:
 			return m.updateLinkSelection(msg)
-		case SpecEditor:
+		case NodeEditor:
 			var cmd tea.Cmd
-			editor, editorCmd := m.specEditor.Update(msg)
-			if specEditor, ok := editor.(*common.SpecEditor); ok {
-				m.specEditor = *specEditor
+			editor, editorCmd := m.nodeEditor.Update(msg)
+			if nodeEditor, ok := editor.(*common.NodeEditor); ok {
+				m.nodeEditor = *nodeEditor
 			}
 			cmd = editorCmd
 			return m, cmd
@@ -288,23 +288,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.editingSpecID = msg.SpecID
 
 			// Find current title and content for pre-filling
-			var currentTitle, currentContent string
+			var currentTitle, currentContent, nodeType string
 			for _, spec := range m.specs {
 				if spec.ID == msg.SpecID {
 					currentTitle = spec.Title
 					currentContent = spec.Content
+					nodeType = spec.Type
 					break
 				}
 			}
 
-			config := common.SpecEditorConfig{
-				Title:          "✏️  Edit Specification",
+			config := common.NodeEditorConfig{
+				Title:          "✏️  Edit Node",
 				InitialTitle:   currentTitle,
 				InitialContent: currentContent,
+				NodeType:       nodeType,
 			}
-			m.specEditor = common.NewSpecEditor(config)
-			m.specEditor.SetSize(m.terminalWidth, m.terminalHeight)
-			m.state = SpecEditor
+			m.nodeEditor = common.NewNodeEditor(config)
+			m.nodeEditor.SetSize(m.terminalWidth, m.terminalHeight)
+			m.state = NodeEditor
 			return m, nil
 		}
 
@@ -407,25 +409,27 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.linkEditor.Init()
 		}
 
-	case common.SpecEditorCompleteMsg:
-		if m.state == SpecEditor {
+	case common.NodeEditorCompleteMsg:
+		if m.state == NodeEditor {
 			// Determine if this is create or edit based on whether we have an editingSpecID
 			if m.editingSpecID != "" {
-				// Edit existing spec
-				return m, m.updateSpecCmd(m.editingSpecID, msg.Title, msg.Content)
+				// Edit existing node
+				return m, m.updateNodeCmd(m.editingSpecID, msg.Title, msg.Content, msg.NodeType)
 			} else {
-				// If creating an implementation, collect extra fields next
-				if m.pendingNodeType == common.NodeTypeImplementation {
-					m.inputTitle = msg.Title
-					m.inputContent = msg.Content
-					m.implForm = common.NewImplementationForm("🔧 Implementation Details")
-					m.implForm.SetSize(m.terminalWidth, m.terminalHeight)
-					m.state = ImplementationForm
-					return m, nil
-				}
-				// Otherwise create a spec immediately
-				return m, m.createSpecCmd(msg.Title, msg.Content)
+				// Create new node based on type
+				return m, m.createNodeCmd(msg.Title, msg.Content, msg.NodeType)
 			}
+		}
+
+	case common.NodeEditorImplementationFormMsg:
+		if m.state == NodeEditor {
+			// User finished editing basic node info for implementation, show implementation form
+			m.inputTitle = msg.Title
+			m.inputContent = msg.Content
+			m.implForm = common.NewImplementationForm("🔧 Implementation Details")
+			m.implForm.SetSize(m.terminalWidth, m.terminalHeight)
+			m.state = ImplementationForm
+			return m, nil
 		}
 
 	case common.ImplementationFormSubmitMsg:
@@ -447,17 +451,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case common.NodeTypeSelectedMsg:
 		if m.state == NodeTypeSelection {
 			m.pendingNodeType = msg.Type
-			// Open the editor with an appropriate title
-			var title string
+			// Open the editor with an appropriate title and node type
+			var title, nodeType string
 			if msg.Type == common.NodeTypeImplementation {
 				title = "🧩 Create New Implementation"
+				nodeType = "implementation"
 			} else {
 				title = "📝 Create New Specification"
+				nodeType = "specification"
 			}
-			config := common.SpecEditorConfig{Title: title, InitialTitle: "", InitialContent: ""}
-			m.specEditor = common.NewSpecEditor(config)
-			m.specEditor.SetSize(m.terminalWidth, m.terminalHeight)
-			m.state = SpecEditor
+			config := common.NodeEditorConfig{
+				Title:          title,
+				InitialTitle:   "",
+				InitialContent: "",
+				NodeType:       nodeType,
+			}
+			m.nodeEditor = common.NewNodeEditor(config)
+			m.nodeEditor.SetSize(m.terminalWidth, m.terminalHeight)
+			m.state = NodeEditor
 			return m, nil
 		}
 
@@ -468,8 +479,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
 		}
 
-	case common.SpecEditorCancelMsg:
-		if m.state == SpecEditor {
+	case common.NodeEditorCancelMsg:
+		if m.state == NodeEditor {
 			m.state = SpecListView
 			m.resetInputs()
 			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
@@ -610,6 +621,7 @@ func (m *Model) loadSpecsCmd() tea.Cmd {
 				ID:      node.GetID(),
 				Title:   node.GetTitle(),
 				Content: node.GetContent(),
+				Type:    node.GetType(),
 			})
 		}
 
@@ -635,6 +647,86 @@ func (m *Model) resetInputs() {
 	m.textInput.Reset()
 	m.textInput.Blur()
 	m.nodeTypeSelector = nil
+}
+
+// createNodeCmd returns a command to create a new node of any type
+func (m *Model) createNodeCmd(title, content, nodeType string) tea.Cmd {
+	switch nodeType {
+	case "specification":
+		return m.createSpecCmd(title, content)
+	case "implementation":
+		// For implementation, we should have already collected the implementation details
+		return m.createImplementationCmd(title, content)
+	case "project":
+		return m.createProjectCmd(title, content)
+	default:
+		return func() tea.Msg {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: Unknown node type '%s'. Press Enter to continue...", nodeType)}
+		}
+	}
+}
+
+// createProjectCmd returns a command to create a new project
+func (m *Model) createProjectCmd(title, content string) tea.Cmd {
+	return func() tea.Msg {
+		project, err := m.app.specService.CreateProject(title, content)
+		if err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
+		}
+
+		// If there's a parent spec ID, create the parent-child relationship
+		if m.parentSpecID != "" {
+			_, err := m.app.specService.AddChildToParent(project.ID, m.parentSpecID, "child")
+			if err != nil {
+				return operationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
+			}
+		}
+
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Created project: %s. Press Enter to continue...", project.Title)}
+	}
+}
+
+// updateNodeCmd returns a command to update an existing node
+func (m *Model) updateNodeCmd(nodeID, title, content, nodeType string) tea.Cmd {
+	switch nodeType {
+	case "specification":
+		return m.updateSpecCmd(nodeID, title, content)
+	case "implementation":
+		// For implementation, check if we need to handle implementation-specific fields
+		return m.updateImplementationCmd(nodeID, title, content)
+	case "project":
+		return m.updateProjectCmd(nodeID, title, content)
+	default:
+		return func() tea.Msg {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: Unknown node type '%s'. Press Enter to continue...", nodeType)}
+		}
+	}
+}
+
+// updateImplementationCmd returns a command to update an existing implementation
+func (m *Model) updateImplementationCmd(nodeID, title, content string) tea.Cmd {
+	return func() tea.Msg {
+		// For now, we'll just update the basic fields. In the future, we might want to
+		// handle implementation-specific fields differently
+		spec, err := m.app.specService.UpdateSpec(nodeID, title, content)
+		if err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
+		}
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Updated implementation: %s. Press Enter to continue...", spec.Title)}
+	}
+}
+
+// updateProjectCmd returns a command to update an existing project
+func (m *Model) updateProjectCmd(nodeID, title, content string) tea.Cmd {
+	return func() tea.Msg {
+		// For now, we'll just update the basic fields using UpdateSpec
+		// In the future, we might need a dedicated UpdateProject method
+		spec, err := m.app.specService.UpdateSpec(nodeID, title, content)
+		if err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
+		}
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Updated project: %s. Press Enter to continue...", spec.Title)}
+	}
 }
 
 // createSpecCmd returns a command to create a new spec
@@ -728,8 +820,8 @@ func (m *Model) View() string {
 		return m.specListView.View()
 	case LinkSelection:
 		return m.renderLinkSelection()
-	case SpecEditor:
-		return m.specEditor.View()
+	case NodeEditor:
+		return m.nodeEditor.View()
 	case ImplementationForm:
 		return m.implForm.View()
 	case NodeTypeSelection:
