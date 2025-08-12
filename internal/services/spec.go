@@ -15,6 +15,7 @@ type SpecService interface {
 	GetNode(id string) (models.Node, error)
 	GetProject(id string) (*models.Project, error)
 	UpdateSpec(id, title, content string) (*models.Spec, error)
+	UpdateImplementation(id, title, content string, repoURL, branch, folderPath *string) (*models.Implementation, error)
 	ListNodes() ([]models.Node, error)
 	DeleteSpec(id string) error
 
@@ -170,6 +171,62 @@ func (s *specService) UpdateSpec(id, title, content string) (*models.Spec, error
 	}
 
 	return spec, nil
+}
+
+// UpdateImplementation updates an existing implementation node
+func (s *specService) UpdateImplementation(id, title, content string, repoURL, branch, folderPath *string) (*models.Implementation, error) {
+	if id == "" {
+		return nil, models.NewZammError(models.ErrTypeValidation, "implementation ID cannot be empty")
+	}
+
+	// Validate input
+	if err := s.validateSpecInput(title, content); err != nil {
+		return nil, err
+	}
+
+	// Get existing implementation
+	node, err := s.storage.GetNode(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Type assert to Implementation
+	impl, ok := node.(*models.Implementation)
+	if !ok {
+		return nil, models.NewZammError(models.ErrTypeValidation, "node is not an implementation")
+	}
+
+	// Update basic fields
+	impl.Title = strings.TrimSpace(title)
+	impl.Content = strings.TrimSpace(content)
+	impl.Type = "implementation"
+
+	// Update optional fields if provided
+	if repoURL != nil && strings.TrimSpace(*repoURL) != "" {
+		v := strings.TrimSpace(*repoURL)
+		impl.RepoURL = &v
+	} else {
+		impl.RepoURL = nil
+	}
+	if branch != nil && strings.TrimSpace(*branch) != "" {
+		v := strings.TrimSpace(*branch)
+		impl.Branch = &v
+	} else {
+		impl.Branch = nil
+	}
+	if folderPath != nil && strings.TrimSpace(*folderPath) != "" {
+		v := strings.TrimSpace(*folderPath)
+		impl.FolderPath = &v
+	} else {
+		impl.FolderPath = nil
+	}
+
+	// Save changes
+	if err := s.storage.UpdateNode(impl); err != nil {
+		return nil, err
+	}
+
+	return impl, nil
 }
 
 // ListNodes retrieves all nodes regardless of type

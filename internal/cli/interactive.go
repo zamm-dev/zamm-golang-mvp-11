@@ -437,8 +437,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.implRepoURL = msg.RepoURL
 			m.implBranch = msg.Branch
 			m.implFolderPath = msg.FolderPath
-			// Use stashed title/content
-			return m, m.createImplementationCmd(m.inputTitle, m.inputContent)
+			// Determine if this is create or edit based on whether we have an editingSpecID
+			if m.editingSpecID != "" {
+				// We're editing an existing implementation node
+				return m, m.updateImplementationCmd(m.editingSpecID, m.inputTitle, m.inputContent)
+			} else {
+				// We're creating a new implementation node
+				return m, m.createImplementationCmd(m.inputTitle, m.inputContent)
+			}
 		}
 
 	case common.ImplementationFormCancelMsg:
@@ -706,13 +712,12 @@ func (m *Model) updateNodeCmd(nodeID, title, content, nodeType string) tea.Cmd {
 // updateImplementationCmd returns a command to update an existing implementation
 func (m *Model) updateImplementationCmd(nodeID, title, content string) tea.Cmd {
 	return func() tea.Msg {
-		// For now, we'll just update the basic fields. In the future, we might want to
-		// handle implementation-specific fields differently
-		spec, err := m.app.specService.UpdateSpec(nodeID, title, content)
+		// Update implementation with both basic fields and implementation-specific fields
+		impl, err := m.app.specService.UpdateImplementation(nodeID, title, content, m.implRepoURL, m.implBranch, m.implFolderPath)
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Updated implementation: %s. Press Enter to continue...", spec.Title)}
+		return operationCompleteMsg{message: fmt.Sprintf("✅ Updated implementation: %s. Press Enter to continue...", impl.Title)}
 	}
 }
 
