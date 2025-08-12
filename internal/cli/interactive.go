@@ -969,7 +969,7 @@ func (cs *combinedService) GetParentNode(specID string) (models.Node, error) {
 }
 
 func (cs *combinedService) GetRootNode() (models.Node, error) {
-	rootNode, err := cs.specService.GetRootSpec()
+	rootNode, err := cs.specService.GetRootNode()
 	if err != nil {
 		return nil, err
 	}

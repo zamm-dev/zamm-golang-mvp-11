@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/common"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
@@ -13,13 +14,14 @@ import (
 // NodeDetail encapsulates all state and logic for a spec detail
 // (separated from the viewport logic)
 type NodeDetail struct {
-	node       models.Node
-	links      []*models.SpecCommitLink
-	childNodes []models.Node
-	cursor     int
-	table      table.Model
-	width      int
-	height     int
+	node                models.Node
+	links               []*models.SpecCommitLink
+	implementationNodes []models.Node
+	regularChildNodes   []models.Node
+	cursor              int
+	table               table.Model
+	width               int
+	height              int
 }
 
 func NewNodeDetail() *NodeDetail {
@@ -65,31 +67,63 @@ func (d *NodeDetail) SetSize(width, height int) {
 func (d *NodeDetail) SetSpec(node models.Node, links []*models.SpecCommitLink, childNodes []models.Node) {
 	d.node = node
 	d.links = links
-	d.childNodes = childNodes
+	d.categorizeChildren(childNodes)
 	d.updateCommitsTable()
 	d.cursor = -1
 }
 
+func (d *NodeDetail) categorizeChildren(childNodes []models.Node) {
+	// Check if this is a project node
+	if d.node != nil && d.node.GetType() == "project" {
+		// Separate implementation nodes from other children
+		implementations := make([]models.Node, 0)
+		others := make([]models.Node, 0)
+
+		for _, child := range childNodes {
+			if child.GetType() == "implementation" {
+				implementations = append(implementations, child)
+			} else {
+				others = append(others, child)
+			}
+		}
+
+		d.implementationNodes = implementations
+		d.regularChildNodes = others
+	} else {
+		// For non-project nodes, all children are "regular" children
+		d.implementationNodes = make([]models.Node, 0)
+		d.regularChildNodes = childNodes
+	}
+}
+
 func (d *NodeDetail) GetSelectedChild() models.Node {
-	if d.cursor >= 0 && d.cursor < len(d.childNodes) {
-		return d.childNodes[d.cursor]
+	totalChildren := len(d.implementationNodes) + len(d.regularChildNodes)
+	if d.cursor >= 0 && d.cursor < totalChildren {
+		if d.cursor < len(d.implementationNodes) {
+			return d.implementationNodes[d.cursor]
+		} else {
+			otherIndex := d.cursor - len(d.implementationNodes)
+			return d.regularChildNodes[otherIndex]
+		}
 	}
 	return nil
 }
 
 func (d *NodeDetail) SelectNextChild() {
-	if len(d.childNodes) == 0 {
+	totalChildren := len(d.implementationNodes) + len(d.regularChildNodes)
+	if totalChildren == 0 {
 		d.cursor = -1
 		return
 	}
 	d.cursor++
-	if d.cursor >= len(d.childNodes) {
-		d.cursor = len(d.childNodes) - 1
+	if d.cursor >= totalChildren {
+		d.cursor = totalChildren - 1
 	}
 }
 
 func (d *NodeDetail) SelectPrevChild() {
-	if len(d.childNodes) == 0 {
+	totalChildren := len(d.implementationNodes) + len(d.regularChildNodes)
+	if totalChildren == 0 {
 		d.cursor = -1
 		return
 	}
@@ -135,6 +169,28 @@ func (d *NodeDetail) updateCommitsTable() {
 	d.table.SetHeight(len(rows) + 2)
 }
 
+func (d *NodeDetail) renderChildNode(contentBuilder *strings.Builder, childNode models.Node, cursorIndex int) {
+	nodeTitle := childNode.GetTitle()
+	if len(nodeTitle) > d.width-2 && d.width > 5 {
+		nodeTitle = nodeTitle[:d.width-5] + "..."
+	}
+	if cursorIndex == d.cursor {
+		contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("> %s", nodeTitle)))
+		contentBuilder.WriteString("\n")
+	} else {
+		fmt.Fprintf(contentBuilder, "  %s\n", nodeTitle)
+	}
+}
+
+// tea.Model interface implementation
+func (d *NodeDetail) Init() tea.Cmd {
+	return nil
+}
+
+func (d *NodeDetail) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return d, nil
+}
+
 func (d *NodeDetail) View() string {
 	// Handle case where node hasn't been set yet
 	if d.node == nil {
@@ -148,21 +204,30 @@ func (d *NodeDetail) View() string {
 	} else {
 		contentBuilder.WriteString(d.table.View())
 	}
-	contentBuilder.WriteString("\n\nChild Nodes:\n")
-	if len(d.childNodes) == 0 {
+
+	contentBuilder.WriteString("\n\n")
+
+	// For project nodes, always show implementations section
+	if d.node.GetType() == "project" {
+		contentBuilder.WriteString("Implementations:\n")
+		if len(d.implementationNodes) == 0 {
+			contentBuilder.WriteString("  - no implementations\n")
+		} else {
+			for i, childNode := range d.implementationNodes {
+				d.renderChildNode(&contentBuilder, childNode, i)
+			}
+		}
+		contentBuilder.WriteString("\n")
+	}
+
+	// Display regular children section
+	contentBuilder.WriteString("Child Nodes:\n")
+	if len(d.regularChildNodes) == 0 {
 		contentBuilder.WriteString("  -\n")
 	} else {
-		for i, childNode := range d.childNodes {
-			nodeTitle := childNode.GetTitle()
-			if len(nodeTitle) > d.width-2 && d.width > 5 {
-				nodeTitle = nodeTitle[:d.width-5] + "..."
-			}
-			if i == d.cursor {
-				contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("> %s", nodeTitle)))
-				contentBuilder.WriteString("\n")
-			} else {
-				contentBuilder.WriteString(fmt.Sprintf("  %s\n", nodeTitle))
-			}
+		for i, childNode := range d.regularChildNodes {
+			cursorIndex := len(d.implementationNodes) + i
+			d.renderChildNode(&contentBuilder, childNode, cursorIndex)
 		}
 	}
 
