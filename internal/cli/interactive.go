@@ -426,7 +426,28 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// User finished editing basic node info for implementation, show implementation form
 			m.inputTitle = msg.Title
 			m.inputContent = msg.Content
-			m.implForm = common.NewImplementationForm("🔧 Implementation Details")
+
+			// Check if we're editing an existing implementation to pre-populate the form
+			if m.editingSpecID != "" {
+				// We're editing an existing implementation, fetch current values
+				node, err := m.app.specService.GetNode(m.editingSpecID)
+				if err != nil {
+					m.message = fmt.Sprintf("Error fetching implementation details: %v", err)
+					m.showMessage = true
+					return m, nil
+				}
+
+				// Type assert to Implementation to get implementation-specific fields
+				if impl, ok := node.(*models.Implementation); ok {
+					m.implForm = common.NewImplementationFormWithValues("🔧 Implementation Details", impl.RepoURL, impl.Branch, impl.FolderPath)
+				} else {
+					m.implForm = common.NewImplementationForm("🔧 Implementation Details")
+				}
+			} else {
+				// We're creating a new implementation, start with empty form
+				m.implForm = common.NewImplementationForm("🔧 Implementation Details")
+			}
+
 			m.implForm.SetSize(m.terminalWidth, m.terminalHeight)
 			m.state = ImplementationForm
 			return m, nil

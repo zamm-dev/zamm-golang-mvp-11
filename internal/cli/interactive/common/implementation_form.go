@@ -48,6 +48,35 @@ func NewImplementationForm(title string) ImplementationForm {
 	}
 }
 
+func NewImplementationFormWithValues(title string, repoURL, branch, folderPath *string) ImplementationForm {
+	repo := textinput.New()
+	repo.Placeholder = "Repository URL (optional)"
+	if repoURL != nil {
+		repo.SetValue(*repoURL)
+	}
+	repo.Focus()
+
+	branchInput := textinput.New()
+	branchInput.Placeholder = "Branch (optional)"
+	if branch != nil {
+		branchInput.SetValue(*branch)
+	}
+
+	path := textinput.New()
+	path.Placeholder = "Path within repo (optional)"
+	if folderPath != nil {
+		path.SetValue(*folderPath)
+	}
+
+	return ImplementationForm{
+		title:       title,
+		repoInput:   repo,
+		branchInput: branchInput,
+		pathInput:   path,
+		focusIndex:  0,
+	}
+}
+
 func (f *ImplementationForm) SetSize(width, height int) {
 	f.width = width
 	f.height = height
