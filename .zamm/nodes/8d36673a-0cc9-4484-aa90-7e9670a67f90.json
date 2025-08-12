@@ -1,0 +1,8 @@
+{
+  "id": "8d36673a-0cc9-4484-aa90-7e9670a67f90",
+  "title": "Golang CLI Implementation",
+  "content": "This is an implementation of ZAMM in Go using Bubbletea",
+  "type": "implementation",
+  "repo_url": "https://github.com/zamm-dev/zamm-golang-mvp-11",
+  "branch": "main"
+}
