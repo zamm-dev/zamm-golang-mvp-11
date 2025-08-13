@@ -128,3 +128,56 @@ func TestLinkEditorUnlinkGitMode(t *testing.T) {
 	// Wait for the spec selection screen to render
 	requireGoldenAfterWaitFor(t, tm, []byte("Hello World Function"))
 }
+
+func TestLinkEditorMoveSearchMode(t *testing.T) {
+	// Use testdata storage
+	testDataPath := filepath.Join("testdata", ".zamm")
+	storage := storage.NewFileStorage(testDataPath)
+	linkService := services.NewLinkService(storage)
+	specService := services.NewSpecService(storage)
+
+	config := LinkEditorConfig{
+		Title:            "Test Link Editor",
+		DefaultRepo:      "/test/repo",
+		CurrentSpecID:    "201c7092-9367-4a97-837b-98fbbcd7168a", // "Hello World" spec from testdata
+		CurrentSpecTitle: "Hello World",
+		IsMoveMode:       true,
+	}
+	model := NewLinkEditor(config, linkService, specService)
+
+	tm := teatest.NewTestModel(t, model, teatest.WithInitialTermSize(80, 24))
+
+	// First wait for the initial specs to load (Test Project should appear)
+	teatest.WaitFor(
+		t, tm.Output(),
+		func(bts []byte) bool {
+			return bytes.Contains(bts, []byte("Test Project"))
+		},
+		teatest.WithCheckInterval(time.Millisecond*100),
+		teatest.WithDuration(time.Second*3),
+	)
+
+	// Press Enter to proceed to next step
+	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Execute the actual loadSpecsExceptCurrent command to get the real SpecsLoadedMsg
+	cmd := model.loadSpecsExceptCurrent()
+	specsLoadedMsg := cmd()
+	tm.Send(specsLoadedMsg)
+
+	// Wait for transition to "Select new parent to move to"
+	teatest.WaitFor(
+		t, tm.Output(),
+		func(bts []byte) bool {
+			return bytes.Contains(bts, []byte("Select new parent to move to"))
+		},
+		teatest.WithCheckInterval(time.Millisecond*100),
+		teatest.WithDuration(time.Second*3),
+	)
+
+	// Press "/" to start search
+	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("/")})
+
+	// Wait for the search interface to render
+	requireGoldenAfterWaitFor(t, tm, []byte("Filter"))
+}

@@ -337,7 +337,7 @@ func (l LinkEditor) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch l.mode {
-	case ChildSpecSelection, ParentSpecSelection, ChildSpecLinkSelection, ParentSpecLinkSelection:
+	case MoveOldParentSelection, MoveNewParentSelection, ChildSpecSelection, ParentSpecSelection, ChildSpecLinkSelection, ParentSpecLinkSelection:
 		selector, cmd := l.specSelector.Update(msg)
 		l.specSelector = *selector
 		return l, cmd

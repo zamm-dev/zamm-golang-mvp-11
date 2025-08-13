@@ -1,8 +1,6 @@
 package nodes
 
 import (
-	"fmt"
-
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
@@ -71,23 +69,8 @@ func (v *NodeDetailView) ResetCursor() {
 }
 
 func (v *NodeDetailView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
-	beforeMsg := DebugMsg{
-		Message: fmt.Sprintf(
-			"[NodeDetailView] BEFORE | Msg: %T | YOffset: %d | Height: %d | Total lines: %d | Visible lines: %d",
-			msg, v.viewport.YOffset, v.viewport.Height, v.viewport.TotalLineCount(), v.viewport.VisibleLineCount(),
-		),
-	}
-	cmds = append(cmds, func() tea.Msg { return beforeMsg })
 	v.viewport, _ = v.viewport.Update(msg)
-	afterMsg := DebugMsg{
-		Message: fmt.Sprintf(
-			"[NodeDetailView] AFTER  | Msg: %T | YOffset: %d | Height: %d | Total lines: %d | Visible lines: %d",
-			msg, v.viewport.YOffset, v.viewport.Height, v.viewport.TotalLineCount(), v.viewport.VisibleLineCount(),
-		),
-	}
-	cmds = append(cmds, func() tea.Msg { return afterMsg })
-	return v, tea.Batch(cmds...)
+	return v, nil
 }
 
 func (v *NodeDetailView) View() string {
