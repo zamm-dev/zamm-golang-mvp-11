@@ -1,6 +1,6 @@
 {
   "id": "8198916e-9d97-47e8-8b3e-985070470444",
-  "title": "User should be able to do a string search for specs",
-  "content": "The search should be based on the spec title",
+  "title": "User should be able to do a string search for nodes",
+  "content": "The search should be based on the node title. This search mode should be activated anytime '/' is pressed during node selection.",
   "type": "specification"
 }
