@@ -115,8 +115,8 @@ func NewSpecExplorer(linkService LinkService) NodeExplorer {
 	}
 
 	explorer := NodeExplorer{
-		leftPane:    NewNodeDetailView(),
-		rightPane:   NewNodeDetailView(),
+		leftPane:    NewNodeDetailView(linkService),
+		rightPane:   NewNodeDetailView(linkService),
 		linkService: linkService,
 		keys:        keys,
 		help:        help.New(),
@@ -282,38 +282,10 @@ func (e *NodeExplorer) updateDetailsForSpec() {
 	}
 
 	// Left pane always shows current node details
-	currentLinks, err := e.linkService.GetCommitsForSpec(e.currentSpec.GetID())
-	if err != nil {
-		currentLinks = nil
-	}
-
-	currentChildSpecs, err := e.linkService.GetChildNodes(e.currentSpec.GetID())
-	if err != nil {
-		currentChildSpecs = nil
-	}
+	e.leftPane.SetSpec(e.currentSpec)
 
 	// Right pane shows active spec details (selected child or current node)
-	activeLinks, err := e.linkService.GetCommitsForSpec(e.activeSpec.GetID())
-	if err != nil {
-		activeLinks = nil
-	}
-
-	activeChildSpecs, err := e.linkService.GetChildNodes(e.activeSpec.GetID())
-	if err != nil {
-		activeChildSpecs = nil
-	}
-
-	// Update left pane with current node data (preserve cursor)
-	// Convert currentChildSpecs to nodes
-	var currentChildNodes []models.Node
-	currentChildNodes = append(currentChildNodes, currentChildSpecs...)
-	e.leftPane.SetSpec(e.currentSpec, currentLinks, currentChildNodes)
-
-	// Update right pane with active spec data
-	// Convert activeChildSpecs to nodes
-	var activeChildNodes []models.Node
-	activeChildNodes = append(activeChildNodes, activeChildSpecs...)
-	e.rightPane.SetSpec(e.activeSpec, activeLinks, activeChildNodes)
+	e.rightPane.SetSpec(e.activeSpec)
 }
 
 // updateRightPaneOnly updates only the right pane without affecting left pane cursor
@@ -323,21 +295,7 @@ func (e *NodeExplorer) updateRightPaneOnly() {
 	}
 
 	// Right pane shows active spec details (selected child or current node)
-	activeLinks, err := e.linkService.GetCommitsForSpec(e.activeSpec.GetID())
-	if err != nil {
-		activeLinks = nil
-	}
-
-	activeChildSpecs, err := e.linkService.GetChildNodes(e.activeSpec.GetID())
-	if err != nil {
-		activeChildSpecs = nil
-	}
-
-	// Update right pane with active spec data
-	// Convert activeChildSpecs to nodes
-	var activeChildNodes []models.Node
-	activeChildNodes = append(activeChildNodes, activeChildSpecs...)
-	e.rightPane.SetSpec(e.activeSpec, activeLinks, activeChildNodes)
+	e.rightPane.SetSpec(e.activeSpec)
 }
 
 func (e *NodeExplorer) View() string {

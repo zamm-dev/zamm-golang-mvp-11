@@ -8,9 +8,43 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 )
+
+// testCombinedService implements LinkService for testing
+type testViewCombinedService struct {
+	linkService services.LinkService
+	specService services.SpecService
+}
+
+func (cs *testViewCombinedService) GetCommitsForSpec(specID string) ([]*models.SpecCommitLink, error) {
+	return cs.linkService.GetCommitsForSpec(specID)
+}
+
+func (cs *testViewCombinedService) GetChildNodes(specID string) ([]models.Node, error) {
+	return cs.specService.GetChildren(specID)
+}
+
+func (cs *testViewCombinedService) GetNodeByID(specID string) (models.Node, error) {
+	return cs.specService.GetNode(specID)
+}
+
+func (cs *testViewCombinedService) GetParentNode(specID string) (models.Node, error) {
+	parents, err := cs.specService.GetParents(specID)
+	if err != nil {
+		return nil, err
+	}
+	if len(parents) == 0 {
+		return nil, nil
+	}
+	return parents[0], nil
+}
+
+func (cs *testViewCombinedService) GetRootNode() (models.Node, error) {
+	return cs.specService.GetRootNode()
+}
 
 func waitForGoldenOutput(t *testing.T, tm *teatest.TestModel, waitFor []byte, goldenName string) {
 	var capturedOutput []byte
@@ -37,28 +71,21 @@ func TestNodeDetailViewInitialRender(t *testing.T) {
 	linkService := services.NewLinkService(storage)
 	specService := services.NewSpecService(storage)
 
+	combinedSvc := &testViewCombinedService{
+		linkService: linkService,
+		specService: specService,
+	}
+
 	// Get "Hello World" spec and its data
 	spec, err := specService.GetNode("f38191af-1b23-4129-854b-5ba754a30c3c")
 	if err != nil {
 		t.Fatalf("Failed to get test spec: %v", err)
 	}
 
-	// Get links for the spec
-	links, err := linkService.GetCommitsForSpec(spec.GetID())
-	if err != nil {
-		t.Fatalf("Failed to get links for spec: %v", err)
-	}
-
-	// Get child specs
-	childNodes, err := specService.GetChildren(spec.GetID())
-	if err != nil {
-		t.Fatalf("Failed to get child specs: %v", err)
-	}
-
-	// Create spec detail view
-	view := NewNodeDetailView()
+	// Create spec detail view with the combined service
+	view := NewNodeDetailView(combinedSvc)
 	view.SetSize(80, 24)
-	view.SetSpec(spec, links, childNodes)
+	view.SetSpec(spec)
 
 	tm := teatest.NewTestModel(t, &view, teatest.WithInitialTermSize(80, 24))
 
@@ -73,28 +100,21 @@ func TestNodeDetailViewScrolling(t *testing.T) {
 	linkService := services.NewLinkService(storage)
 	specService := services.NewSpecService(storage)
 
+	combinedSvc := &testViewCombinedService{
+		linkService: linkService,
+		specService: specService,
+	}
+
 	// Get a spec from testdata
 	spec, err := specService.GetNode("f38191af-1b23-4129-854b-5ba754a30c3c") // "Hello World Function"
 	if err != nil {
 		t.Fatalf("Failed to get test spec: %v", err)
 	}
 
-	// Get links for the spec
-	links, err := linkService.GetCommitsForSpec(spec.GetID())
-	if err != nil {
-		t.Fatalf("Failed to get links for spec: %v", err)
-	}
-
-	// Get child specs
-	childNodes, err := specService.GetChildren(spec.GetID())
-	if err != nil {
-		t.Fatalf("Failed to get child specs: %v", err)
-	}
-
 	// Create spec detail view with smaller height to force scrolling
-	view := NewNodeDetailView()
+	view := NewNodeDetailView(combinedSvc)
 	view.SetSize(80, 24)
-	view.SetSpec(spec, links, childNodes)
+	view.SetSpec(spec)
 
 	tm := teatest.NewTestModel(t, &view, teatest.WithInitialTermSize(80, 24))
 

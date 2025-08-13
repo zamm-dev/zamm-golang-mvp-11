@@ -22,9 +22,14 @@ type NodeDetail struct {
 	table               table.Model
 	width               int
 	height              int
+	linkService         LinkService
 }
 
-func NewNodeDetail() *NodeDetail {
+func NewNodeDetail(linkService LinkService) *NodeDetail {
+	if linkService == nil {
+		panic("linkService cannot be nil in NewNodeDetail")
+	}
+
 	columns := []table.Column{
 		{Title: "TYPE", Width: 6},
 		{Title: "COMMIT", Width: 8},
@@ -47,8 +52,9 @@ func NewNodeDetail() *NodeDetail {
 		Bold(false)
 	commitsTable.SetStyles(s)
 	return &NodeDetail{
-		table:  commitsTable,
-		cursor: -1,
+		table:       commitsTable,
+		cursor:      -1,
+		linkService: linkService,
 	}
 }
 
@@ -64,10 +70,29 @@ func (d *NodeDetail) SetSize(width, height int) {
 	d.table.SetColumns(columns)
 }
 
-func (d *NodeDetail) SetSpec(node models.Node, links []*models.SpecCommitLink, childNodes []models.Node) {
+func (d *NodeDetail) SetSpec(node models.Node) {
 	d.node = node
-	d.links = links
-	d.categorizeChildren(childNodes)
+
+	// Retrieve links for this node
+	if d.linkService != nil && node != nil {
+		links, err := d.linkService.GetCommitsForSpec(node.GetID())
+		if err != nil {
+			d.links = nil
+		} else {
+			d.links = links
+		}
+
+		// Retrieve child nodes for this node
+		childNodes, err := d.linkService.GetChildNodes(node.GetID())
+		if err != nil {
+			childNodes = nil
+		}
+		d.categorizeChildren(childNodes)
+	} else {
+		d.links = nil
+		d.categorizeChildren(nil)
+	}
+
 	d.updateCommitsTable()
 	d.cursor = -1
 }

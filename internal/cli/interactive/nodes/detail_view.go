@@ -23,9 +23,9 @@ type NodeDetailView struct {
 	height   int
 }
 
-func NewNodeDetailView() NodeDetailView {
+func NewNodeDetailView(linkService LinkService) NodeDetailView {
 	return NodeDetailView{
-		detail:   NewNodeDetail(),
+		detail:   NewNodeDetail(linkService),
 		viewport: viewport.New(0, 0),
 	}
 }
@@ -43,8 +43,8 @@ func (v *NodeDetailView) SetSize(width, height int) {
 	v.viewport.SetContent(v.detail.View())
 }
 
-func (v *NodeDetailView) SetSpec(node models.Node, links []*models.SpecCommitLink, childNodes []models.Node) {
-	v.detail.SetSpec(node, links, childNodes)
+func (v *NodeDetailView) SetSpec(node models.Node) {
+	v.detail.SetSpec(node)
 	v.viewport.SetContent(v.detail.View())
 	v.viewport.SetYOffset(0)
 }
