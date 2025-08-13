@@ -104,6 +104,16 @@ type operationCompleteMsg struct {
 	message string
 }
 
+type returnToSpecListMsg struct{}
+
+type navigateToNodeMsg struct {
+	nodeID string
+}
+
+type setCurrentNodeMsg struct {
+	node models.Node
+}
+
 // createInteractiveCommand creates the interactive mode command
 func (a *App) createInteractiveCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -244,7 +254,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.specs = msg.nodes
-		return m, nil
+		// Also refresh the spec list view to show updated data
+		return m, m.specListView.Refresh()
 
 	case linksLoadedMsg:
 		if msg.err != nil {
@@ -267,6 +278,39 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case operationCompleteMsg:
 		m.message = msg.message
 		m.showMessage = true
+		return m, nil
+
+	case returnToSpecListMsg:
+		m.state = SpecListView
+		m.resetInputs()
+		return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+
+	case navigateToNodeMsg:
+		// First ensure we're in SpecListView, then try to navigate to the node
+		if m.state != SpecListView {
+			m.state = SpecListView
+			m.resetInputs()
+		}
+		// Load the node and set it as current in the explorer
+		return m, func() tea.Msg {
+			node, err := m.app.specService.GetNode(msg.nodeID)
+			if err != nil {
+				// If we can't find the node, just refresh the list
+				return m.loadSpecsCmd()()
+			}
+			// Navigate the spec explorer to show this node
+			// This will be handled by sending a message to set the current node
+			return setCurrentNodeMsg{node: node}
+		}
+
+	case setCurrentNodeMsg:
+		// Set the current node in the spec explorer and refresh
+		if m.state == SpecListView {
+			// Update the spec explorer to show this node as current
+			// Note: We would need to modify the spec explorer to accept this
+			// For now, just refresh the list
+			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+		}
 		return m, nil
 
 	case nodes.CreateNewSpecMsg:
@@ -470,9 +514,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case common.ImplementationFormCancelMsg:
 		if m.state == ImplementationForm {
-			m.state = SpecListView
-			m.resetInputs()
-			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+			return m, func() tea.Msg { return returnToSpecListMsg{} }
 		}
 
 	case common.NodeTypeSelectedMsg:
@@ -501,30 +543,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case common.NodeTypeCancelledMsg:
 		if m.state == NodeTypeSelection {
-			m.state = SpecListView
-			m.resetInputs()
-			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+			return m, func() tea.Msg { return returnToSpecListMsg{} }
 		}
 
 	case common.NodeEditorCancelMsg:
 		if m.state == NodeEditor {
-			m.state = SpecListView
-			m.resetInputs()
-			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+			return m, func() tea.Msg { return returnToSpecListMsg{} }
 		}
 
 	case common.LinkEditorCompleteMsg:
 		if m.state == LinkEditor {
-			m.state = SpecListView
-			m.resetInputs()
-			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+			// Return to spec list view after link operation completion
+			return m, func() tea.Msg { return returnToSpecListMsg{} }
 		}
 
 	case common.LinkEditorCancelMsg:
 		if m.state == LinkEditor {
-			m.state = SpecListView
-			m.resetInputs()
-			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
+			// Return to spec list view after link operation cancellation
+			return m, func() tea.Msg { return returnToSpecListMsg{} }
 		}
 
 	case common.LinkEditorErrorMsg:
@@ -709,7 +745,8 @@ func (m *Model) createProjectCmd(title, content string) tea.Cmd {
 			}
 		}
 
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Created project: %s. Press Enter to continue...", project.Title)}
+		// Navigate to the new project after creation
+		return navigateToNodeMsg{nodeID: project.ID}
 	}
 }
 
@@ -734,11 +771,12 @@ func (m *Model) updateNodeCmd(nodeID, title, content, nodeType string) tea.Cmd {
 func (m *Model) updateImplementationCmd(nodeID, title, content string) tea.Cmd {
 	return func() tea.Msg {
 		// Update implementation with both basic fields and implementation-specific fields
-		impl, err := m.app.specService.UpdateImplementation(nodeID, title, content, m.implRepoURL, m.implBranch, m.implFolderPath)
+		_, err := m.app.specService.UpdateImplementation(nodeID, title, content, m.implRepoURL, m.implBranch, m.implFolderPath)
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Updated implementation: %s. Press Enter to continue...", impl.Title)}
+		// Navigate to the updated implementation
+		return navigateToNodeMsg{nodeID: nodeID}
 	}
 }
 
@@ -747,11 +785,12 @@ func (m *Model) updateProjectCmd(nodeID, title, content string) tea.Cmd {
 	return func() tea.Msg {
 		// For now, we'll just update the basic fields using UpdateSpec
 		// In the future, we might need a dedicated UpdateProject method
-		spec, err := m.app.specService.UpdateSpec(nodeID, title, content)
+		_, err := m.app.specService.UpdateSpec(nodeID, title, content)
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Updated project: %s. Press Enter to continue...", spec.Title)}
+		// Navigate to the updated project
+		return navigateToNodeMsg{nodeID: nodeID}
 	}
 }
 
@@ -771,7 +810,8 @@ func (m *Model) createSpecCmd(title, content string) tea.Cmd {
 			}
 		}
 
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Created specification: %s. Press Enter to continue...", spec.Title)}
+		// Navigate to the new specification
+		return navigateToNodeMsg{nodeID: spec.ID}
 	}
 }
 
@@ -791,37 +831,31 @@ func (m *Model) createImplementationCmd(title, content string) tea.Cmd {
 			}
 		}
 
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Created implementation: %s. Press Enter to continue...", impl.Title)}
+		// Navigate to the new implementation
+		return navigateToNodeMsg{nodeID: impl.ID}
 	}
 }
 
 // updateSpecCmd returns a command to update an existing spec
 func (m *Model) updateSpecCmd(specID, title, content string) tea.Cmd {
 	return func() tea.Msg {
-		spec, err := m.app.specService.UpdateSpec(specID, title, content)
+		_, err := m.app.specService.UpdateSpec(specID, title, content)
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Updated specification: %s. Press Enter to continue...", spec.Title)}
+		// Navigate to the updated specification
+		return navigateToNodeMsg{nodeID: specID}
 	}
 }
 
 // deleteSpecCmd returns a command to delete a spec
 func (m *Model) deleteSpecCmd(specID string) tea.Cmd {
 	return func() tea.Msg {
-		// Find spec title for display
-		var specTitle string
-		for _, spec := range m.specs {
-			if spec.ID == specID {
-				specTitle = spec.Title
-				break
-			}
-		}
-
 		if err := m.app.specService.DeleteSpec(specID); err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Deleted specification: %s. Press Enter to continue...", specTitle)}
+		// Return to spec list view after deletion
+		return returnToSpecListMsg{}
 	}
 }
 
@@ -831,7 +865,8 @@ func (m *Model) deleteLinkCmd(specID, commitID, repoPath string) tea.Cmd {
 		if err := m.app.linkService.UnlinkSpecFromCommit(specID, commitID, repoPath); err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
-		return operationCompleteMsg{message: fmt.Sprintf("✅ Deleted link to commit %s. Press Enter to continue...", commitID[:12]+"...")}
+		// Return to spec list view after link deletion
+		return returnToSpecListMsg{}
 	}
 }
 
