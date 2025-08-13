@@ -59,7 +59,6 @@ func NewSpec(title, content string) *Spec {
 // Project represents a project node in the system
 type Project struct {
 	NodeBase
-	Implementations []string `json:"implementations"` // List of Implementation IDs
 }
 
 // NewProject creates a new Project with the type field set
@@ -71,7 +70,6 @@ func NewProject(title, content string) *Project {
 			Content: content,
 			Type:    "project",
 		},
-		Implementations: make([]string, 0),
 	}
 }
 
