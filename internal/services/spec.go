@@ -498,7 +498,12 @@ func (s *specService) generateMissingSlugs() error {
 
 	for _, node := range nodes {
 		if node.GetSlug() == nil {
-			slug := s.sanitizeSlug(node.GetTitle())
+			var slug string
+			if s.isRootNode(node) {
+				slug = "" // Root node gets empty slug
+			} else {
+				slug = s.sanitizeSlug(node.GetTitle())
+			}
 			node.SetSlug(&slug)
 			if err := s.storage.UpdateNode(node); err != nil {
 				return fmt.Errorf("failed to update node %s: %w", node.GetID(), err)
@@ -523,7 +528,15 @@ func (s *specService) organizeNodeRecursively(node models.Node, basePath string)
 
 	if len(children) > 0 {
 		slug := s.getNodeSlug(node)
-		childBasePath := filepath.Join(basePath, slug)
+		var childBasePath string
+
+		// Handle root node specially - its children go directly under basePath
+		if s.isRootNode(node) {
+			childBasePath = basePath
+		} else {
+			childBasePath = filepath.Join(basePath, slug)
+		}
+
 		for _, child := range children {
 			if err := s.organizeNodeRecursively(child, childBasePath); err != nil {
 				return err
@@ -543,10 +556,22 @@ func (s *specService) organizeSingleNode(node models.Node, basePath string) erro
 	var newPath string
 	slug := s.getNodeSlug(node)
 
-	if len(children) > 0 {
-		newPath = filepath.Join(basePath, slug, "index.md")
+	// Handle root node specially
+	if s.isRootNode(node) {
+		if len(children) > 0 {
+			// Root node with children goes to documentation/index.md
+			newPath = filepath.Join(basePath, "index.md")
+		} else {
+			// Root node without children goes to documentation/index.md
+			newPath = filepath.Join(basePath, "index.md")
+		}
 	} else {
-		newPath = filepath.Join(basePath, slug+".md")
+		// Non-root nodes follow the regular logic
+		if len(children) > 0 {
+			newPath = filepath.Join(basePath, slug, "index.md")
+		} else {
+			newPath = filepath.Join(basePath, slug+".md")
+		}
 	}
 
 	return s.moveNodeToPath(node, newPath)
@@ -573,7 +598,20 @@ func (s *specService) moveNodeToPath(node models.Node, newPath string) error {
 	return fileStorage.UpdateNodeFilePath(node.GetID(), newPath)
 }
 
+func (s *specService) isRootNode(node models.Node) bool {
+	metadata, err := s.storage.GetProjectMetadata()
+	if err != nil || metadata.RootSpecID == nil {
+		return false
+	}
+	return node.GetID() == *metadata.RootSpecID
+}
+
 func (s *specService) getNodeSlug(node models.Node) string {
+	// Root node should have empty slug
+	if s.isRootNode(node) {
+		return ""
+	}
+
 	if slug := node.GetSlug(); slug != nil && *slug != "" {
 		return *slug
 	}
@@ -591,13 +629,19 @@ func (s *specService) computeNodeBasePath(node models.Node) (string, error) {
 		}
 
 		if len(parents) == 0 {
+			// If this is the root node, its base path is just "documentation"
+			// If this is an orphan (non-root) node, it goes under "documentation" too
 			pathSegments = append([]string{"documentation"}, pathSegments...)
 			break
 		}
 
 		parent := parents[0]
 		parentSlug := s.getNodeSlug(parent)
-		pathSegments = append([]string{parentSlug}, pathSegments...)
+
+		// Only add parent slug to path if it's not empty (i.e., not the root)
+		if parentSlug != "" {
+			pathSegments = append([]string{parentSlug}, pathSegments...)
+		}
 		currentNode = parent
 	}
 
