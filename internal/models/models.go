@@ -14,10 +14,11 @@ const (
 
 // NodeBase represents the base structure for all nodes in the system
 type NodeBase struct {
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	Content string `json:"content"`
-	Type    string `json:"type"`
+	ID      string  `json:"id"`
+	Title   string  `json:"title"`
+	Content string  `json:"content"`
+	Type    string  `json:"type"`
+	Slug    *string `json:"slug,omitempty"`
 }
 
 // Node interface that all node types must implement
@@ -26,17 +27,27 @@ type Node interface {
 	GetTitle() string
 	GetContent() string
 	GetType() string
+	GetSlug() *string
 	SetTitle(string)
 	SetContent(string)
+	SetSlug(*string)
 }
 
 // Implement Node interface for NodeBase
-func (n *NodeBase) GetID() string             { return n.ID }
-func (n *NodeBase) GetTitle() string          { return n.Title }
-func (n *NodeBase) GetContent() string        { return n.Content }
-func (n *NodeBase) GetType() string           { return n.Type }
-func (n *NodeBase) SetTitle(title string)     { n.Title = title }
-func (n *NodeBase) SetContent(content string) { n.Content = content }
+func (n *NodeBase) GetID() string      { return n.ID }
+func (n *NodeBase) GetTitle() string   { return n.Title }
+func (n *NodeBase) GetContent() string { return n.Content }
+func (n *NodeBase) GetType() string    { return n.Type }
+func (n *NodeBase) GetSlug() *string   { return n.Slug }
+func (n *NodeBase) SetTitle(title string) {
+	n.Title = title
+}
+func (n *NodeBase) SetContent(content string) {
+	n.Content = content
+}
+func (n *NodeBase) SetSlug(slug *string) {
+	n.Slug = slug
+}
 
 // Spec represents a specification node in the system
 type Spec struct {

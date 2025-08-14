@@ -1,6 +1,10 @@
 package services
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
@@ -16,6 +20,7 @@ type SpecService interface {
 	GetProject(id string) (*models.Project, error)
 	UpdateSpec(id, title, content string) (*models.Spec, error)
 	UpdateImplementation(id, title, content string, repoURL, branch, folderPath *string) (*models.Implementation, error)
+	UpdateNode(id, title, content string) (models.Node, error)
 	ListNodes() ([]models.Node, error)
 	DeleteSpec(id string) error
 
@@ -30,6 +35,9 @@ type SpecService interface {
 	GetRootSpec() (*models.Spec, error)
 	GetRootNode() (models.Node, error)
 	GetOrphanSpecs() ([]*models.Spec, error)
+
+	// Organization operations
+	OrganizeNodes(nodeID string) error
 }
 
 // specService implements the SpecService interface
@@ -228,6 +236,49 @@ func (s *specService) UpdateImplementation(id, title, content string, repoURL, b
 	}
 
 	return impl, nil
+}
+
+// UpdateNode updates an existing node regardless of its type
+func (s *specService) UpdateNode(id, title, content string) (models.Node, error) {
+	if id == "" {
+		return nil, models.NewZammError(models.ErrTypeValidation, "node ID cannot be empty")
+	}
+
+	// Validate input
+	if err := s.validateSpecInput(title, content); err != nil {
+		return nil, err
+	}
+
+	// Get existing node
+	node, err := s.storage.GetNode(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update fields based on node type
+	switch n := node.(type) {
+	case *models.Spec:
+		n.Title = strings.TrimSpace(title)
+		n.Content = strings.TrimSpace(content)
+		n.Type = "specification"
+	case *models.Project:
+		n.Title = strings.TrimSpace(title)
+		n.Content = strings.TrimSpace(content)
+		n.Type = "project"
+	case *models.Implementation:
+		n.Title = strings.TrimSpace(title)
+		n.Content = strings.TrimSpace(content)
+		n.Type = "implementation"
+	default:
+		return nil, models.NewZammError(models.ErrTypeValidation, "unknown node type")
+	}
+
+	// Save changes
+	if err := s.storage.UpdateNode(node); err != nil {
+		return nil, err
+	}
+
+	return node, nil
 }
 
 // ListNodes retrieves all nodes regardless of type
@@ -451,4 +502,253 @@ func (s *specService) validateSpecInput(title, content string) error {
 	}
 
 	return nil
+}
+
+// OrganizeNodes moves nodes from generic locations to hierarchical paths
+func (s *specService) OrganizeNodes(nodeID string) error {
+	if nodeID != "" {
+		// Organize specific node only (not its subtree)
+		node, err := s.storage.GetNode(nodeID)
+		if err != nil {
+			return fmt.Errorf("failed to get node %s: %w", nodeID, err)
+		}
+
+		// Generate slug only for this node and its ancestors if needed
+		if err := s.generateSlugForNodeAndAncestors(node); err != nil {
+			return fmt.Errorf("failed to generate slugs for node and ancestors: %w", err)
+		}
+
+		basePath, err := s.computeNodeBasePath(node)
+		if err != nil {
+			return fmt.Errorf("failed to compute base path for node %s: %w", nodeID, err)
+		}
+
+		return s.organizeSingleNode(node, basePath)
+	}
+
+	// Organize all nodes starting from root - generate all missing slugs first
+	if err := s.generateMissingSlugs(); err != nil {
+		return fmt.Errorf("failed to generate slugs: %w", err)
+	}
+
+	rootNode, err := s.GetRootNode()
+	if err != nil {
+		return fmt.Errorf("failed to get root node: %w", err)
+	}
+
+	return s.organizeNodeRecursively(rootNode, "documentation")
+}
+
+func (s *specService) generateMissingSlugs() error {
+	nodes, err := s.storage.ListNodes()
+	if err != nil {
+		return err
+	}
+
+	for _, node := range nodes {
+		if node.GetSlug() == nil {
+			var slug string
+			if s.isRootNode(node) {
+				slug = "" // Root node gets empty slug
+			} else {
+				slug = s.sanitizeSlug(node.GetTitle())
+			}
+			node.SetSlug(&slug)
+			if err := s.storage.UpdateNode(node); err != nil {
+				return fmt.Errorf("failed to update node %s: %w", node.GetID(), err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// generateSlugForNodeAndAncestors generates slugs only for the specified node and its ancestors
+func (s *specService) generateSlugForNodeAndAncestors(node models.Node) error {
+	// Generate slug for the current node if it doesn't have one
+	if err := s.generateSlugForSingleNode(node); err != nil {
+		return err
+	}
+
+	// Generate slugs for all ancestors (needed for path computation)
+	currentNode := node
+	for {
+		parents, err := s.GetParents(currentNode.GetID())
+		if err != nil {
+			return fmt.Errorf("failed to get parents for node %s: %w", currentNode.GetID(), err)
+		}
+
+		if len(parents) == 0 {
+			break // Reached the top
+		}
+
+		parent := parents[0]
+		if err := s.generateSlugForSingleNode(parent); err != nil {
+			return err
+		}
+		currentNode = parent
+	}
+
+	return nil
+}
+
+// generateSlugForSingleNode generates a slug for a single node if it doesn't already have one
+func (s *specService) generateSlugForSingleNode(node models.Node) error {
+	if node.GetSlug() == nil {
+		var slug string
+		if s.isRootNode(node) {
+			slug = "" // Root node gets empty slug
+		} else {
+			slug = s.sanitizeSlug(node.GetTitle())
+		}
+		node.SetSlug(&slug)
+		if err := s.storage.UpdateNode(node); err != nil {
+			return fmt.Errorf("failed to update node %s: %w", node.GetID(), err)
+		}
+	}
+	return nil
+}
+
+func (s *specService) organizeNodeRecursively(node models.Node, basePath string) error {
+	// First organize this node
+	if err := s.organizeSingleNode(node, basePath); err != nil {
+		return err
+	}
+
+	// Then recursively organize its children
+	children, err := s.GetChildren(node.GetID())
+	if err != nil {
+		return fmt.Errorf("failed to get children for node %s: %w", node.GetID(), err)
+	}
+
+	if len(children) > 0 {
+		slug := s.getNodeSlug(node)
+		var childBasePath string
+
+		// Handle root node specially - its children go directly under basePath
+		if s.isRootNode(node) {
+			childBasePath = basePath
+		} else {
+			childBasePath = filepath.Join(basePath, slug)
+		}
+
+		for _, child := range children {
+			if err := s.organizeNodeRecursively(child, childBasePath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *specService) organizeSingleNode(node models.Node, basePath string) error {
+	children, err := s.GetChildren(node.GetID())
+	if err != nil {
+		return fmt.Errorf("failed to get children for node %s: %w", node.GetID(), err)
+	}
+
+	var newPath string
+	slug := s.getNodeSlug(node)
+
+	// Handle root node specially
+	if s.isRootNode(node) {
+		if len(children) > 0 {
+			// Root node with children goes to documentation/index.md
+			newPath = filepath.Join(basePath, "index.md")
+		} else {
+			// Root node without children goes to documentation/index.md
+			newPath = filepath.Join(basePath, "index.md")
+		}
+	} else {
+		// Non-root nodes follow the regular logic
+		if len(children) > 0 {
+			newPath = filepath.Join(basePath, slug, "index.md")
+		} else {
+			newPath = filepath.Join(basePath, slug+".md")
+		}
+	}
+
+	return s.moveNodeToPath(node, newPath)
+}
+
+func (s *specService) moveNodeToPath(node models.Node, newPath string) error {
+	fileStorage, ok := s.storage.(*storage.FileStorage)
+	if !ok {
+		return fmt.Errorf("storage is not FileStorage type")
+	}
+
+	currentPath := fileStorage.GetNodeFilePath(node.GetID())
+
+	fullNewPath := filepath.Join(filepath.Dir(fileStorage.BaseDir()), newPath)
+
+	if err := os.MkdirAll(filepath.Dir(fullNewPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := os.Rename(currentPath, fullNewPath); err != nil {
+		return fmt.Errorf("failed to move file: %w", err)
+	}
+
+	return fileStorage.UpdateNodeFilePath(node.GetID(), newPath)
+}
+
+func (s *specService) isRootNode(node models.Node) bool {
+	metadata, err := s.storage.GetProjectMetadata()
+	if err != nil || metadata.RootSpecID == nil {
+		return false
+	}
+	return node.GetID() == *metadata.RootSpecID
+}
+
+func (s *specService) getNodeSlug(node models.Node) string {
+	// Root node should have empty slug
+	if s.isRootNode(node) {
+		return ""
+	}
+
+	if slug := node.GetSlug(); slug != nil && *slug != "" {
+		return *slug
+	}
+	return s.sanitizeSlug(node.GetTitle())
+}
+
+func (s *specService) computeNodeBasePath(node models.Node) (string, error) {
+	var pathSegments []string
+	currentNode := node
+
+	for {
+		parents, err := s.GetParents(currentNode.GetID())
+		if err != nil {
+			return "", fmt.Errorf("failed to get parents for node %s: %w", currentNode.GetID(), err)
+		}
+
+		if len(parents) == 0 {
+			// If this is the root node, its base path is just "documentation"
+			// If this is an orphan (non-root) node, it goes under "documentation" too
+			pathSegments = append([]string{"documentation"}, pathSegments...)
+			break
+		}
+
+		parent := parents[0]
+		parentSlug := s.getNodeSlug(parent)
+
+		// Only add parent slug to path if it's not empty (i.e., not the root)
+		if parentSlug != "" {
+			pathSegments = append([]string{parentSlug}, pathSegments...)
+		}
+		currentNode = parent
+	}
+
+	return filepath.Join(pathSegments...), nil
+}
+
+func (s *specService) sanitizeSlug(title string) string {
+	slug := strings.ToLower(title)
+	slug = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(slug, "-")
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		slug = "untitled"
+	}
+	return slug
 }

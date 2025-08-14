@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -144,6 +145,13 @@ func (a *App) createNodeFilesMapping() error {
 		{"node_id", "file_path"},
 	}
 
+	// Collect node data first
+	type nodeEntry struct {
+		nodeID   string
+		filePath string
+	}
+	var nodeEntries []nodeEntry
+
 	nodeCount := 0
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
@@ -156,12 +164,22 @@ func (a *App) createNodeFilesMapping() error {
 		// Current file path (relative to project root)
 		filePath := filepath.Join(".zamm", "nodes", entry.Name())
 
-		csvRecords = append(csvRecords, []string{nodeID, filePath})
+		nodeEntries = append(nodeEntries, nodeEntry{nodeID: nodeID, filePath: filePath})
 		nodeCount++
 	}
 
 	if nodeCount == 0 {
 		return fmt.Errorf("no .md files found in nodes directory")
+	}
+
+	// Sort node entries alphabetically by node ID for consistent git diffs
+	sort.Slice(nodeEntries, func(i, j int) bool {
+		return nodeEntries[i].nodeID < nodeEntries[j].nodeID
+	})
+
+	// Add sorted records to CSV
+	for _, nodeEntry := range nodeEntries {
+		csvRecords = append(csvRecords, []string{nodeEntry.nodeID, nodeEntry.filePath})
 	}
 
 	// Write CSV file

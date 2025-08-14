@@ -92,13 +92,13 @@ func (fs *FileStorage) CreateNode(node models.Node) error {
 		return fmt.Errorf("node ID cannot be empty")
 	}
 
-	path := fs.getNodeFilePath(node.GetID())
+	path := fs.GetNodeFilePath(node.GetID())
 	return fs.writeMarkdownFile(path, node)
 }
 
 // GetNode retrieves a node by ID
 func (fs *FileStorage) GetNode(id string) (models.Node, error) {
-	path := fs.getNodeFilePath(id)
+	path := fs.GetNodeFilePath(id)
 
 	// First read as NodeBase to determine the type
 	var nodeBase models.NodeBase
@@ -146,13 +146,13 @@ func (fs *FileStorage) UpdateNode(node models.Node) error {
 		return err
 	}
 
-	path := fs.getNodeFilePath(node.GetID())
+	path := fs.GetNodeFilePath(node.GetID())
 	return fs.writeMarkdownFile(path, node)
 }
 
 // DeleteNode deletes a node
 func (fs *FileStorage) DeleteNode(id string) error {
-	path := fs.getNodeFilePath(id)
+	path := fs.GetNodeFilePath(id)
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return models.NewZammError(models.ErrTypeNotFound, "node not found")
@@ -502,8 +502,18 @@ func (fs *FileStorage) SetRootSpecID(specID *string) error {
 
 // Helper methods
 
-// getNodeFilePath returns the file path for a node
-func (fs *FileStorage) getNodeFilePath(nodeID string) string {
+// GetNodeFilePath returns the file path for a node from node-files.csv or default location
+func (fs *FileStorage) GetNodeFilePath(nodeID string) string {
+	nodeFiles, err := fs.getAllNodeFileLinks()
+	if err == nil {
+		if customPath, exists := nodeFiles[nodeID]; exists {
+			if !filepath.IsAbs(customPath) {
+				return filepath.Join(filepath.Dir(fs.baseDir), customPath)
+			}
+			return customPath
+		}
+	}
+
 	return filepath.Join(fs.baseDir, "nodes", nodeID+".md")
 }
 
@@ -734,4 +744,61 @@ func (fs *FileStorage) writeCSVFile(path string, records [][]string) error {
 	defer writer.Flush()
 
 	return writer.WriteAll(records)
+}
+
+// getAllNodeFileLinks reads all node-file mappings from CSV
+func (fs *FileStorage) getAllNodeFileLinks() (map[string]string, error) {
+	path := filepath.Join(fs.baseDir, "node-files.csv")
+	records, err := fs.readCSVFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeFiles := make(map[string]string)
+	for i, record := range records {
+		if i == 0 {
+			continue
+		}
+
+		if len(record) < 2 {
+			continue
+		}
+
+		nodeFiles[record[0]] = record[1]
+	}
+
+	return nodeFiles, nil
+}
+
+func (fs *FileStorage) writeNodeFileLinks(nodeFiles map[string]string) error {
+	path := filepath.Join(fs.baseDir, "node-files.csv")
+
+	records := [][]string{
+		{"node_id", "file_path"},
+	}
+
+	// Create a slice of node IDs and sort them alphabetically for consistent git diffs
+	nodeIDs := make([]string, 0, len(nodeFiles))
+	for nodeID := range nodeFiles {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	sort.Strings(nodeIDs)
+
+	// Add records in sorted order
+	for _, nodeID := range nodeIDs {
+		records = append(records, []string{nodeID, nodeFiles[nodeID]})
+	}
+
+	return fs.writeCSVFile(path, records)
+}
+
+// UpdateNodeFilePath updates a single node's file path in the CSV
+func (fs *FileStorage) UpdateNodeFilePath(nodeID, newPath string) error {
+	nodeFiles, err := fs.getAllNodeFileLinks()
+	if err != nil {
+		return err
+	}
+
+	nodeFiles[nodeID] = newPath
+	return fs.writeNodeFileLinks(nodeFiles)
 }
