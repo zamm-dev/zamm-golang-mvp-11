@@ -1069,7 +1069,7 @@ func (m *Model) organizeNodeCmd(nodeID string) tea.Cmd {
 		if err := m.app.specService.OrganizeNodes(nodeID); err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error organizing node: %v. Press Enter to continue...", err)}
 		}
-		return operationCompleteMsg{message: "Node organized successfully. Press Enter to continue..."}
+		return returnToSpecListMsg{}
 	}
 }
 
@@ -1092,6 +1092,6 @@ func (m *Model) setSlugAndOrganizeCmd(nodeID, slug string) tea.Cmd {
 			return operationCompleteMsg{message: fmt.Sprintf("Error organizing node: %v. Press Enter to continue...", err)}
 		}
 
-		return operationCompleteMsg{message: "Node organized successfully with new slug. Press Enter to continue..."}
+		return returnToSpecListMsg{}
 	}
 }

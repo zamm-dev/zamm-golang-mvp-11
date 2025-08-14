@@ -46,7 +46,7 @@ func (s baseSlugEditor) Init() tea.Cmd {
 func (s *baseSlugEditor) SetSize(width, height int) {
 	s.width = width
 	s.height = height
-	s.slugInput.Width = width - 10 // Leave some margin
+	s.slugInput.Width = width - 4 // Leave some margin for full-screen layout
 }
 
 // Update handles tea messages for the base slug editor
@@ -75,29 +75,31 @@ func (s baseSlugEditor) Update(msg tea.Msg) (baseSlugEditor, tea.Cmd) {
 
 // View renders the base slug editor
 func (s *baseSlugEditor) View() string {
-	dialogStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder(), true).
-		BorderForeground(lipgloss.Color("6")).
-		Padding(2, 4).
-		Background(lipgloss.Color("0")).
-		Foreground(lipgloss.Color("7"))
-
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
 	title := titleStyle.Render("Edit Slug Before Organizing")
+
+	headerStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderBottom(true).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(0, 1)
+	header := headerStyle.Width(s.width).Render(title)
 
 	instructionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	instructions := instructionStyle.Render("Press Enter to confirm, Esc to cancel")
 
+	slugLabel := lipgloss.NewStyle().Foreground(lipgloss.Color("7")).Render("Slug:")
+
 	content := lipgloss.JoinVertical(lipgloss.Left,
-		title,
+		header,
 		"",
-		"Slug:",
+		slugLabel,
 		s.slugInput.View(),
 		"",
 		instructions,
 	)
 
-	return dialogStyle.Render(content)
+	return content
 }
 
 // SlugEditor is a slug editor component
