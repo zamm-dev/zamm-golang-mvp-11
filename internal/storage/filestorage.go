@@ -164,7 +164,7 @@ func (fs *FileStorage) ListNodes() ([]models.Node, error) {
 		return nil, err
 	}
 
-	var nodes []models.Node
+	nodes := make([]models.Node, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
@@ -206,7 +206,7 @@ func (fs *FileStorage) GetSpecCommitLinks(specID string) ([]*models.SpecCommitLi
 		return nil, err
 	}
 
-	var links []*models.SpecCommitLink
+	links := make([]*models.SpecCommitLink, 0, len(allLinks))
 	for _, link := range allLinks {
 		if link.SpecID == specID {
 			links = append(links, link)
@@ -224,7 +224,7 @@ func (fs *FileStorage) DeleteSpecCommitLink(specID string) error {
 	}
 
 	found := false
-	var filtered []*models.SpecCommitLink
+	filtered := make([]*models.SpecCommitLink, 0, len(links))
 	for _, link := range links {
 		if link.SpecID != specID {
 			filtered = append(filtered, link)
@@ -248,7 +248,7 @@ func (fs *FileStorage) DeleteSpecCommitLinkByFields(specID, commitID, repoPath s
 	}
 
 	found := false
-	var filtered []*models.SpecCommitLink
+	filtered := make([]*models.SpecCommitLink, 0, len(links))
 	for _, link := range links {
 		if link.SpecID != specID || link.CommitID != commitID || link.RepoPath != repoPath {
 			filtered = append(filtered, link)
@@ -271,7 +271,7 @@ func (fs *FileStorage) GetLinksByCommit(commitID, repoPath string) ([]*models.Sp
 		return nil, err
 	}
 
-	var links []*models.SpecCommitLink
+	links := make([]*models.SpecCommitLink, 0, len(allLinks))
 	for _, link := range allLinks {
 		if link.CommitID == commitID && link.RepoPath == repoPath {
 			links = append(links, link)
@@ -311,7 +311,7 @@ func (fs *FileStorage) GetSpecSpecLinks(specID string, direction models.Directio
 		return nil, err
 	}
 
-	var links []*models.SpecSpecLink
+	links := make([]*models.SpecSpecLink, 0, len(allLinks))
 	for _, link := range allLinks {
 		if direction == models.Outgoing && link.FromSpecID == specID {
 			links = append(links, link)
@@ -331,7 +331,7 @@ func (fs *FileStorage) DeleteSpecSpecLink(fromSpecID, toSpecID string) error {
 	}
 
 	found := false
-	var filtered []*models.SpecSpecLink
+	filtered := make([]*models.SpecSpecLink, 0, len(links))
 	for _, link := range links {
 		if link.FromSpecID != fromSpecID || link.ToSpecID != toSpecID {
 			filtered = append(filtered, link)
@@ -355,7 +355,7 @@ func (fs *FileStorage) DeleteSpecLinkBySpecs(fromSpecID, toSpecID string) error 
 	}
 
 	found := false
-	var filtered []*models.SpecSpecLink
+	filtered := make([]*models.SpecSpecLink, 0, len(links))
 	for _, link := range links {
 		if link.FromSpecID != fromSpecID || link.ToSpecID != toSpecID {
 			filtered = append(filtered, link)
@@ -379,7 +379,7 @@ func (fs *FileStorage) GetLinkedSpecs(specID string, direction models.Direction)
 		return nil, err
 	}
 
-	var specs []*models.Spec
+	specs := make([]*models.Spec, 0, len(links))
 	for _, link := range links {
 		var targetSpecID string
 		if direction == models.Outgoing {
@@ -409,7 +409,7 @@ func (fs *FileStorage) GetLinkedNodes(nodeID string, direction models.Direction)
 		return nil, err
 	}
 
-	var nodes []models.Node
+	nodes := make([]models.Node, 0, len(links))
 	for _, link := range links {
 		var targetNodeID string
 		if direction == models.Outgoing {
@@ -447,7 +447,7 @@ func (fs *FileStorage) GetOrphanSpecs() ([]*models.Spec, error) {
 		hasParents[link.FromSpecID] = true
 	}
 
-	var orphans []*models.Spec
+	orphans := make([]*models.Spec, 0, len(allNodes))
 	for _, node := range allNodes {
 		// Only include Spec nodes
 		if spec, ok := node.(*models.Spec); ok {
@@ -510,7 +510,7 @@ func (fs *FileStorage) getAllSpecCommitLinks() ([]*models.SpecCommitLink, error)
 		return nil, err
 	}
 
-	var links []*models.SpecCommitLink
+	links := make([]*models.SpecCommitLink, 0, len(records))
 	for i, record := range records {
 		if i == 0 {
 			continue // Skip header
@@ -560,7 +560,7 @@ func (fs *FileStorage) getAllSpecSpecLinks() ([]*models.SpecSpecLink, error) {
 		return nil, err
 	}
 
-	var links []*models.SpecSpecLink
+	links := make([]*models.SpecSpecLink, 0, len(records))
 	for i, record := range records {
 		if i == 0 {
 			continue // Skip header
