@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 // createInitCommand creates the init command
@@ -104,18 +105,19 @@ func (a *App) createVersionCommand() *cobra.Command {
 func (a *App) createMigrateCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate",
-		Short: "Run database/data migrations (e.g., add missing fields)",
+		Short: "Convert JSON node files to Markdown files with YAML frontmatter",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			migrationsRun := 0
 
-			// Run specs-to-nodes migration
+			// Run JSON-to-Markdown migration
 			if err := a.migrateSpecsToNodes(); err != nil {
-				// If specs directory doesn't exist, that's fine - migration already done
-				if !strings.Contains(err.Error(), "specs directory does not exist") {
+				// If nodes directory doesn't exist, that's fine - migration already done
+				if !strings.Contains(err.Error(), "nodes directory does not exist") &&
+					!strings.Contains(err.Error(), "no JSON files found to migrate") {
 					return err
 				}
 			} else {
-				fmt.Printf("[specs-to-nodes] Migration complete. Renamed specs folder to nodes.\n")
+				fmt.Printf("[json-to-markdown] Migration complete. Converted JSON files to Markdown.\n")
 				migrationsRun++
 			}
 
@@ -127,24 +129,90 @@ func (a *App) createMigrateCommand() *cobra.Command {
 	}
 }
 
-// migrateSpecsToNodes renames the specs folder to nodes folder
+// migrateSpecsToNodes converts JSON node files to Markdown files with YAML frontmatter
 func (a *App) migrateSpecsToNodes() error {
-	specsDir := filepath.Join(a.config.Storage.Path, "specs")
 	nodesDir := filepath.Join(a.config.Storage.Path, "nodes")
 
-	// Check if specs directory exists
-	if _, err := os.Stat(specsDir); os.IsNotExist(err) {
-		return fmt.Errorf("specs directory does not exist: %s", specsDir)
+	// Check if nodes directory exists
+	if _, err := os.Stat(nodesDir); os.IsNotExist(err) {
+		return fmt.Errorf("nodes directory does not exist: %s", nodesDir)
 	}
 
-	// Check if nodes directory already exists
-	if _, err := os.Stat(nodesDir); err == nil {
-		return fmt.Errorf("nodes directory already exists: %s", nodesDir)
+	// Read all JSON files in nodes directory
+	entries, err := os.ReadDir(nodesDir)
+	if err != nil {
+		return fmt.Errorf("failed to read nodes directory: %w", err)
 	}
 
-	// Rename specs directory to nodes
-	if err := os.Rename(specsDir, nodesDir); err != nil {
-		return fmt.Errorf("failed to rename specs directory to nodes: %w", err)
+	migratedCount := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+
+		jsonPath := filepath.Join(nodesDir, entry.Name())
+		mdPath := strings.TrimSuffix(jsonPath, ".json") + ".md"
+
+		// Skip if markdown file already exists
+		if _, err := os.Stat(mdPath); err == nil {
+			continue
+		}
+
+		if err := a.convertJSONToMarkdown(jsonPath, mdPath); err != nil {
+			return fmt.Errorf("failed to convert %s: %w", entry.Name(), err)
+		}
+
+		migratedCount++
+	}
+
+	if migratedCount == 0 {
+		return fmt.Errorf("no JSON files found to migrate")
+	}
+
+	return nil
+}
+
+func (a *App) convertJSONToMarkdown(jsonPath, mdPath string) error {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return fmt.Errorf("failed to read JSON file: %w", err)
+	}
+
+	var nodeData map[string]interface{}
+	if err := json.Unmarshal(data, &nodeData); err != nil {
+		return fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	content, hasContent := nodeData["content"].(string)
+	if !hasContent {
+		content = ""
+	}
+
+	// Create frontmatter map with all fields except content
+	frontmatter := make(map[string]interface{})
+	for key, value := range nodeData {
+		if key != "content" {
+			frontmatter[key] = value
+		}
+	}
+
+	yamlData, err := yaml.Marshal(frontmatter)
+	if err != nil {
+		return fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
+	}
+
+	var mdContent strings.Builder
+	mdContent.WriteString("---\n")
+	mdContent.Write(yamlData)
+	mdContent.WriteString("---\n")
+	if content != "" {
+		mdContent.WriteString("\n")
+		mdContent.WriteString(content)
+		mdContent.WriteString("\n")
+	}
+
+	if err := os.WriteFile(mdPath, []byte(mdContent.String()), 0644); err != nil {
+		return fmt.Errorf("failed to write markdown file: %w", err)
 	}
 
 	return nil
