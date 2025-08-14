@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
+	"gopkg.in/yaml.v3"
 )
 
 // FileStorage implements file-based storage for ZAMM
@@ -88,7 +89,7 @@ func (fs *FileStorage) CreateNode(node models.Node) error {
 	}
 
 	path := fs.getNodeFilePath(node.GetID())
-	return fs.writeJSONFile(path, node)
+	return fs.writeMarkdownFile(path, node)
 }
 
 // GetNode retrieves a node by ID
@@ -97,7 +98,7 @@ func (fs *FileStorage) GetNode(id string) (models.Node, error) {
 
 	// First read as NodeBase to determine the type
 	var nodeBase models.NodeBase
-	if err := fs.readJSONFile(path, &nodeBase); err != nil {
+	if err := fs.readMarkdownFile(path, &nodeBase); err != nil {
 		if os.IsNotExist(err) {
 			return nil, models.NewZammError(models.ErrTypeNotFound, "node not found")
 		}
@@ -108,19 +109,19 @@ func (fs *FileStorage) GetNode(id string) (models.Node, error) {
 	switch nodeBase.Type {
 	case "specification":
 		var spec models.Spec
-		if err := fs.readJSONFile(path, &spec); err != nil {
+		if err := fs.readMarkdownFile(path, &spec); err != nil {
 			return nil, err
 		}
 		return &spec, nil
 	case "project":
 		var project models.Project
-		if err := fs.readJSONFile(path, &project); err != nil {
+		if err := fs.readMarkdownFile(path, &project); err != nil {
 			return nil, err
 		}
 		return &project, nil
 	case "implementation":
 		var implementation models.Implementation
-		if err := fs.readJSONFile(path, &implementation); err != nil {
+		if err := fs.readMarkdownFile(path, &implementation); err != nil {
 			return nil, err
 		}
 		return &implementation, nil
@@ -142,7 +143,7 @@ func (fs *FileStorage) UpdateNode(node models.Node) error {
 	}
 
 	path := fs.getNodeFilePath(node.GetID())
-	return fs.writeJSONFile(path, node)
+	return fs.writeMarkdownFile(path, node)
 }
 
 // DeleteNode deletes a node
@@ -166,11 +167,11 @@ func (fs *FileStorage) ListNodes() ([]models.Node, error) {
 
 	nodes := make([]models.Node, 0, len(entries))
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
 		}
 
-		id := strings.TrimSuffix(entry.Name(), ".json")
+		id := strings.TrimSuffix(entry.Name(), ".md")
 		node, err := fs.GetNode(id)
 		if err != nil {
 			continue // Skip invalid files
@@ -499,7 +500,7 @@ func (fs *FileStorage) SetRootSpecID(specID *string) error {
 
 // getNodeFilePath returns the file path for a node
 func (fs *FileStorage) getNodeFilePath(nodeID string) string {
-	return filepath.Join(fs.baseDir, "nodes", nodeID+".json")
+	return filepath.Join(fs.baseDir, "nodes", nodeID+".md")
 }
 
 // getAllSpecCommitLinks reads all spec-commit links from CSV
@@ -601,6 +602,85 @@ func (fs *FileStorage) writeSpecSpecLinks(links []*models.SpecSpecLink) error {
 }
 
 // File I/O helpers
+
+// readMarkdownFile reads markdown data with YAML frontmatter from a file
+func (fs *FileStorage) readMarkdownFile(path string, v interface{}) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	content := string(data)
+	
+	if !strings.HasPrefix(content, "---\n") {
+		return fmt.Errorf("invalid markdown format: missing frontmatter")
+	}
+	
+	parts := strings.SplitN(content[4:], "\n---\n", 2)
+	if len(parts) < 2 {
+		return fmt.Errorf("invalid markdown format: malformed frontmatter")
+	}
+	
+	yamlContent := parts[0]
+	markdownContent := strings.TrimSpace(parts[1])
+	
+	var frontmatter map[string]interface{}
+	if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
+		return fmt.Errorf("failed to parse YAML frontmatter: %w", err)
+	}
+	
+	frontmatter["content"] = markdownContent
+	
+	jsonData, err := json.Marshal(frontmatter)
+	if err != nil {
+		return fmt.Errorf("failed to marshal frontmatter: %w", err)
+	}
+	
+	return json.Unmarshal(jsonData, v)
+}
+
+// writeMarkdownFile writes markdown data with YAML frontmatter to a file
+func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
+	jsonData, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data: %w", err)
+	}
+	
+	var nodeData map[string]interface{}
+	if err := json.Unmarshal(jsonData, &nodeData); err != nil {
+		return fmt.Errorf("failed to unmarshal data: %w", err)
+	}
+	
+	content, hasContent := nodeData["content"].(string)
+	if !hasContent {
+		content = ""
+	}
+	
+	// Create frontmatter map with all fields except content
+	frontmatter := make(map[string]interface{})
+	for key, value := range nodeData {
+		if key != "content" {
+			frontmatter[key] = value
+		}
+	}
+	
+	yamlData, err := yaml.Marshal(frontmatter)
+	if err != nil {
+		return fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
+	}
+	
+	var mdContent strings.Builder
+	mdContent.WriteString("---\n")
+	mdContent.Write(yamlData)
+	mdContent.WriteString("---\n")
+	if content != "" {
+		mdContent.WriteString("\n")
+		mdContent.WriteString(content)
+		mdContent.WriteString("\n")
+	}
+	
+	return os.WriteFile(path, []byte(mdContent.String()), 0644)
+}
 
 // readJSONFile reads JSON data from a file
 func (fs *FileStorage) readJSONFile(path string, v interface{}) error {
