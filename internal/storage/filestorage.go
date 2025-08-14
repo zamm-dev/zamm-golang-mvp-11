@@ -784,6 +784,11 @@ func (fs *FileStorage) getAllNodeFileLinks() (map[string]string, error) {
 	return nodeFiles, nil
 }
 
+// GetAllNodeFileLinks returns all node-file mappings (public wrapper for getAllNodeFileLinks)
+func (fs *FileStorage) GetAllNodeFileLinks() (map[string]string, error) {
+	return fs.getAllNodeFileLinks()
+}
+
 func (fs *FileStorage) writeNodeFileLinks(nodeFiles map[string]string) error {
 	path := filepath.Join(fs.baseDir, "node-files.csv")
 

@@ -127,27 +127,56 @@ func (a *App) createMigrateCommand() *cobra.Command {
 
 // migrateTitlesToHeadings migrates all node files to use level 1 headings for titles
 func (a *App) migrateTitlesToHeadings() error {
-	// Get all nodes using the spec service
-	nodes, err := a.specService.ListNodes()
-	if err != nil {
-		return fmt.Errorf("failed to list nodes: %w", err)
-	}
-
-	// Cast storage to FileStorage to access GetNodeFilePath
+	// Cast storage to FileStorage to access getAllNodeFileLinks and GetNodeFilePath
 	fileStorage, ok := a.storage.(*storage.FileStorage)
 	if !ok {
 		return fmt.Errorf("storage is not FileStorage type")
 	}
 
+	// Get all node IDs from both regular storage and custom file paths
+	migratedNodeIDs := make(map[string]bool)
 	migratedCount := 0
+
+	// First, migrate all nodes from regular storage (.zamm/nodes/)
+	nodes, err := a.specService.ListNodes()
+	if err != nil {
+		return fmt.Errorf("failed to list nodes: %w", err)
+	}
+
 	for _, node := range nodes {
+		nodeID := node.GetID()
 		// Get the file path for this node using storage's GetNodeFilePath
-		filePath := fileStorage.GetNodeFilePath(node.GetID())
+		filePath := fileStorage.GetNodeFilePath(nodeID)
 
 		if err := a.migrateNodeFileToHeading(filePath); err != nil {
-			return fmt.Errorf("failed to migrate node %s: %w", node.GetID(), err)
+			return fmt.Errorf("failed to migrate node %s: %w", nodeID, err)
 		}
+		migratedNodeIDs[nodeID] = true
 		migratedCount++
+	}
+
+	// Second, get all custom file paths from node-files.csv and migrate those too
+	nodeFileLinks, err := fileStorage.GetAllNodeFileLinks()
+	if err == nil { // Don't fail if the CSV doesn't exist or can't be read
+		for nodeID, customPath := range nodeFileLinks {
+			// Skip if we already migrated this node from regular storage
+			if migratedNodeIDs[nodeID] {
+				continue
+			}
+
+			// Build the full path if it's relative
+			var filePath string
+			if filepath.IsAbs(customPath) {
+				filePath = customPath
+			} else {
+				filePath = filepath.Join(filepath.Dir(fileStorage.BaseDir()), customPath)
+			}
+
+			if err := a.migrateNodeFileToHeading(filePath); err != nil {
+				return fmt.Errorf("failed to migrate custom path node %s at %s: %w", nodeID, filePath, err)
+			}
+			migratedCount++
+		}
 	}
 
 	fmt.Printf("Migrated %d node files to use level 1 headings.\n", migratedCount)
