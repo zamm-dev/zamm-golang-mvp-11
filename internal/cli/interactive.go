@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -27,6 +29,7 @@ const (
 	NodeEditor
 	ImplementationForm
 	ConfirmDelete
+	SlugEditor
 	// New states for link editing components
 	LinkEditor
 	UnlinkEditor
@@ -67,6 +70,8 @@ type Model struct {
 
 	// Node editor components
 	nodeEditor common.NodeEditor
+
+	slugEditor common.SlugEditor
 
 	// Node type selection
 	nodeTypeSelector *common.NodeTypeSelector
@@ -211,6 +216,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.specListView.SetSize(msg.Width, msg.Height)
 		m.nodeEditor.SetSize(msg.Width, msg.Height)
 		m.linkEditor.SetSize(msg.Width, msg.Height)
+		m.slugEditor.SetSize(msg.Width, msg.Height)
 		if m.nodeTypeSelector != nil {
 			m.nodeTypeSelector.SetSize(msg.Width, msg.Height)
 		}
@@ -451,6 +457,30 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.linkEditor.Init()
 		}
 
+	case nodes.OrganizeSpecMsg:
+		if m.state == SpecListView {
+			m.resetInputs()
+			m.selectedSpecID = msg.SpecID
+
+			// Get the node to check if it has a slug
+			node, err := m.app.specService.GetNode(msg.SpecID)
+			if err != nil {
+				return m, func() tea.Msg {
+					return operationCompleteMsg{message: fmt.Sprintf("Error loading node: %v. Press Enter to continue...", err)}
+				}
+			}
+
+			if node.GetSlug() == nil {
+				initialSlug := m.sanitizeSlug(node.GetTitle())
+				m.slugEditor = common.NewSlugEditor("📁 Set Organization Slug", node.GetTitle(), initialSlug)
+				m.slugEditor.SetSize(m.terminalWidth, m.terminalHeight)
+				m.state = SlugEditor
+				return m, m.slugEditor.Init()
+			} else {
+				return m, m.organizeNodeCmd(msg.SpecID)
+			}
+		}
+
 	case common.NodeEditorCompleteMsg:
 		if m.state == NodeEditor {
 			// Determine if this is create or edit based on whether we have an editingSpecID
@@ -568,6 +598,29 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case common.SlugEditorCompleteMsg:
+		if m.state == SlugEditor {
+			// Set the slug on the node and then organize
+			node, err := m.app.specService.GetNode(m.selectedSpecID)
+			if err != nil {
+				return m, func() tea.Msg {
+					return operationCompleteMsg{message: fmt.Sprintf("Error loading node: %v. Press Enter to continue...", err)}
+				}
+			}
+			node.SetSlug(&msg.Slug)
+			if _, err := m.app.specService.UpdateNode(m.selectedSpecID, node.GetTitle(), node.GetContent()); err != nil {
+				return m, func() tea.Msg {
+					return operationCompleteMsg{message: fmt.Sprintf("Error updating slug: %v. Press Enter to continue...", err)}
+				}
+			}
+			return m, m.organizeNodeCmd(m.selectedSpecID)
+		}
+
+	case common.SlugEditorCancelMsg:
+		if m.state == SlugEditor {
+			return m, func() tea.Msg { return returnToSpecListMsg{} }
+		}
+
 	case nodes.ExitMsg:
 		return m, tea.Quit
 	}
@@ -593,6 +646,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		editor, cmd := m.linkEditor.Update(msg)
 		if linkEditor, ok := editor.(common.LinkEditor); ok {
 			m.linkEditor = linkEditor
+		}
+		return m, cmd
+	case SlugEditor:
+		var cmd tea.Cmd
+		editor, cmd := m.slugEditor.Update(msg)
+		if slugEditor, ok := editor.(common.SlugEditor); ok {
+			m.slugEditor = slugEditor
 		}
 		return m, cmd
 	default:
@@ -889,6 +949,8 @@ func (m *Model) View() string {
 		return "Choose node type..."
 	case LinkEditor:
 		return m.linkEditor.View()
+	case SlugEditor:
+		return m.slugEditor.View()
 	case ConfirmDelete:
 		return m.renderConfirmDelete()
 	default:
@@ -954,6 +1016,25 @@ func (m *Model) renderConfirmDelete() string {
 
 	s += "Press 'y' to confirm, 'n' or Esc to cancel"
 	return s
+}
+
+func (m *Model) organizeNodeCmd(nodeID string) tea.Cmd {
+	return func() tea.Msg {
+		if err := m.app.specService.OrganizeNodes(nodeID); err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error organizing node: %v. Press Enter to continue...", err)}
+		}
+		return operationCompleteMsg{message: "Node organized successfully! Press Enter to continue..."}
+	}
+}
+
+func (m *Model) sanitizeSlug(title string) string {
+	slug := strings.ToLower(title)
+	slug = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(slug, "-")
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		slug = "untitled"
+	}
+	return slug
 }
 
 // combinedService adapts both LinkService and SpecService to provide

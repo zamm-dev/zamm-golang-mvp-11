@@ -12,18 +12,19 @@ import (
 )
 
 type keyMap struct {
-	Up     key.Binding
-	Down   key.Binding
-	Select key.Binding
-	Create key.Binding
-	Edit   key.Binding
-	Delete key.Binding
-	Link   key.Binding
-	Remove key.Binding
-	Move   key.Binding
-	Help   key.Binding
-	Back   key.Binding
-	Quit   key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	Select   key.Binding
+	Create   key.Binding
+	Edit     key.Binding
+	Delete   key.Binding
+	Link     key.Binding
+	Remove   key.Binding
+	Move     key.Binding
+	Organize key.Binding
+	Help     key.Binding
+	Back     key.Binding
+	Quit     key.Binding
 }
 
 var keys = keyMap{
@@ -67,6 +68,10 @@ var keys = keyMap{
 		key.WithKeys("m", "M"),
 		key.WithHelp("m", "move"),
 	),
+	Organize: key.NewBinding(
+		key.WithKeys("o", "O"),
+		key.WithHelp("o", "organize"),
+	),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "Q"),
 		key.WithHelp("q", "quit"),
@@ -87,7 +92,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 		{k.Select, k.Back},
 		{k.Create, k.Edit, k.Delete},
 		{k.Link, k.Remove, k.Move},
-		{k.Help, k.Quit},
+		{k.Organize, k.Help, k.Quit},
 	}
 }
 
@@ -205,6 +210,8 @@ func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 			return *e, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Move):
 			return *e, func() tea.Msg { return MoveSpecMsg{SpecID: e.activeSpec.GetID()} }
+		case key.Matches(msg, e.keys.Organize):
+			return *e, func() tea.Msg { return OrganizeSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Back):
 			// If a child is selected, clear selection
 			if e.leftPane.GetSelectedChild() != nil {

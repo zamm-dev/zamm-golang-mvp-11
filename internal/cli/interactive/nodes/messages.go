@@ -25,4 +25,8 @@ type MoveSpecMsg struct {
 	SpecID string
 }
 
+type OrganizeSpecMsg struct {
+	SpecID string
+}
+
 type ExitMsg struct{}
