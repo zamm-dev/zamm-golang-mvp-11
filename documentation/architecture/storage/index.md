@@ -1,5 +1,6 @@
 ---
 id: 22703eef-9164-436b-9b3b-8c95fa8d46e8
+slug: storage
 title: Storage Layer
 type: specification
 ---

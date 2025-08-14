@@ -19,7 +19,7 @@ node_id,file_path
 2046d341-46ac-4548-bf88-bd6adc1ebd28,.zamm/nodes/2046d341-46ac-4548-bf88-bd6adc1ebd28.md
 208169dd-b222-4fbd-9934-05d70f7a18e4,.zamm/nodes/208169dd-b222-4fbd-9934-05d70f7a18e4.md
 218df91d-aba9-4053-b0df-7d1c3bd608ee,.zamm/nodes/218df91d-aba9-4053-b0df-7d1c3bd608ee.md
-22703eef-9164-436b-9b3b-8c95fa8d46e8,.zamm/nodes/22703eef-9164-436b-9b3b-8c95fa8d46e8.md
+22703eef-9164-436b-9b3b-8c95fa8d46e8,documentation/architecture/storage/index.md
 22f885ef-47c5-4b39-85cc-ef9afb846ac3,.zamm/nodes/22f885ef-47c5-4b39-85cc-ef9afb846ac3.md
 23c71e03-6e8c-4d80-b350-bee4cb552a1a,.zamm/nodes/23c71e03-6e8c-4d80-b350-bee4cb552a1a.md
 23c72052-3faa-460b-bdac-20f70d8d65e8,.zamm/nodes/23c72052-3faa-460b-bdac-20f70d8d65e8.md
@@ -84,7 +84,7 @@ b0dec07e-a45c-4bcb-8fe3-71cd67b9bb19,.zamm/nodes/b0dec07e-a45c-4bcb-8fe3-71cd67b
 b127f886-6dc3-4082-83fe-db3213b231be,.zamm/nodes/b127f886-6dc3-4082-83fe-db3213b231be.md
 b5326b89-fb18-4326-9e3b-12e4d5c008cc,.zamm/nodes/b5326b89-fb18-4326-9e3b-12e4d5c008cc.md
 bd1ff288-f00b-410e-b09a-78d2e43de492,.zamm/nodes/bd1ff288-f00b-410e-b09a-78d2e43de492.md
-c06779b1-8a9f-44c4-bde1-deb1fbded4da,.zamm/nodes/c06779b1-8a9f-44c4-bde1-deb1fbded4da.md
+c06779b1-8a9f-44c4-bde1-deb1fbded4da,documentation/architecture/index.md
 c3793af0-6100-4e84-bf7a-b75044ba7ab3,.zamm/nodes/c3793af0-6100-4e84-bf7a-b75044ba7ab3.md
 c5a11328-6287-463f-a4b4-39f2cc3cf7b0,.zamm/nodes/c5a11328-6287-463f-a4b4-39f2cc3cf7b0.md
 c615b37f-0462-40e3-a918-f47f935bacd1,.zamm/nodes/c615b37f-0462-40e3-a918-f47f935bacd1.md
