@@ -22,6 +22,7 @@ func (a *App) CreateRootCommand() *cobra.Command {
 	// Add subcommands
 	rootCmd.AddCommand(a.createSpecCommand(jsonOutput, quiet))
 	rootCmd.AddCommand(a.createLinkCommand(jsonOutput, quiet))
+	rootCmd.AddCommand(a.createOrganizeCommand(jsonOutput, quiet))
 	rootCmd.AddCommand(a.createInitCommand())
 	rootCmd.AddCommand(a.createStatusCommand(jsonOutput))
 	rootCmd.AddCommand(a.createVersionCommand())

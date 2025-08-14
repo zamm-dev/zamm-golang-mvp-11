@@ -1,6 +1,10 @@
 package services
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
@@ -30,6 +34,9 @@ type SpecService interface {
 	GetRootSpec() (*models.Spec, error)
 	GetRootNode() (models.Node, error)
 	GetOrphanSpecs() ([]*models.Spec, error)
+
+	// Organization operations
+	OrganizeNodes() error
 }
 
 // specService implements the SpecService interface
@@ -451,4 +458,100 @@ func (s *specService) validateSpecInput(title, content string) error {
 	}
 
 	return nil
+}
+
+// OrganizeNodes moves nodes from generic locations to hierarchical paths
+func (s *specService) OrganizeNodes() error {
+	rootNode, err := s.GetRootNode()
+	if err != nil {
+		return fmt.Errorf("failed to get root node: %w", err)
+	}
+
+	if err := s.generateMissingSlugs(); err != nil {
+		return fmt.Errorf("failed to generate slugs: %w", err)
+	}
+
+	return s.organizeNodeRecursively(rootNode, "documentation")
+}
+
+func (s *specService) generateMissingSlugs() error {
+	nodes, err := s.storage.ListNodes()
+	if err != nil {
+		return err
+	}
+
+	for _, node := range nodes {
+		if node.GetSlug() == nil {
+			slug := s.sanitizeSlug(node.GetTitle())
+			node.SetSlug(&slug)
+			if err := s.storage.UpdateNode(node); err != nil {
+				return fmt.Errorf("failed to update node %s: %w", node.GetID(), err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *specService) organizeNodeRecursively(node models.Node, basePath string) error {
+	children, err := s.GetChildren(node.GetID())
+	if err != nil {
+		return fmt.Errorf("failed to get children for node %s: %w", node.GetID(), err)
+	}
+
+	var newPath string
+	slug := s.getNodeSlug(node)
+
+	if len(children) > 0 {
+		newPath = filepath.Join(basePath, slug, "index.md")
+		
+		childBasePath := filepath.Join(basePath, slug)
+		for _, child := range children {
+			if err := s.organizeNodeRecursively(child, childBasePath); err != nil {
+				return err
+			}
+		}
+	} else {
+		newPath = filepath.Join(basePath, slug+".md")
+	}
+
+	return s.moveNodeToPath(node, newPath)
+}
+
+func (s *specService) moveNodeToPath(node models.Node, newPath string) error {
+	fileStorage, ok := s.storage.(*storage.FileStorage)
+	if !ok {
+		return fmt.Errorf("storage is not FileStorage type")
+	}
+
+	currentPath := fileStorage.GetNodeFilePath(node.GetID())
+	
+	fullNewPath := filepath.Join(filepath.Dir(fileStorage.BaseDir()), newPath)
+	
+	if err := os.MkdirAll(filepath.Dir(fullNewPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := os.Rename(currentPath, fullNewPath); err != nil {
+		return fmt.Errorf("failed to move file: %w", err)
+	}
+
+	return fileStorage.UpdateNodeFilePath(node.GetID(), newPath)
+}
+
+func (s *specService) getNodeSlug(node models.Node) string {
+	if slug := node.GetSlug(); slug != nil && *slug != "" {
+		return *slug
+	}
+	return s.sanitizeSlug(node.GetTitle())
+}
+
+func (s *specService) sanitizeSlug(title string) string {
+	slug := strings.ToLower(title)
+	slug = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(slug, "-")
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		slug = "untitled"
+	}
+	return slug
 }
