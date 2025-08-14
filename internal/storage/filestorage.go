@@ -643,6 +643,20 @@ func (fs *FileStorage) readMarkdownFile(path string, v interface{}) error {
 		return fmt.Errorf("failed to parse YAML frontmatter: %w", err)
 	}
 
+	// Extract title from level 1 heading if present
+	if strings.HasPrefix(markdownContent, "# ") {
+		lines := strings.SplitN(markdownContent, "\n", 2)
+		title := strings.TrimPrefix(lines[0], "# ")
+		frontmatter["title"] = title
+
+		// Remove title heading from content
+		if len(lines) > 1 {
+			markdownContent = strings.TrimSpace(lines[1])
+		} else {
+			markdownContent = ""
+		}
+	}
+
 	frontmatter["content"] = markdownContent
 
 	jsonData, err := json.Marshal(frontmatter)

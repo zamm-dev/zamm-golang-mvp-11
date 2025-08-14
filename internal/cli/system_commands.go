@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 // createInitCommand creates the init command
@@ -106,7 +107,7 @@ func (a *App) createVersionCommand() *cobra.Command {
 func (a *App) createMigrateCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate",
-		Short: "Create node-files.csv mapping UUIDs to file paths",
+		Short: "Run system migrations for node format and mappings",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			migrationsRun := 0
 
@@ -115,6 +116,13 @@ func (a *App) createMigrateCommand() *cobra.Command {
 				return err
 			}
 			fmt.Printf("[node-files-mapping] Created node-files.csv mapping UUIDs to file paths.\n")
+			migrationsRun++
+
+			// Run title-to-heading migration
+			if err := a.migrateTitlesToHeadings(); err != nil {
+				return err
+			}
+			fmt.Printf("[title-to-heading] Migrated node titles to level 1 headings.\n")
 			migrationsRun++
 
 			if migrationsRun == 0 {
@@ -185,6 +193,102 @@ func (a *App) createNodeFilesMapping() error {
 	// Write CSV file
 	csvPath := filepath.Join(a.config.Storage.Path, "node-files.csv")
 	return writeCSVFile(csvPath, csvRecords)
+}
+
+// migrateTitlesToHeadings migrates all node files to use level 1 headings for titles
+func (a *App) migrateTitlesToHeadings() error {
+	nodesDir := filepath.Join(a.config.Storage.Path, "nodes")
+
+	// Check if nodes directory exists
+	if _, err := os.Stat(nodesDir); os.IsNotExist(err) {
+		return fmt.Errorf("nodes directory does not exist: %s", nodesDir)
+	}
+
+	// Read all .md files in nodes directory
+	entries, err := os.ReadDir(nodesDir)
+	if err != nil {
+		return fmt.Errorf("failed to read nodes directory: %w", err)
+	}
+
+	migratedCount := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+			continue
+		}
+
+		filePath := filepath.Join(nodesDir, entry.Name())
+		if err := a.migrateNodeFileToHeading(filePath); err != nil {
+			return fmt.Errorf("failed to migrate %s: %w", entry.Name(), err)
+		}
+		migratedCount++
+	}
+
+	fmt.Printf("Migrated %d node files to use level 1 headings.\n", migratedCount)
+	return nil
+}
+
+// migrateNodeFileToHeading migrates a single node file to use level 1 heading for title
+func (a *App) migrateNodeFileToHeading(filePath string) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	content := string(data)
+
+	// Check if already has frontmatter
+	if !strings.HasPrefix(content, "---\n") {
+		return fmt.Errorf("invalid markdown format: missing frontmatter")
+	}
+
+	parts := strings.SplitN(content[4:], "\n---\n", 2)
+	if len(parts) < 2 {
+		return fmt.Errorf("invalid markdown format: malformed frontmatter")
+	}
+
+	yamlContent := parts[0]
+	markdownContent := strings.TrimSpace(parts[1])
+
+	var frontmatter map[string]interface{}
+	if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
+		return fmt.Errorf("failed to parse YAML frontmatter: %w", err)
+	}
+
+	// Extract title from frontmatter
+	title, hasTitle := frontmatter["title"].(string)
+	if !hasTitle || title == "" {
+		return fmt.Errorf("no title found in frontmatter")
+	}
+
+	// Check if content already starts with level 1 heading
+	if strings.HasPrefix(markdownContent, "# "+title+"\n") {
+		// Already migrated, skip
+		return nil
+	}
+
+	// Remove title from frontmatter
+	delete(frontmatter, "title")
+
+	// Rebuild YAML frontmatter
+	yamlData, err := yaml.Marshal(frontmatter)
+	if err != nil {
+		return fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
+	}
+
+	// Build new content with title as level 1 heading
+	var newContent strings.Builder
+	newContent.WriteString("---\n")
+	newContent.Write(yamlData)
+	newContent.WriteString("---\n\n")
+	newContent.WriteString("# ")
+	newContent.WriteString(title)
+	newContent.WriteString("\n\n")
+	if markdownContent != "" {
+		newContent.WriteString(markdownContent)
+		newContent.WriteString("\n")
+	}
+
+	return os.WriteFile(filePath, []byte(newContent.String()), 0644)
 }
 
 // writeCSVFile writes CSV data to a file
