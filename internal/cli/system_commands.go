@@ -154,7 +154,7 @@ func (a *App) createNodeFilesMapping() error {
 		nodeID := strings.TrimSuffix(entry.Name(), ".md")
 
 		// Current file path (relative to project root)
-		filePath := filepath.Join("nodes", entry.Name())
+		filePath := filepath.Join(".zamm", "nodes", entry.Name())
 
 		csvRecords = append(csvRecords, []string{nodeID, filePath})
 		nodeCount++
