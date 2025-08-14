@@ -20,6 +20,7 @@ type SpecService interface {
 	GetProject(id string) (*models.Project, error)
 	UpdateSpec(id, title, content string) (*models.Spec, error)
 	UpdateImplementation(id, title, content string, repoURL, branch, folderPath *string) (*models.Implementation, error)
+	UpdateNode(id, title, content string) (models.Node, error)
 	ListNodes() ([]models.Node, error)
 	DeleteSpec(id string) error
 
@@ -235,6 +236,49 @@ func (s *specService) UpdateImplementation(id, title, content string, repoURL, b
 	}
 
 	return impl, nil
+}
+
+// UpdateNode updates an existing node regardless of its type
+func (s *specService) UpdateNode(id, title, content string) (models.Node, error) {
+	if id == "" {
+		return nil, models.NewZammError(models.ErrTypeValidation, "node ID cannot be empty")
+	}
+
+	// Validate input
+	if err := s.validateSpecInput(title, content); err != nil {
+		return nil, err
+	}
+
+	// Get existing node
+	node, err := s.storage.GetNode(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update fields based on node type
+	switch n := node.(type) {
+	case *models.Spec:
+		n.Title = strings.TrimSpace(title)
+		n.Content = strings.TrimSpace(content)
+		n.Type = "specification"
+	case *models.Project:
+		n.Title = strings.TrimSpace(title)
+		n.Content = strings.TrimSpace(content)
+		n.Type = "project"
+	case *models.Implementation:
+		n.Title = strings.TrimSpace(title)
+		n.Content = strings.TrimSpace(content)
+		n.Type = "implementation"
+	default:
+		return nil, models.NewZammError(models.ErrTypeValidation, "unknown node type")
+	}
+
+	// Save changes
+	if err := s.storage.UpdateNode(node); err != nil {
+		return nil, err
+	}
+
+	return node, nil
 }
 
 // ListNodes retrieves all nodes regardless of type

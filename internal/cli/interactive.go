@@ -781,9 +781,8 @@ func (m *Model) updateImplementationCmd(nodeID, title, content string) tea.Cmd {
 // updateProjectCmd returns a command to update an existing project
 func (m *Model) updateProjectCmd(nodeID, title, content string) tea.Cmd {
 	return func() tea.Msg {
-		// For now, we'll just update the basic fields using UpdateSpec
-		// In the future, we might need a dedicated UpdateProject method
-		_, err := m.app.specService.UpdateSpec(nodeID, title, content)
+		// Use the generic UpdateNode method to handle any node type
+		_, err := m.app.specService.UpdateNode(nodeID, title, content)
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}
