@@ -1,7 +1,0 @@
-{
-  "id": "eb76cdc6-f24c-432a-bfa3-c2ac3257146c",
-  "title": "Rust Implementation",
-  "content": "This is an implementation of the project in Rust",
-  "type": "implementation",
-  "branch": "rust"
-}
