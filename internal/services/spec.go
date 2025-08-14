@@ -36,7 +36,7 @@ type SpecService interface {
 	GetOrphanSpecs() ([]*models.Spec, error)
 
 	// Organization operations
-	OrganizeNodes() error
+	OrganizeNodes(nodeID string) error
 }
 
 // specService implements the SpecService interface
@@ -461,14 +461,30 @@ func (s *specService) validateSpecInput(title, content string) error {
 }
 
 // OrganizeNodes moves nodes from generic locations to hierarchical paths
-func (s *specService) OrganizeNodes() error {
+func (s *specService) OrganizeNodes(nodeID string) error {
+	if err := s.generateMissingSlugs(); err != nil {
+		return fmt.Errorf("failed to generate slugs: %w", err)
+	}
+
+	if nodeID != "" {
+		// Organize specific node and its subtree
+		node, err := s.storage.GetNode(nodeID)
+		if err != nil {
+			return fmt.Errorf("failed to get node %s: %w", nodeID, err)
+		}
+
+		basePath, err := s.computeNodeBasePath(node)
+		if err != nil {
+			return fmt.Errorf("failed to compute base path for node %s: %w", nodeID, err)
+		}
+
+		return s.organizeNodeRecursively(node, basePath)
+	}
+
+	// Organize all nodes starting from root
 	rootNode, err := s.GetRootNode()
 	if err != nil {
 		return fmt.Errorf("failed to get root node: %w", err)
-	}
-
-	if err := s.generateMissingSlugs(); err != nil {
-		return fmt.Errorf("failed to generate slugs: %w", err)
 	}
 
 	return s.organizeNodeRecursively(rootNode, "documentation")
@@ -544,6 +560,30 @@ func (s *specService) getNodeSlug(node models.Node) string {
 		return *slug
 	}
 	return s.sanitizeSlug(node.GetTitle())
+}
+
+func (s *specService) computeNodeBasePath(node models.Node) (string, error) {
+	var pathSegments []string
+	currentNode := node
+
+	for {
+		parents, err := s.GetParents(currentNode.GetID())
+		if err != nil {
+			return "", fmt.Errorf("failed to get parents for node %s: %w", currentNode.GetID(), err)
+		}
+
+		if len(parents) == 0 {
+			pathSegments = append([]string{"documentation"}, pathSegments...)
+			break
+		}
+
+		parent := parents[0]
+		parentSlug := s.getNodeSlug(parent)
+		pathSegments = append([]string{parentSlug}, pathSegments...)
+		currentNode = parent
+	}
+
+	return filepath.Join(pathSegments...), nil
 }
 
 func (s *specService) sanitizeSlug(title string) string {
