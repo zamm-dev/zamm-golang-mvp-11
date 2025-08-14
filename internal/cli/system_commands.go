@@ -1,16 +1,15 @@
 package cli
 
 import (
-	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/config"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 	"gopkg.in/yaml.v3"
 )
 
@@ -111,13 +110,6 @@ func (a *App) createMigrateCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			migrationsRun := 0
 
-			// Run node-to-file path mapping migration
-			if err := a.createNodeFilesMapping(); err != nil {
-				return err
-			}
-			fmt.Printf("[node-files-mapping] Created node-files.csv mapping UUIDs to file paths.\n")
-			migrationsRun++
-
 			// Run title-to-heading migration
 			if err := a.migrateTitlesToHeadings(); err != nil {
 				return err
@@ -133,92 +125,27 @@ func (a *App) createMigrateCommand() *cobra.Command {
 	}
 }
 
-// createNodeFilesMapping creates a CSV file mapping node UUIDs to their file paths
-func (a *App) createNodeFilesMapping() error {
-	nodesDir := filepath.Join(a.config.Storage.Path, "nodes")
-
-	// Check if nodes directory exists
-	if _, err := os.Stat(nodesDir); os.IsNotExist(err) {
-		return fmt.Errorf("nodes directory does not exist: %s", nodesDir)
-	}
-
-	// Read all .md files in nodes directory
-	entries, err := os.ReadDir(nodesDir)
-	if err != nil {
-		return fmt.Errorf("failed to read nodes directory: %w", err)
-	}
-
-	// Prepare CSV records
-	csvRecords := [][]string{
-		{"node_id", "file_path"},
-	}
-
-	// Collect node data first
-	type nodeEntry struct {
-		nodeID   string
-		filePath string
-	}
-	var nodeEntries []nodeEntry
-
-	nodeCount := 0
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-
-		// Extract UUID from filename (remove .md extension)
-		nodeID := strings.TrimSuffix(entry.Name(), ".md")
-
-		// Current file path (relative to project root)
-		filePath := filepath.Join(".zamm", "nodes", entry.Name())
-
-		nodeEntries = append(nodeEntries, nodeEntry{nodeID: nodeID, filePath: filePath})
-		nodeCount++
-	}
-
-	if nodeCount == 0 {
-		return fmt.Errorf("no .md files found in nodes directory")
-	}
-
-	// Sort node entries alphabetically by node ID for consistent git diffs
-	sort.Slice(nodeEntries, func(i, j int) bool {
-		return nodeEntries[i].nodeID < nodeEntries[j].nodeID
-	})
-
-	// Add sorted records to CSV
-	for _, nodeEntry := range nodeEntries {
-		csvRecords = append(csvRecords, []string{nodeEntry.nodeID, nodeEntry.filePath})
-	}
-
-	// Write CSV file
-	csvPath := filepath.Join(a.config.Storage.Path, "node-files.csv")
-	return writeCSVFile(csvPath, csvRecords)
-}
-
 // migrateTitlesToHeadings migrates all node files to use level 1 headings for titles
 func (a *App) migrateTitlesToHeadings() error {
-	nodesDir := filepath.Join(a.config.Storage.Path, "nodes")
-
-	// Check if nodes directory exists
-	if _, err := os.Stat(nodesDir); os.IsNotExist(err) {
-		return fmt.Errorf("nodes directory does not exist: %s", nodesDir)
+	// Get all nodes using the spec service
+	nodes, err := a.specService.ListNodes()
+	if err != nil {
+		return fmt.Errorf("failed to list nodes: %w", err)
 	}
 
-	// Read all .md files in nodes directory
-	entries, err := os.ReadDir(nodesDir)
-	if err != nil {
-		return fmt.Errorf("failed to read nodes directory: %w", err)
+	// Cast storage to FileStorage to access GetNodeFilePath
+	fileStorage, ok := a.storage.(*storage.FileStorage)
+	if !ok {
+		return fmt.Errorf("storage is not FileStorage type")
 	}
 
 	migratedCount := 0
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
+	for _, node := range nodes {
+		// Get the file path for this node using storage's GetNodeFilePath
+		filePath := fileStorage.GetNodeFilePath(node.GetID())
 
-		filePath := filepath.Join(nodesDir, entry.Name())
 		if err := a.migrateNodeFileToHeading(filePath); err != nil {
-			return fmt.Errorf("failed to migrate %s: %w", entry.Name(), err)
+			return fmt.Errorf("failed to migrate node %s: %w", node.GetID(), err)
 		}
 		migratedCount++
 	}
@@ -289,22 +216,6 @@ func (a *App) migrateNodeFileToHeading(filePath string) error {
 	}
 
 	return os.WriteFile(filePath, []byte(newContent.String()), 0644)
-}
-
-// writeCSVFile writes CSV data to a file
-func writeCSVFile(path string, records [][]string) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = file.Close()
-	}()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	return writer.WriteAll(records)
 }
 
 // createRedirectCommand creates the redirect command
