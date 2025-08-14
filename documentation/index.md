@@ -1,6 +1,6 @@
 ---
 id: a9239511-cbac-4375-b64e-51eb647dcbe5
-implementations: []
+slug: ""
 title: Zen and the Automation of Metaprogramming for the Masses
 type: project
 ---
