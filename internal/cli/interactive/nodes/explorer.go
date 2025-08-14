@@ -2,6 +2,8 @@ package nodes
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -12,18 +14,19 @@ import (
 )
 
 type keyMap struct {
-	Up     key.Binding
-	Down   key.Binding
-	Select key.Binding
-	Create key.Binding
-	Edit   key.Binding
-	Delete key.Binding
-	Link   key.Binding
-	Remove key.Binding
-	Move   key.Binding
-	Help   key.Binding
-	Back   key.Binding
-	Quit   key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	Select   key.Binding
+	Create   key.Binding
+	Edit     key.Binding
+	Delete   key.Binding
+	Link     key.Binding
+	Remove   key.Binding
+	Move     key.Binding
+	Organize key.Binding
+	Help     key.Binding
+	Back     key.Binding
+	Quit     key.Binding
 }
 
 var keys = keyMap{
@@ -67,6 +70,10 @@ var keys = keyMap{
 		key.WithKeys("m", "M"),
 		key.WithHelp("m", "move"),
 	),
+	Organize: key.NewBinding(
+		key.WithKeys("o", "O"),
+		key.WithHelp("o", "organize"),
+	),
 	Quit: key.NewBinding(
 		key.WithKeys("q", "Q"),
 		key.WithHelp("q", "quit"),
@@ -87,7 +94,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 		{k.Select, k.Back},
 		{k.Create, k.Edit, k.Delete},
 		{k.Link, k.Remove, k.Move},
-		{k.Help, k.Quit},
+		{k.Organize, k.Help, k.Quit},
 	}
 }
 
@@ -205,6 +212,14 @@ func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 			return *e, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Move):
 			return *e, func() tea.Msg { return MoveSpecMsg{SpecID: e.activeSpec.GetID()} }
+		case key.Matches(msg, e.keys.Organize):
+			// Check if node has a slug, if not, go to slug editing screen first
+			if e.activeSpec.GetSlug() == nil {
+				// Generate auto-slug from title for editing
+				autoSlug := e.generateAutoSlug(e.activeSpec.GetTitle())
+				return *e, func() tea.Msg { return EditSlugMsg{SpecID: e.activeSpec.GetID(), InitialSlug: autoSlug} }
+			}
+			return *e, func() tea.Msg { return OrganizeSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Back):
 			// If a child is selected, clear selection
 			if e.leftPane.GetSelectedChild() != nil {
@@ -343,4 +358,15 @@ func (e *NodeExplorer) View() string {
 		Height(e.height).
 		Render("")
 	return lipgloss.JoinHorizontal(lipgloss.Left, left, border, right)
+}
+
+// generateAutoSlug creates a slug from the given title using the same logic as the spec service
+func (e *NodeExplorer) generateAutoSlug(title string) string {
+	slug := strings.ToLower(title)
+	slug = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(slug, "-")
+	slug = strings.Trim(slug, "-")
+	if slug == "" {
+		slug = "untitled"
+	}
+	return slug
 }

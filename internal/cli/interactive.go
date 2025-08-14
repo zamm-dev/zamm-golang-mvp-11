@@ -30,6 +30,7 @@ const (
 	// New states for link editing components
 	LinkEditor
 	UnlinkEditor
+	SlugEditor
 )
 
 // Model represents the state of our TUI application
@@ -77,6 +78,9 @@ type Model struct {
 	implRepoURL    *string
 	implBranch     *string
 	implFolderPath *string
+
+	// Slug editor
+	slugEditor *common.SlugEditor
 
 	// Debug logging
 	debugWriter io.Writer
@@ -214,6 +218,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.nodeTypeSelector != nil {
 			m.nodeTypeSelector.SetSize(msg.Width, msg.Height)
 		}
+		if m.slugEditor != nil {
+			m.slugEditor.SetSize(msg.Width, msg.Height)
+		}
 	case tea.KeyMsg:
 		if m.showMessage {
 			if msg.String() == "enter" || msg.String() == " " || msg.String() == "esc" {
@@ -245,6 +252,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case ConfirmDelete:
 			return m.updateConfirmDelete(msg)
+		case SlugEditor:
+			if m.slugEditor != nil {
+				var cmd tea.Cmd
+				editor, editorCmd := m.slugEditor.Update(msg)
+				if slugEditor, ok := editor.(*common.SlugEditor); ok {
+					m.slugEditor = slugEditor
+				}
+				cmd = editorCmd
+				return m, cmd
+			}
 		}
 
 	case nodesLoadedMsg:
@@ -449,6 +466,35 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.state = LinkEditor
 			return m, m.linkEditor.Init()
+		}
+
+	case nodes.EditSlugMsg:
+		if m.state == SpecListView {
+			m.resetInputs()
+			m.selectedSpecID = msg.SpecID
+
+			// Create slug editor
+			m.slugEditor = common.NewSlugEditor(msg.SpecID, msg.InitialSlug)
+			m.slugEditor.SetSize(m.terminalWidth, m.terminalHeight)
+			m.state = SlugEditor
+			return m, m.slugEditor.Init()
+		}
+
+	case nodes.OrganizeSpecMsg:
+		if m.state == SpecListView {
+			return m, m.organizeNodeCmd(msg.SpecID)
+		}
+
+	case common.SlugEditorCompleteMsg:
+		if m.state == SlugEditor {
+			// Set the slug for the node and then organize it
+			return m, m.setSlugAndOrganizeCmd(msg.SpecID, msg.Slug)
+		}
+
+	case common.SlugEditorCancelMsg:
+		if m.state == SlugEditor {
+			m.state = SpecListView
+			return m, tea.Batch(m.loadSpecsCmd(), m.specListView.Refresh())
 		}
 
 	case common.NodeEditorCompleteMsg:
@@ -889,6 +935,11 @@ func (m *Model) View() string {
 		return "Choose node type..."
 	case LinkEditor:
 		return m.linkEditor.View()
+	case SlugEditor:
+		if m.slugEditor != nil {
+			return m.slugEditor.View()
+		}
+		return "Loading slug editor..."
 	case ConfirmDelete:
 		return m.renderConfirmDelete()
 	default:
@@ -1010,4 +1061,37 @@ func (cs *combinedService) GetRootNode() (models.Node, error) {
 	}
 
 	return rootNode, nil
+}
+
+// organizeNodeCmd returns a command to organize a node
+func (m *Model) organizeNodeCmd(nodeID string) tea.Cmd {
+	return func() tea.Msg {
+		if err := m.app.specService.OrganizeNodes(nodeID); err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error organizing node: %v. Press Enter to continue...", err)}
+		}
+		return operationCompleteMsg{message: "Node organized successfully. Press Enter to continue..."}
+	}
+}
+
+// setSlugAndOrganizeCmd returns a command to set a slug for a node and then organize it
+func (m *Model) setSlugAndOrganizeCmd(nodeID, slug string) tea.Cmd {
+	return func() tea.Msg {
+		// First, update the node with the new slug
+		node, err := m.app.specService.GetNode(nodeID)
+		if err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error getting node: %v. Press Enter to continue...", err)}
+		}
+
+		node.SetSlug(&slug)
+		if _, err := m.app.specService.UpdateNode(nodeID, node.GetTitle(), node.GetContent()); err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error updating slug: %v. Press Enter to continue...", err)}
+		}
+
+		// Now organize the node
+		if err := m.app.specService.OrganizeNodes(nodeID); err != nil {
+			return operationCompleteMsg{message: fmt.Sprintf("Error organizing node: %v. Press Enter to continue...", err)}
+		}
+
+		return operationCompleteMsg{message: "Node organized successfully with new slug. Press Enter to continue..."}
+	}
 }
