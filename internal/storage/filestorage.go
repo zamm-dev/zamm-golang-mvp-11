@@ -513,7 +513,7 @@ func (fs *FileStorage) GetNodeFilePath(nodeID string) string {
 			return customPath
 		}
 	}
-	
+
 	return filepath.Join(fs.baseDir, "nodes", nodeID+".md")
 }
 

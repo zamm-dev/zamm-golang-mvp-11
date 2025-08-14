@@ -467,7 +467,7 @@ func (s *specService) OrganizeNodes(nodeID string) error {
 	}
 
 	if nodeID != "" {
-		// Organize specific node and its subtree
+		// Organize specific node only (not its subtree)
 		node, err := s.storage.GetNode(nodeID)
 		if err != nil {
 			return fmt.Errorf("failed to get node %s: %w", nodeID, err)
@@ -478,7 +478,7 @@ func (s *specService) OrganizeNodes(nodeID string) error {
 			return fmt.Errorf("failed to compute base path for node %s: %w", nodeID, err)
 		}
 
-		return s.organizeNodeRecursively(node, basePath)
+		return s.organizeSingleNode(node, basePath)
 	}
 
 	// Organize all nodes starting from root
@@ -510,6 +510,31 @@ func (s *specService) generateMissingSlugs() error {
 }
 
 func (s *specService) organizeNodeRecursively(node models.Node, basePath string) error {
+	// First organize this node
+	if err := s.organizeSingleNode(node, basePath); err != nil {
+		return err
+	}
+
+	// Then recursively organize its children
+	children, err := s.GetChildren(node.GetID())
+	if err != nil {
+		return fmt.Errorf("failed to get children for node %s: %w", node.GetID(), err)
+	}
+
+	if len(children) > 0 {
+		slug := s.getNodeSlug(node)
+		childBasePath := filepath.Join(basePath, slug)
+		for _, child := range children {
+			if err := s.organizeNodeRecursively(child, childBasePath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *specService) organizeSingleNode(node models.Node, basePath string) error {
 	children, err := s.GetChildren(node.GetID())
 	if err != nil {
 		return fmt.Errorf("failed to get children for node %s: %w", node.GetID(), err)
@@ -520,13 +545,6 @@ func (s *specService) organizeNodeRecursively(node models.Node, basePath string)
 
 	if len(children) > 0 {
 		newPath = filepath.Join(basePath, slug, "index.md")
-		
-		childBasePath := filepath.Join(basePath, slug)
-		for _, child := range children {
-			if err := s.organizeNodeRecursively(child, childBasePath); err != nil {
-				return err
-			}
-		}
 	} else {
 		newPath = filepath.Join(basePath, slug+".md")
 	}
@@ -541,9 +559,9 @@ func (s *specService) moveNodeToPath(node models.Node, newPath string) error {
 	}
 
 	currentPath := fileStorage.GetNodeFilePath(node.GetID())
-	
+
 	fullNewPath := filepath.Join(filepath.Dir(fileStorage.BaseDir()), newPath)
-	
+
 	if err := os.MkdirAll(filepath.Dir(fullNewPath), 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
