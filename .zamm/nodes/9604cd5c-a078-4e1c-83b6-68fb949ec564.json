@@ -1,6 +1,0 @@
-{
-  "id": "9604cd5c-a078-4e1c-83b6-68fb949ec564",
-  "title": "Serialization changes should reuse serialization code",
-  "content": "Do not use custom migration logic for serialization changes, such as adding or renaming a JSON field. Custom parsing can be done for old data to get it into the new in-memory data format, but output should always be done through the same latest method used in the rest of the code.",
-  "type": "specification"
-}

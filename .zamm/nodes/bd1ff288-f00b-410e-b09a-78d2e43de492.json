@@ -1,6 +1,0 @@
-{
-  "id": "bd1ff288-f00b-410e-b09a-78d2e43de492",
-  "title": "If no child spec is actively selected, only show \"Select a child specification to view its details\"",
-  "content": "This is so that we don't repeat the info on the left side of the screen",
-  "type": "specification"
-}

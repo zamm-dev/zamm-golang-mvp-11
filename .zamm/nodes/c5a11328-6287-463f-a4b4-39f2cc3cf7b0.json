@@ -1,6 +1,0 @@
-{
-  "id": "c5a11328-6287-463f-a4b4-39f2cc3cf7b0",
-  "title": "Link Type Selection Screen",
-  "content": "There should be a screen for picking whether we're linking (or unlinking) other specs or Git commits.\n\nThis should live inside its own package.",
-  "type": "specification"
-}

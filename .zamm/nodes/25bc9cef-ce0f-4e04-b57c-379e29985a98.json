@@ -1,6 +1,0 @@
-{
-  "id": "25bc9cef-ce0f-4e04-b57c-379e29985a98",
-  "title": "Flow should be largely the same when editing as creating",
-  "content": "This excludes the initial type selection screen.\n\nHowever, this does mean that when editing an implementation node, the implementation form should also be shown afterwards and pre-populated with existing implementation details",
-  "type": "specification"
-}

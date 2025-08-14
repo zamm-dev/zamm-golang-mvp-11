@@ -1,6 +1,0 @@
-{
-  "id": "d6535e4f-96d6-4c78-af75-8f5f7e3e5117",
-  "title": "On project setup",
-  "content": "Run `lefthook install` to install the Git hooks",
-  "type": "specification"
-}

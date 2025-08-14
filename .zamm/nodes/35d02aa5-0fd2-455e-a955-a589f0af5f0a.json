@@ -1,6 +1,0 @@
-{
-  "id": "35d02aa5-0fd2-455e-a955-a589f0af5f0a",
-  "title": ".zamm directory structure",
-  "content": "Project metadata should be contained inside a .zamm directory in the project, with the following structure:\n\nIt contains a `nodes/` folder with a separate JSON file for each node, a `spec-links.csv` file with links between specs, a `commit-links.csv` file with links between specs and commits, and a `project_metadata.json` file with project metadata.",
-  "type": "specification"
-}

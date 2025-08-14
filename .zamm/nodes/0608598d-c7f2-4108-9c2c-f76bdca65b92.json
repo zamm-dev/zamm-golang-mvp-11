@@ -1,6 +1,0 @@
-{
-  "id": "0608598d-c7f2-4108-9c2c-f76bdca65b92",
-  "title": "Node subtypes should have subtype-specific information displayed",
-  "content": "For example, project nodes should display implementation children grouped separately from the rest of the children",
-  "type": "specification"
-}

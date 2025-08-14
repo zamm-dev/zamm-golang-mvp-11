@@ -1,6 +1,0 @@
-{
-  "id": "7b3e243d-1b57-4ec0-bc03-d21ae68282c1",
-  "title": "Down migrations should be supported",
-  "content": "For rolling back issues during development",
-  "type": "specification"
-}

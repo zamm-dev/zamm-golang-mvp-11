@@ -1,6 +1,0 @@
-{
-  "id": "353934d2-738c-40b1-8e34-10184a874449",
-  "title": "This screen should confirm before exit",
-  "content": "This avoids accidental loss of data just because user is ready to save",
-  "type": "specification"
-}

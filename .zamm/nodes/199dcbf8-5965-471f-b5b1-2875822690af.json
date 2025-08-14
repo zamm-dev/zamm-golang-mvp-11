@@ -1,6 +1,0 @@
-{
-  "id": "199dcbf8-5965-471f-b5b1-2875822690af",
-  "title": "Testing difficulties",
-  "content": "Because filtering updates are done via a tea.Cmd producing a tea.Msg, they don't happen in the test environment because the test environment doesn't run the asynchronous command-processing loop. We can get around this for our own messages by manually invoking them and then feeding them in, but it appears `teatest` does not return us any tea.Cmd from our messages, making it impractical for us to reconstruct filtering messages produced in libraries other than our own.",
-  "type": "specification"
-}

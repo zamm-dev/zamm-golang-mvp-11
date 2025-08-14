@@ -1,6 +1,0 @@
-{
-  "id": "d4e9a89a-b477-4251-b338-542a10f822fa",
-  "title": "Hitting enter when searching should exit selection mode instead of submitting",
-  "content": "This makes the behavior consistent with pressing arrow keys, where the first arrow press after a search exits search mode",
-  "type": "specification"
-}
