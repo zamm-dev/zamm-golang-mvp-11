@@ -1,8 +1,9 @@
 ---
 id: 151affbc-31b0-419e-9cbb-52daa9ddbeaf
-title: Common component should separate viewport from rendering concerns
 type: specification
 ---
+
+# Common component should separate viewport from rendering concerns
 
 The inner component, SpecDetail, should be responsible for all spec detail rendering logic.
 

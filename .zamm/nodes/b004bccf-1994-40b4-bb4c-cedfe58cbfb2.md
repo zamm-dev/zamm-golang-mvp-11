@@ -1,8 +1,9 @@
 ---
 id: b004bccf-1994-40b4-bb4c-cedfe58cbfb2
-title: Relations with specs
 type: specification
 ---
+
+# Relations with specs
 
 Git commits can relate to their specifications in various ways:
 
