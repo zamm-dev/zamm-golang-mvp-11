@@ -1,7 +1,6 @@
 package common
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -101,14 +100,4 @@ func (s SlugEditor) View() string {
 		Align(lipgloss.Center)
 
 	return lipgloss.Place(s.width, s.height, lipgloss.Center, lipgloss.Center, style.Render(content))
-}
-
-func sanitizeSlug(title string) string {
-	slug := strings.ToLower(title)
-	slug = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(slug, "-")
-	slug = strings.Trim(slug, "-")
-	if slug == "" {
-		slug = "untitled"
-	}
-	return slug
 }
