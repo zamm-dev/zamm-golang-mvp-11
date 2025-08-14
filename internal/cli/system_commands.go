@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/config"
-	"gopkg.in/yaml.v3"
 )
 
 // createInitCommand creates the init command
@@ -105,21 +105,16 @@ func (a *App) createVersionCommand() *cobra.Command {
 func (a *App) createMigrateCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate",
-		Short: "Convert JSON node files to Markdown files with YAML frontmatter",
+		Short: "Create node-files.csv mapping UUIDs to file paths",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			migrationsRun := 0
 
-			// Run JSON-to-Markdown migration
-			if err := a.migrateSpecsToNodes(); err != nil {
-				// If nodes directory doesn't exist, that's fine - migration already done
-				if !strings.Contains(err.Error(), "nodes directory does not exist") &&
-					!strings.Contains(err.Error(), "no JSON files found to migrate") {
-					return err
-				}
-			} else {
-				fmt.Printf("[json-to-markdown] Migration complete. Converted JSON files to Markdown.\n")
-				migrationsRun++
+			// Run node-to-file path mapping migration
+			if err := a.createNodeFilesMapping(); err != nil {
+				return err
 			}
+			fmt.Printf("[node-files-mapping] Created node-files.csv mapping UUIDs to file paths.\n")
+			migrationsRun++
 
 			if migrationsRun == 0 {
 				fmt.Println("All migrations are up to date.")
@@ -129,8 +124,8 @@ func (a *App) createMigrateCommand() *cobra.Command {
 	}
 }
 
-// migrateSpecsToNodes converts JSON node files to Markdown files with YAML frontmatter
-func (a *App) migrateSpecsToNodes() error {
+// createNodeFilesMapping creates a CSV file mapping node UUIDs to their file paths
+func (a *App) createNodeFilesMapping() error {
 	nodesDir := filepath.Join(a.config.Storage.Path, "nodes")
 
 	// Check if nodes directory exists
@@ -138,84 +133,56 @@ func (a *App) migrateSpecsToNodes() error {
 		return fmt.Errorf("nodes directory does not exist: %s", nodesDir)
 	}
 
-	// Read all JSON files in nodes directory
+	// Read all .md files in nodes directory
 	entries, err := os.ReadDir(nodesDir)
 	if err != nil {
 		return fmt.Errorf("failed to read nodes directory: %w", err)
 	}
 
-	migratedCount := 0
+	// Prepare CSV records
+	csvRecords := [][]string{
+		{"node_id", "file_path"},
+	}
+
+	nodeCount := 0
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
 		}
 
-		jsonPath := filepath.Join(nodesDir, entry.Name())
-		mdPath := strings.TrimSuffix(jsonPath, ".json") + ".md"
+		// Extract UUID from filename (remove .md extension)
+		nodeID := strings.TrimSuffix(entry.Name(), ".md")
 
-		// Skip if markdown file already exists
-		if _, err := os.Stat(mdPath); err == nil {
-			continue
-		}
+		// Current file path (relative to project root)
+		filePath := filepath.Join("nodes", entry.Name())
 
-		if err := a.convertJSONToMarkdown(jsonPath, mdPath); err != nil {
-			return fmt.Errorf("failed to convert %s: %w", entry.Name(), err)
-		}
-
-		migratedCount++
+		csvRecords = append(csvRecords, []string{nodeID, filePath})
+		nodeCount++
 	}
 
-	if migratedCount == 0 {
-		return fmt.Errorf("no JSON files found to migrate")
+	if nodeCount == 0 {
+		return fmt.Errorf("no .md files found in nodes directory")
 	}
 
-	return nil
+	// Write CSV file
+	csvPath := filepath.Join(a.config.Storage.Path, "node-files.csv")
+	return writeCSVFile(csvPath, csvRecords)
 }
 
-func (a *App) convertJSONToMarkdown(jsonPath, mdPath string) error {
-	data, err := os.ReadFile(jsonPath)
+// writeCSVFile writes CSV data to a file
+func writeCSVFile(path string, records [][]string) error {
+	file, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("failed to read JSON file: %w", err)
+		return err
 	}
+	defer func() {
+		_ = file.Close()
+	}()
 
-	var nodeData map[string]interface{}
-	if err := json.Unmarshal(data, &nodeData); err != nil {
-		return fmt.Errorf("failed to parse JSON: %w", err)
-	}
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
 
-	content, hasContent := nodeData["content"].(string)
-	if !hasContent {
-		content = ""
-	}
-
-	// Create frontmatter map with all fields except content
-	frontmatter := make(map[string]interface{})
-	for key, value := range nodeData {
-		if key != "content" {
-			frontmatter[key] = value
-		}
-	}
-
-	yamlData, err := yaml.Marshal(frontmatter)
-	if err != nil {
-		return fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
-	}
-
-	var mdContent strings.Builder
-	mdContent.WriteString("---\n")
-	mdContent.Write(yamlData)
-	mdContent.WriteString("---\n")
-	if content != "" {
-		mdContent.WriteString("\n")
-		mdContent.WriteString(content)
-		mdContent.WriteString("\n")
-	}
-
-	if err := os.WriteFile(mdPath, []byte(mdContent.String()), 0644); err != nil {
-		return fmt.Errorf("failed to write markdown file: %w", err)
-	}
-
-	return nil
+	return writer.WriteAll(records)
 }
 
 // createRedirectCommand creates the redirect command

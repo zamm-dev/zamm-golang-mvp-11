@@ -44,7 +44,7 @@ func (fs *FileStorage) InitializeStorage() error {
 	}
 
 	// Create empty files if they don't exist
-	files := []string{"spec-links.csv", "commit-links.csv", "project_metadata.json"}
+	files := []string{"spec-links.csv", "commit-links.csv", "node-files.csv", "project_metadata.json"}
 	for _, file := range files {
 		path := filepath.Join(fs.baseDir, file)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -67,6 +67,10 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 	case "commit-links.csv":
 		return fs.writeCSVFile(path, [][]string{
 			{"spec_id", "commit_id", "repo_path", "link_label"},
+		})
+	case "node-files.csv":
+		return fs.writeCSVFile(path, [][]string{
+			{"node_id", "file_path"},
 		})
 	case "project_metadata.json":
 		metadata := models.ProjectMetadata{}
@@ -611,31 +615,31 @@ func (fs *FileStorage) readMarkdownFile(path string, v interface{}) error {
 	}
 
 	content := string(data)
-	
+
 	if !strings.HasPrefix(content, "---\n") {
 		return fmt.Errorf("invalid markdown format: missing frontmatter")
 	}
-	
+
 	parts := strings.SplitN(content[4:], "\n---\n", 2)
 	if len(parts) < 2 {
 		return fmt.Errorf("invalid markdown format: malformed frontmatter")
 	}
-	
+
 	yamlContent := parts[0]
 	markdownContent := strings.TrimSpace(parts[1])
-	
+
 	var frontmatter map[string]interface{}
 	if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
 		return fmt.Errorf("failed to parse YAML frontmatter: %w", err)
 	}
-	
+
 	frontmatter["content"] = markdownContent
-	
+
 	jsonData, err := json.Marshal(frontmatter)
 	if err != nil {
 		return fmt.Errorf("failed to marshal frontmatter: %w", err)
 	}
-	
+
 	return json.Unmarshal(jsonData, v)
 }
 
@@ -645,17 +649,17 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %w", err)
 	}
-	
+
 	var nodeData map[string]interface{}
 	if err := json.Unmarshal(jsonData, &nodeData); err != nil {
 		return fmt.Errorf("failed to unmarshal data: %w", err)
 	}
-	
+
 	content, hasContent := nodeData["content"].(string)
 	if !hasContent {
 		content = ""
 	}
-	
+
 	// Create frontmatter map with all fields except content
 	frontmatter := make(map[string]interface{})
 	for key, value := range nodeData {
@@ -663,12 +667,12 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 			frontmatter[key] = value
 		}
 	}
-	
+
 	yamlData, err := yaml.Marshal(frontmatter)
 	if err != nil {
 		return fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
 	}
-	
+
 	var mdContent strings.Builder
 	mdContent.WriteString("---\n")
 	mdContent.Write(yamlData)
@@ -678,7 +682,7 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 		mdContent.WriteString(content)
 		mdContent.WriteString("\n")
 	}
-	
+
 	return os.WriteFile(path, []byte(mdContent.String()), 0644)
 }
 
