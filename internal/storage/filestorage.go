@@ -777,8 +777,16 @@ func (fs *FileStorage) writeNodeFileLinks(nodeFiles map[string]string) error {
 		{"node_id", "file_path"},
 	}
 
-	for nodeID, filePath := range nodeFiles {
-		records = append(records, []string{nodeID, filePath})
+	// Create a slice of node IDs and sort them alphabetically for consistent git diffs
+	nodeIDs := make([]string, 0, len(nodeFiles))
+	for nodeID := range nodeFiles {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	sort.Strings(nodeIDs)
+
+	// Add records in sorted order
+	for _, nodeID := range nodeIDs {
+		records = append(records, []string{nodeID, nodeFiles[nodeID]})
 	}
 
 	return fs.writeCSVFile(path, records)
