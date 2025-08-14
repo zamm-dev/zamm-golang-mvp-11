@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	interactive "github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/config"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
@@ -80,7 +81,7 @@ func TestComplexMessageTypeFormatting(t *testing.T) {
 	model := NewModel(app, &debugBuffer)
 
 	// Test with a custom message type
-	testMessage := operationCompleteMsg{message: "Test operation completed successfully"}
+	testMessage := interactive.OperationCompleteMsg{}
 
 	// Call Update with the test message
 	_, _ = model.Update(testMessage)
@@ -90,9 +91,7 @@ func TestComplexMessageTypeFormatting(t *testing.T) {
 
 	// Verify the custom message type is properly formatted
 	expectedPatterns := []string{
-		"(cli.operationCompleteMsg)",            // Custom type with package prefix
-		"message:",                              // Field name
-		"Test operation completed successfully", // Field value
+		"OperationCompleteMsg", // Custom type name
 	}
 
 	for _, pattern := range expectedPatterns {

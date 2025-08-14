@@ -7,9 +7,9 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
 )
+
 
 // LinkEditorMode represents the current state of the link editor
 type LinkEditorMode int
@@ -55,7 +55,7 @@ type LinkEditorErrorMsg struct {
 // SpecsLoadedMsg is sent when specs are loaded asynchronously
 // Used to trigger a re-render after async loadAvailableSpecs
 type SpecsLoadedMsg struct {
-	Specs []interactive.Spec
+	Specs []Spec
 }
 
 // GitCommitLinksLoadedMsg is sent when git commit links are loaded asynchronously
@@ -175,7 +175,7 @@ func (l *LinkEditor) loadSpecsExceptCurrent() tea.Cmd {
 		}
 
 		// Include all node types and exclude current spec and old parent if in move mode
-		filteredSpecs := make([]interactive.Spec, 0)
+		filteredSpecs := make([]Spec, 0)
 		for _, node := range nodes {
 			// Exclude current node and old parent if in move mode
 			if node.GetID() != l.config.CurrentSpecID {
@@ -183,7 +183,7 @@ func (l *LinkEditor) loadSpecsExceptCurrent() tea.Cmd {
 				if l.config.IsMoveMode && l.mode == MoveNewParentSelection && node.GetID() == l.moveOldParentID {
 					continue
 				}
-				filteredSpecs = append(filteredSpecs, interactive.Spec{
+				filteredSpecs = append(filteredSpecs, Spec{
 					ID:      node.GetID(),
 					Title:   node.GetTitle(),
 					Content: node.GetContent(),
@@ -203,9 +203,9 @@ func (l *LinkEditor) loadChildSpecs() tea.Cmd {
 			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading linked nodes: %v", err)}
 		}
 
-		specs := make([]interactive.Spec, 0, len(linkedNodes))
+		specs := make([]Spec, 0, len(linkedNodes))
 		for _, node := range linkedNodes {
-			specs = append(specs, interactive.Spec{
+			specs = append(specs, Spec{
 				ID:      node.GetID(),
 				Title:   node.GetTitle(),
 				Content: node.GetContent(),
@@ -224,9 +224,9 @@ func (l *LinkEditor) loadParentSpecs() tea.Cmd {
 			return LinkEditorErrorMsg{Error: fmt.Sprintf("Error loading linked parent nodes: %v", err)}
 		}
 
-		specs := make([]interactive.Spec, 0, len(linkedNodes))
+		specs := make([]Spec, 0, len(linkedNodes))
 		for _, node := range linkedNodes {
-			specs = append(specs, interactive.Spec{
+			specs = append(specs, Spec{
 				ID:      node.GetID(),
 				Title:   node.GetTitle(),
 				Content: node.GetContent(),
