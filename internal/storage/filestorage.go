@@ -684,10 +684,12 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 		content = ""
 	}
 
-	// Create frontmatter map with all fields except content
+	title, hasTitle := nodeData["title"].(string)
+
+	// Create frontmatter map with all fields except content and title
 	frontmatter := make(map[string]interface{})
 	for key, value := range nodeData {
-		if key != "content" {
+		if key != "content" && key != "title" {
 			frontmatter[key] = value
 		}
 	}
@@ -700,9 +702,16 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 	var mdContent strings.Builder
 	mdContent.WriteString("---\n")
 	mdContent.Write(yamlData)
-	mdContent.WriteString("---\n")
+	mdContent.WriteString("---\n\n")
+
+	// Add title as level 1 heading
+	if hasTitle && title != "" {
+		mdContent.WriteString("# ")
+		mdContent.WriteString(title)
+		mdContent.WriteString("\n\n")
+	}
+
 	if content != "" {
-		mdContent.WriteString("\n")
 		mdContent.WriteString(content)
 		mdContent.WriteString("\n")
 	}
