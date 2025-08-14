@@ -1076,14 +1076,14 @@ func (m *Model) organizeNodeCmd(nodeID string) tea.Cmd {
 // setSlugAndOrganizeCmd returns a command to set a slug for a node and then organize it
 func (m *Model) setSlugAndOrganizeCmd(nodeID, slug string) tea.Cmd {
 	return func() tea.Msg {
-		// First, update the node with the new slug
+		// First, update the node with the new slug using storage directly
 		node, err := m.app.specService.GetNode(nodeID)
 		if err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error getting node: %v. Press Enter to continue...", err)}
 		}
 
 		node.SetSlug(&slug)
-		if _, err := m.app.specService.UpdateNode(nodeID, node.GetTitle(), node.GetContent()); err != nil {
+		if err := m.app.storage.UpdateNode(node); err != nil {
 			return operationCompleteMsg{message: fmt.Sprintf("Error updating slug: %v. Press Enter to continue...", err)}
 		}
 
