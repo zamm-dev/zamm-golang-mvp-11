@@ -331,22 +331,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resetInputs()
 			m.editingSpecID = msg.SpecID
 
-			// Find current title and content for pre-filling
-			var currentTitle, currentContent, nodeType string
-			for _, spec := range m.specs {
-				if spec.ID == msg.SpecID {
-					currentTitle = spec.Title
-					currentContent = spec.Content
-					nodeType = spec.Type
-					break
+			// Load current node details directly from the service
+			// This ensures we get the most up-to-date data, even for nodes with custom paths
+			node, err := m.app.specService.GetNode(msg.SpecID)
+			if err != nil {
+				return m, func() tea.Msg {
+					return operationCompleteMsg{message: fmt.Sprintf("Error loading node: %v. Press Enter to continue...", err)}
 				}
 			}
 
 			config := common.NodeEditorConfig{
 				Title:          "✏️  Edit Node",
-				InitialTitle:   currentTitle,
-				InitialContent: currentContent,
-				NodeType:       nodeType,
+				InitialTitle:   node.GetTitle(),
+				InitialContent: node.GetContent(),
+				NodeType:       node.GetType(),
 			}
 			m.nodeEditor = common.NewNodeEditor(config)
 			m.nodeEditor.SetSize(m.terminalWidth, m.terminalHeight)
