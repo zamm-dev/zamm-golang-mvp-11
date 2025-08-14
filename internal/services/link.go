@@ -78,7 +78,7 @@ func (s *linkService) GetSpecsForCommit(commitID, repoPath string) ([]*models.Sp
 	}
 
 	// Get specs for each link
-	var specs []*models.Spec
+	specs := make([]*models.Spec, 0, len(links))
 	for _, link := range links {
 		node, err := s.storage.GetNode(link.SpecID)
 		if err != nil {
