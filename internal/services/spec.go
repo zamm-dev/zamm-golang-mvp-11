@@ -462,15 +462,16 @@ func (s *specService) validateSpecInput(title, content string) error {
 
 // OrganizeNodes moves nodes from generic locations to hierarchical paths
 func (s *specService) OrganizeNodes(nodeID string) error {
-	if err := s.generateMissingSlugs(); err != nil {
-		return fmt.Errorf("failed to generate slugs: %w", err)
-	}
-
 	if nodeID != "" {
 		// Organize specific node only (not its subtree)
 		node, err := s.storage.GetNode(nodeID)
 		if err != nil {
 			return fmt.Errorf("failed to get node %s: %w", nodeID, err)
+		}
+
+		// Generate slug only for this node and its ancestors if needed
+		if err := s.generateSlugForNodeAndAncestors(node); err != nil {
+			return fmt.Errorf("failed to generate slugs for node and ancestors: %w", err)
 		}
 
 		basePath, err := s.computeNodeBasePath(node)
@@ -481,7 +482,11 @@ func (s *specService) OrganizeNodes(nodeID string) error {
 		return s.organizeSingleNode(node, basePath)
 	}
 
-	// Organize all nodes starting from root
+	// Organize all nodes starting from root - generate all missing slugs first
+	if err := s.generateMissingSlugs(); err != nil {
+		return fmt.Errorf("failed to generate slugs: %w", err)
+	}
+
 	rootNode, err := s.GetRootNode()
 	if err != nil {
 		return fmt.Errorf("failed to get root node: %w", err)
@@ -511,6 +516,52 @@ func (s *specService) generateMissingSlugs() error {
 		}
 	}
 
+	return nil
+}
+
+// generateSlugForNodeAndAncestors generates slugs only for the specified node and its ancestors
+func (s *specService) generateSlugForNodeAndAncestors(node models.Node) error {
+	// Generate slug for the current node if it doesn't have one
+	if err := s.generateSlugForSingleNode(node); err != nil {
+		return err
+	}
+
+	// Generate slugs for all ancestors (needed for path computation)
+	currentNode := node
+	for {
+		parents, err := s.GetParents(currentNode.GetID())
+		if err != nil {
+			return fmt.Errorf("failed to get parents for node %s: %w", currentNode.GetID(), err)
+		}
+
+		if len(parents) == 0 {
+			break // Reached the top
+		}
+
+		parent := parents[0]
+		if err := s.generateSlugForSingleNode(parent); err != nil {
+			return err
+		}
+		currentNode = parent
+	}
+
+	return nil
+}
+
+// generateSlugForSingleNode generates a slug for a single node if it doesn't already have one
+func (s *specService) generateSlugForSingleNode(node models.Node) error {
+	if node.GetSlug() == nil {
+		var slug string
+		if s.isRootNode(node) {
+			slug = "" // Root node gets empty slug
+		} else {
+			slug = s.sanitizeSlug(node.GetTitle())
+		}
+		node.SetSlug(&slug)
+		if err := s.storage.UpdateNode(node); err != nil {
+			return fmt.Errorf("failed to update node %s: %w", node.GetID(), err)
+		}
+	}
 	return nil
 }
 
