@@ -7,6 +7,7 @@ node_id,file_path
 05a934ba-f16f-4af5-a453-f9d574cc0499,.zamm/nodes/05a934ba-f16f-4af5-a453-f9d574cc0499.md
 0608598d-c7f2-4108-9c2c-f76bdca65b92,.zamm/nodes/0608598d-c7f2-4108-9c2c-f76bdca65b92.md
 072cab87-50bc-4ebc-94bf-cc2f1861fd19,.zamm/nodes/072cab87-50bc-4ebc-94bf-cc2f1861fd19.md
+0a3f9af7-8886-4fad-9bf6-d8ddbc3c9906,.zamm/nodes/0a3f9af7-8886-4fad-9bf6-d8ddbc3c9906.md
 0da8b730-7795-465c-8540-bf6f794dfdf8,.zamm/nodes/0da8b730-7795-465c-8540-bf6f794dfdf8.md
 102e4d2e-4245-4c9d-a8a2-f1f63e80ce69,.zamm/nodes/102e4d2e-4245-4c9d-a8a2-f1f63e80ce69.md
 10bed943-0cf7-4ce0-9420-786d15a8c77b,.zamm/nodes/10bed943-0cf7-4ce0-9420-786d15a8c77b.md
@@ -35,6 +36,7 @@ node_id,file_path
 35fa9a2e-3eed-476d-96c6-e336c4194321,.zamm/nodes/35fa9a2e-3eed-476d-96c6-e336c4194321.md
 40dce662-6e62-40fd-8136-7a56ee416f0c,.zamm/nodes/40dce662-6e62-40fd-8136-7a56ee416f0c.md
 40df6389-ec28-4779-9675-d91b6b3c26c4,.zamm/nodes/40df6389-ec28-4779-9675-d91b6b3c26c4.md
+4354cf18-c0b3-42a1-ab48-2079a6914f59,.zamm/nodes/4354cf18-c0b3-42a1-ab48-2079a6914f59.md
 48ac39a1-717e-46ee-a4d8-a33ffa72a080,.zamm/nodes/48ac39a1-717e-46ee-a4d8-a33ffa72a080.md
 4d527152-6566-4d35-b2c6-49c5b54a6c4e,.zamm/nodes/4d527152-6566-4d35-b2c6-49c5b54a6c4e.md
 4fcca1f7-beb0-46f3-8a44-3b473527ee2b,.zamm/nodes/4fcca1f7-beb0-46f3-8a44-3b473527ee2b.md
@@ -47,11 +49,13 @@ node_id,file_path
 5a09e319-fed4-4a5d-abd2-06d6922d2a9b,.zamm/nodes/5a09e319-fed4-4a5d-abd2-06d6922d2a9b.md
 5b0079a2-d6b7-4d67-8888-d024f3e803cf,.zamm/nodes/5b0079a2-d6b7-4d67-8888-d024f3e803cf.md
 5df07fe5-de8d-4813-b81c-7bac15177b3e,.zamm/nodes/5df07fe5-de8d-4813-b81c-7bac15177b3e.md
+603eb644-6a74-4096-aa13-1b41ddc61bef,.zamm/nodes/603eb644-6a74-4096-aa13-1b41ddc61bef.md
 60ae8a1c-e3dc-4f42-a830-7b16b885ce80,.zamm/nodes/60ae8a1c-e3dc-4f42-a830-7b16b885ce80.md
 61bae9b9-4fca-4611-892b-b973c7323822,.zamm/nodes/61bae9b9-4fca-4611-892b-b973c7323822.md
 66b80fad-9bf3-4f3e-a85b-4832173b8772,.zamm/nodes/66b80fad-9bf3-4f3e-a85b-4832173b8772.md
 67eddda3-767e-4b6d-8020-ae8451577c4e,.zamm/nodes/67eddda3-767e-4b6d-8020-ae8451577c4e.md
 6f5ecdd9-96c1-4957-976c-7a9b23cec49e,.zamm/nodes/6f5ecdd9-96c1-4957-976c-7a9b23cec49e.md
+70f71922-405a-4aa0-92f5-ea27fede297a,.zamm/nodes/70f71922-405a-4aa0-92f5-ea27fede297a.md
 717c57a1-db3e-4661-90da-980188520bf2,.zamm/nodes/717c57a1-db3e-4661-90da-980188520bf2.md
 71eb1ee0-4442-4473-ad4e-5c18c5d59bd2,.zamm/nodes/71eb1ee0-4442-4473-ad4e-5c18c5d59bd2.md
 73907d23-8d29-4f4b-84a0-2bd1604f3ed1,.zamm/nodes/73907d23-8d29-4f4b-84a0-2bd1604f3ed1.md
@@ -61,12 +65,15 @@ node_id,file_path
 7d8256f3-9e44-40ad-8a12-af612f2744ae,.zamm/nodes/7d8256f3-9e44-40ad-8a12-af612f2744ae.md
 8198916e-9d97-47e8-8b3e-985070470444,.zamm/nodes/8198916e-9d97-47e8-8b3e-985070470444.md
 8222b0dc-98d7-4798-a776-f8fbc156863e,.zamm/nodes/8222b0dc-98d7-4798-a776-f8fbc156863e.md
+82ce42f7-4fdc-481b-a3b2-6000661b85be,.zamm/nodes/82ce42f7-4fdc-481b-a3b2-6000661b85be.md
 845504b7-eb55-4207-af8f-a27ba79a5906,.zamm/nodes/845504b7-eb55-4207-af8f-a27ba79a5906.md
 85321831-cf0e-4304-a4ef-dca43b23a665,.zamm/nodes/85321831-cf0e-4304-a4ef-dca43b23a665.md
 894c0c15-e301-4e74-a525-ff07872b9722,.zamm/nodes/894c0c15-e301-4e74-a525-ff07872b9722.md
 89ee8528-e18b-4ad3-9385-592842b49f17,.zamm/nodes/89ee8528-e18b-4ad3-9385-592842b49f17.md
+8b7f385d-1f9f-4172-bc17-4b2c269219a6,.zamm/nodes/8b7f385d-1f9f-4172-bc17-4b2c269219a6.md
 8bd0e260-bf2f-45fc-b6d6-bc92b62b5d85,.zamm/nodes/8bd0e260-bf2f-45fc-b6d6-bc92b62b5d85.md
 8d36673a-0cc9-4484-aa90-7e9670a67f90,.zamm/nodes/8d36673a-0cc9-4484-aa90-7e9670a67f90.md
+8f892a91-7ce3-4df7-8895-1d97cd21ae76,.zamm/nodes/8f892a91-7ce3-4df7-8895-1d97cd21ae76.md
 90915905-b627-4fa9-a7f5-f294047bd57f,.zamm/nodes/90915905-b627-4fa9-a7f5-f294047bd57f.md
 959f6d69-87a1-4723-b966-f8c7440b51fb,.zamm/nodes/959f6d69-87a1-4723-b966-f8c7440b51fb.md
 9604cd5c-a078-4e1c-83b6-68fb949ec564,.zamm/nodes/9604cd5c-a078-4e1c-83b6-68fb949ec564.md
@@ -82,7 +89,9 @@ afa82ae3-6260-4dbf-bfde-360df3199500,.zamm/nodes/afa82ae3-6260-4dbf-bfde-360df31
 b004bccf-1994-40b4-bb4c-cedfe58cbfb2,.zamm/nodes/b004bccf-1994-40b4-bb4c-cedfe58cbfb2.md
 b0dec07e-a45c-4bcb-8fe3-71cd67b9bb19,.zamm/nodes/b0dec07e-a45c-4bcb-8fe3-71cd67b9bb19.md
 b127f886-6dc3-4082-83fe-db3213b231be,.zamm/nodes/b127f886-6dc3-4082-83fe-db3213b231be.md
+b363d480-2f28-4021-92e9-ab2253555bcb,.zamm/nodes/b363d480-2f28-4021-92e9-ab2253555bcb.md
 b5326b89-fb18-4326-9e3b-12e4d5c008cc,.zamm/nodes/b5326b89-fb18-4326-9e3b-12e4d5c008cc.md
+ba668500-8c0d-4162-9435-5cd0fe6b8318,.zamm/nodes/ba668500-8c0d-4162-9435-5cd0fe6b8318.md
 bd1ff288-f00b-410e-b09a-78d2e43de492,.zamm/nodes/bd1ff288-f00b-410e-b09a-78d2e43de492.md
 c06779b1-8a9f-44c4-bde1-deb1fbded4da,documentation/architecture/index.md
 c3793af0-6100-4e84-bf7a-b75044ba7ab3,.zamm/nodes/c3793af0-6100-4e84-bf7a-b75044ba7ab3.md
@@ -112,6 +121,7 @@ e4326412-e723-453f-aeda-a2e2d6a7a169,.zamm/nodes/e4326412-e723-453f-aeda-a2e2d6a
 e533af6d-407b-4f9a-83ba-333744bc91a8,.zamm/nodes/e533af6d-407b-4f9a-83ba-333744bc91a8.md
 e5a42227-8342-4f64-b626-9fa5b887c811,.zamm/nodes/e5a42227-8342-4f64-b626-9fa5b887c811.md
 eab3ab38-61a5-4ccb-806c-a9e94b8233c4,.zamm/nodes/eab3ab38-61a5-4ccb-806c-a9e94b8233c4.md
+eae8bc16-4668-40f3-a60f-65fafdec31b6,.zamm/nodes/eae8bc16-4668-40f3-a60f-65fafdec31b6.md
 eb1de224-aefb-42b2-8046-5eb161eb9a25,.zamm/nodes/eb1de224-aefb-42b2-8046-5eb161eb9a25.md
 ecb02f19-13e7-45f2-9cf1-f15aff07606e,.zamm/nodes/ecb02f19-13e7-45f2-9cf1-f15aff07606e.md
 ed78dd8c-5541-40b8-ac53-ed0dd39c20d1,.zamm/nodes/ed78dd8c-5541-40b8-ac53-ed0dd39c20d1.md
@@ -120,6 +130,7 @@ f76c1340-177a-4352-b2e8-944b6ef6c11a,.zamm/nodes/f76c1340-177a-4352-b2e8-944b6ef
 f84558a2-8c03-4ea6-89d4-b7ecc0a2d989,documentation/testing/index.md
 f8bcb759-fce5-4067-8a69-b8c4c3c2d1e9,.zamm/nodes/f8bcb759-fce5-4067-8a69-b8c4c3c2d1e9.md
 f996588d-11d3-47ff-8672-97f84b1c50c0,.zamm/nodes/f996588d-11d3-47ff-8672-97f84b1c50c0.md
+fa467aa5-a7ac-4296-9b96-45738e0fed49,.zamm/nodes/fa467aa5-a7ac-4296-9b96-45738e0fed49.md
 fc98cf7a-264b-4591-b0d6-74ada42d3ac9,.zamm/nodes/fc98cf7a-264b-4591-b0d6-74ada42d3ac9.md
 fdcc1a82-34cf-40f7-ac46-fb38d4b61ce6,.zamm/nodes/fdcc1a82-34cf-40f7-ac46-fb38d4b61ce6.md
 fe70c1c0-5c5d-4caa-9d09-2ed35bbb0d3e,.zamm/nodes/fe70c1c0-5c5d-4caa-9d09-2ed35bbb0d3e.md

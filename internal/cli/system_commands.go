@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -302,4 +304,155 @@ The specified directory will be used instead of the local .zamm directory for al
 			return nil
 		},
 	}
+}
+
+// createRecacheCommand creates the recache command
+func (a *App) createRecacheCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "recache",
+		Short: "Update node-files.csv with any missing nodes from the .zamm/nodes directory",
+		Long: `Scan the .zamm/nodes directory for node files and ensure all nodes are properly 
+tracked in node-files.csv. This fixes issues where new nodes weren't being added to the index.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Cast storage to FileStorage to access file system operations
+			fileStorage, ok := a.storage.(*storage.FileStorage)
+			if !ok {
+				return fmt.Errorf("storage is not FileStorage type")
+			}
+
+			// Get existing node-file mappings
+			existingMappings, err := fileStorage.GetAllNodeFileLinks()
+			if err != nil {
+				// If file doesn't exist, start with empty map
+				existingMappings = make(map[string]string)
+			}
+
+			// Scan .zamm/nodes directory for all .md files
+			nodesDir := filepath.Join(fileStorage.BaseDir(), "nodes")
+			entries, err := os.ReadDir(nodesDir)
+			if err != nil {
+				return fmt.Errorf("failed to read nodes directory: %w", err)
+			}
+
+			newCount := 0
+			updatedMappings := make(map[string]string)
+
+			// Copy existing mappings
+			for nodeID, filePath := range existingMappings {
+				updatedMappings[nodeID] = filePath
+			}
+
+			// Process each .md file in the nodes directory
+			for _, entry := range entries {
+				if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
+					continue
+				}
+
+				filePath := filepath.Join(nodesDir, entry.Name())
+
+				// Extract node ID from the file
+				nodeID, err := a.extractNodeIDFromFile(filePath)
+				if err != nil {
+					fmt.Printf("Warning: failed to extract node ID from %s: %v\n", entry.Name(), err)
+					continue
+				}
+
+				// Create relative path from project root for storage
+				projectRoot := filepath.Dir(fileStorage.BaseDir())
+				relPath, err := filepath.Rel(projectRoot, filePath)
+				if err != nil {
+					// If we can't make it relative, use absolute path
+					relPath = filePath
+				}
+
+				// Check if this node is already tracked
+				if _, exists := existingMappings[nodeID]; !exists {
+					updatedMappings[nodeID] = relPath
+					newCount++
+					fmt.Printf("Added missing node: %s -> %s\n", nodeID, relPath)
+				}
+			}
+
+			// Write updated mappings back to CSV
+			if err := a.writeNodeFileLinksMap(fileStorage, updatedMappings); err != nil {
+				return fmt.Errorf("failed to update node-files.csv: %w", err)
+			}
+
+			if newCount == 0 {
+				fmt.Println("No missing nodes found. node-files.csv is up to date.")
+			} else {
+				fmt.Printf("Successfully added %d missing nodes to node-files.csv\n", newCount)
+			}
+
+			return nil
+		},
+	}
+}
+
+// extractNodeIDFromFile reads a node file and extracts the node ID from frontmatter
+func (a *App) extractNodeIDFromFile(filePath string) (string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	content := string(data)
+
+	if !strings.HasPrefix(content, "---\n") {
+		return "", fmt.Errorf("invalid markdown format: missing frontmatter")
+	}
+
+	parts := strings.SplitN(content[4:], "\n---\n", 2)
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid markdown format: malformed frontmatter")
+	}
+
+	yamlContent := parts[0]
+
+	var frontmatter map[string]interface{}
+	if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
+		return "", fmt.Errorf("failed to parse YAML frontmatter: %w", err)
+	}
+
+	nodeID, ok := frontmatter["id"].(string)
+	if !ok || nodeID == "" {
+		return "", fmt.Errorf("missing or invalid id field in frontmatter")
+	}
+
+	return nodeID, nil
+}
+
+// writeNodeFileLinksMap writes the node-file mappings to CSV using the same format as FileStorage
+func (a *App) writeNodeFileLinksMap(fileStorage *storage.FileStorage, nodeFiles map[string]string) error {
+	path := filepath.Join(fileStorage.BaseDir(), "node-files.csv")
+
+	records := [][]string{
+		{"node_id", "file_path"},
+	}
+
+	// Create a slice of node IDs and sort them alphabetically for consistent git diffs
+	nodeIDs := make([]string, 0, len(nodeFiles))
+	for nodeID := range nodeFiles {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	sort.Strings(nodeIDs)
+
+	// Add records in sorted order
+	for _, nodeID := range nodeIDs {
+		records = append(records, []string{nodeID, nodeFiles[nodeID]})
+	}
+
+	// Write CSV file
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = file.Close() // Explicitly ignore error in defer
+	}()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	return writer.WriteAll(records)
 }
