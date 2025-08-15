@@ -93,7 +93,22 @@ func (fs *FileStorage) CreateNode(node models.Node) error {
 	}
 
 	path := fs.GetNodeFilePath(node.GetID())
-	return fs.writeMarkdownFile(path, node)
+
+	// Write the node file
+	if err := fs.writeMarkdownFile(path, node); err != nil {
+		return err
+	}
+
+	// Ensure the node is tracked in node-files.csv
+	// Get relative path from the project root for storage
+	projectRoot := filepath.Dir(fs.baseDir)
+	relPath, err := filepath.Rel(projectRoot, path)
+	if err != nil {
+		// If we can't make it relative, use absolute path
+		relPath = path
+	}
+
+	return fs.UpdateNodeFilePath(node.GetID(), relPath)
 }
 
 // GetNode retrieves a node by ID
