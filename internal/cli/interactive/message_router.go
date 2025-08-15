@@ -2,11 +2,13 @@ package interactive
 
 import (
 	"fmt"
+	"os/exec"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/common"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/nodes"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 )
 
 type MessageRouter struct {
@@ -40,6 +42,8 @@ func (r *MessageRouter) RouteMessage(msg tea.Msg) tea.Cmd {
 		return r.handleCreateNewSpec(msg)
 	case nodes.EditSpecMsg:
 		return r.handleEditSpec(msg)
+	case nodes.OpenMarkdownMsg:
+		return r.handleOpenMarkdown(msg)
 	case nodes.LinkCommitSpecMsg:
 		return r.handleLinkCommitSpec(msg)
 	case nodes.DeleteSpecMsg:
@@ -180,6 +184,27 @@ func (r *MessageRouter) handleEditSpec(msg nodes.EditSpecMsg) tea.Cmd {
 	r.stateManager.SetNodeEditor(common.NewNodeEditor(config))
 	r.stateManager.SetState(NodeEditor)
 	return nil
+}
+
+func (r *MessageRouter) handleOpenMarkdown(msg nodes.OpenMarkdownMsg) tea.Cmd {
+	// Cast storage to FileStorage to access GetNodeFilePath
+	fileStorage, ok := r.coordinator.app.Storage().(*StorageAdapter).storage.(*storage.FileStorage)
+	if !ok {
+		return func() tea.Msg {
+			return OperationCompleteMsg{message: "Error: Cannot access file storage. Press Enter to continue..."}
+		}
+	}
+
+	markdownPath := fileStorage.GetNodeFilePath(msg.SpecID)
+
+	return func() tea.Msg {
+		cmd := exec.Command("code", markdownPath)
+		err := cmd.Start()
+		if err != nil {
+			return OperationCompleteMsg{message: fmt.Sprintf("Error opening in VSCode: %v. Press Enter to continue...", err)}
+		}
+		return ReturnToSpecListMsg{}
+	}
 }
 
 func (r *MessageRouter) handleLinkCommitSpec(msg nodes.LinkCommitSpecMsg) tea.Cmd {

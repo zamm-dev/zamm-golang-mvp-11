@@ -14,19 +14,20 @@ import (
 )
 
 type keyMap struct {
-	Up       key.Binding
-	Down     key.Binding
-	Select   key.Binding
-	Create   key.Binding
-	Edit     key.Binding
-	Delete   key.Binding
-	Link     key.Binding
-	Remove   key.Binding
-	Move     key.Binding
-	Organize key.Binding
-	Help     key.Binding
-	Back     key.Binding
-	Quit     key.Binding
+	Up           key.Binding
+	Down         key.Binding
+	Select       key.Binding
+	Create       key.Binding
+	Edit         key.Binding
+	OpenMarkdown key.Binding
+	Delete       key.Binding
+	Link         key.Binding
+	Remove       key.Binding
+	Move         key.Binding
+	Organize     key.Binding
+	Help         key.Binding
+	Back         key.Binding
+	Quit         key.Binding
 }
 
 var keys = keyMap{
@@ -51,8 +52,12 @@ var keys = keyMap{
 		key.WithHelp("c", "create"),
 	),
 	Edit: key.NewBinding(
-		key.WithKeys("e", "E"),
+		key.WithKeys("e"),
 		key.WithHelp("e", "edit"),
+	),
+	OpenMarkdown: key.NewBinding(
+		key.WithKeys("E"),
+		key.WithHelp("E", "edit in VSCode"),
 	),
 	Delete: key.NewBinding(
 		key.WithKeys("d", "D"),
@@ -92,7 +97,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down},
 		{k.Select, k.Back},
-		{k.Create, k.Edit, k.Delete},
+		{k.Create, k.Edit, k.OpenMarkdown, k.Delete},
 		{k.Link, k.Remove, k.Move},
 		{k.Organize, k.Help, k.Quit},
 	}
@@ -204,6 +209,8 @@ func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 			return *e, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Edit):
 			return *e, func() tea.Msg { return EditSpecMsg{SpecID: e.activeSpec.GetID()} }
+		case key.Matches(msg, e.keys.OpenMarkdown):
+			return *e, func() tea.Msg { return OpenMarkdownMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Delete):
 			return *e, func() tea.Msg { return DeleteSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Link):

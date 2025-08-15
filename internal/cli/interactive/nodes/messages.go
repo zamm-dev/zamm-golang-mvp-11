@@ -35,4 +35,8 @@ type EditSlugMsg struct {
 	InitialSlug   string
 }
 
+type OpenMarkdownMsg struct {
+	SpecID string
+}
+
 type ExitMsg struct{}
