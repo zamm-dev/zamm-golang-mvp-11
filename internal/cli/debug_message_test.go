@@ -48,14 +48,14 @@ func TestMessageDumpingWithDebugWriter(t *testing.T) {
 			expectedStr: "tea.KeyMsg",
 		},
 		{
-			name:        "Custom nodesLoadedMsg",
-			message:     nodesLoadedMsg{nodes: []interactive.Spec{}, err: nil},
-			expectedStr: "nodesLoadedMsg",
+			name:        "Custom NodesLoadedMsg",
+			message:     interactive.NodesLoadedMsg{},
+			expectedStr: "NodesLoadedMsg",
 		},
 		{
-			name:        "Custom operationCompleteMsg",
-			message:     operationCompleteMsg{message: "test complete"},
-			expectedStr: "operationCompleteMsg",
+			name:        "Custom OperationCompleteMsg",
+			message:     interactive.OperationCompleteMsg{},
+			expectedStr: "OperationCompleteMsg",
 		},
 	}
 

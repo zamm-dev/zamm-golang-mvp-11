@@ -7,12 +7,24 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive"
 )
+
+// Spec represents a specification node
+type Spec struct {
+	ID      string
+	Title   string
+	Content string
+	Type    string
+}
+
+// FilterValue implements list.Item interface for bubbles list component
+func (s Spec) FilterValue() string {
+	return s.Title
+}
 
 // SpecSelectedMsg is sent when a spec is selected
 type SpecSelectedMsg struct {
-	Spec interactive.Spec
+	Spec Spec
 }
 
 // SpecSelectorConfig configures the behavior of the spec selector
@@ -29,7 +41,7 @@ func (d specDelegate) Height() int                             { return 1 }
 func (d specDelegate) Spacing() int                            { return 0 }
 func (d specDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d specDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	spec, ok := listItem.(interactive.Spec)
+	spec, ok := listItem.(Spec)
 	if !ok {
 		return
 	}
@@ -94,7 +106,7 @@ func (s *SpecSelector) SetSize(width, height int) {
 }
 
 // SetSpecs sets the available specifications
-func (s *SpecSelector) SetSpecs(specs []interactive.Spec) {
+func (s *SpecSelector) SetSpecs(specs []Spec) {
 	// Convert to list items
 	items := make([]list.Item, len(specs))
 	for i, spec := range specs {
@@ -104,9 +116,9 @@ func (s *SpecSelector) SetSpecs(specs []interactive.Spec) {
 }
 
 // GetSelectedSpec returns the currently selected spec, if any
-func (s *SpecSelector) GetSelectedSpec() *interactive.Spec {
+func (s *SpecSelector) GetSelectedSpec() *Spec {
 	if item := s.list.SelectedItem(); item != nil {
-		if spec, ok := item.(interactive.Spec); ok {
+		if spec, ok := item.(Spec); ok {
 			return &spec
 		}
 	}
