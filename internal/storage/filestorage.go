@@ -683,16 +683,16 @@ func (fs *FileStorage) readMarkdownFile(path string, v interface{}) error {
 	return json.Unmarshal(jsonData, v)
 }
 
-// writeMarkdownFile writes markdown data with YAML frontmatter to a file
-func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
+// generateMarkdownString generates markdown content with YAML frontmatter
+func (fs *FileStorage) generateMarkdownString(v interface{}) (string, error) {
 	jsonData, err := json.Marshal(v)
 	if err != nil {
-		return fmt.Errorf("failed to marshal data: %w", err)
+		return "", fmt.Errorf("failed to marshal data: %w", err)
 	}
 
 	var nodeData map[string]interface{}
 	if err := json.Unmarshal(jsonData, &nodeData); err != nil {
-		return fmt.Errorf("failed to unmarshal data: %w", err)
+		return "", fmt.Errorf("failed to unmarshal data: %w", err)
 	}
 
 	content, hasContent := nodeData["content"].(string)
@@ -712,7 +712,7 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 
 	yamlData, err := yaml.Marshal(frontmatter)
 	if err != nil {
-		return fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
+		return "", fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
 	}
 
 	var mdContent strings.Builder
@@ -732,75 +732,56 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 		mdContent.WriteString("\n")
 	}
 
-	return os.WriteFile(path, []byte(mdContent.String()), 0644)
+	return mdContent.String(), nil
+}
+
+// generateMarkdownStringWithChildren generates markdown content with YAML frontmatter and optional child links
+func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, children []models.Node) (string, error) {
+	// Get the base markdown content
+	baseContent, err := fs.generateMarkdownString(v)
+	if err != nil {
+		return "", err
+	}
+
+	if len(children) == 0 {
+		return baseContent, nil
+	}
+
+	// Append children section
+	var childrenSection strings.Builder
+	childrenSection.WriteString("\n---\n\n")
+	childrenSection.WriteString("## Child Specifications\n\n")
+	for _, child := range children {
+		// Get the child path using GetNodeFilePath
+		childPath := fs.GetNodeFilePath(child.GetID())
+		// Make it relative to the project root
+		projectRoot := filepath.Dir(fs.baseDir)
+		relChildPath, err := filepath.Rel(projectRoot, childPath)
+		if err != nil {
+			relChildPath = childPath
+		}
+		childrenSection.WriteString(fmt.Sprintf("- [%s](/%s)\n", child.GetTitle(), relChildPath))
+	}
+
+	return baseContent + childrenSection.String(), nil
+}
+
+// writeMarkdownFile writes markdown data with YAML frontmatter to a file
+func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
+	content, err := fs.generateMarkdownString(v)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // writeMarkdownFileWithChildren writes markdown data with YAML frontmatter and optional child links
 func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{}, children []models.Node) error {
-	jsonData, err := json.Marshal(v)
+	content, err := fs.generateMarkdownStringWithChildren(v, children)
 	if err != nil {
-		return fmt.Errorf("failed to marshal data: %w", err)
+		return err
 	}
-
-	var nodeData map[string]interface{}
-	if err := json.Unmarshal(jsonData, &nodeData); err != nil {
-		return fmt.Errorf("failed to unmarshal data: %w", err)
-	}
-
-	content, hasContent := nodeData["content"].(string)
-	if !hasContent {
-		content = ""
-	}
-
-	title, hasTitle := nodeData["title"].(string)
-
-	// Create frontmatter map with all fields except content and title
-	frontmatter := make(map[string]interface{})
-	for key, value := range nodeData {
-		if key != "content" && key != "title" {
-			frontmatter[key] = value
-		}
-	}
-
-	yamlData, err := yaml.Marshal(frontmatter)
-	if err != nil {
-		return fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
-	}
-
-	var mdContent strings.Builder
-	mdContent.WriteString("---\n")
-	mdContent.Write(yamlData)
-	mdContent.WriteString("---\n\n")
-
-	// Add title as level 1 heading
-	if hasTitle && title != "" {
-		mdContent.WriteString("# ")
-		mdContent.WriteString(title)
-		mdContent.WriteString("\n\n")
-	}
-
-	if content != "" {
-		mdContent.WriteString(content)
-		mdContent.WriteString("\n")
-	}
-
-	if len(children) > 0 {
-		mdContent.WriteString("\n---\n\n")
-		mdContent.WriteString("## Child Specifications\n\n")
-		for _, child := range children {
-			// Get the child path using GetNodeFilePath
-			childPath := fs.GetNodeFilePath(child.GetID())
-			// Make it relative to the project root
-			projectRoot := filepath.Dir(fs.baseDir)
-			relChildPath, err := filepath.Rel(projectRoot, childPath)
-			if err != nil {
-				relChildPath = childPath
-			}
-			mdContent.WriteString(fmt.Sprintf("- [%s](/%s)\n", child.GetTitle(), relChildPath))
-		}
-	}
-
-	return os.WriteFile(path, []byte(mdContent.String()), 0644)
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // readJSONFile reads JSON data from a file

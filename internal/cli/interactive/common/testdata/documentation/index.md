@@ -1,6 +1,6 @@
 ---
 id: 4c09428a-ce7e-43d0-85da-6f671453c06f
-implementations: []
+slug: ""
 type: project
 ---
 

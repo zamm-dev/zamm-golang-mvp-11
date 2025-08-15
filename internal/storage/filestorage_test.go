@@ -1,32 +1,158 @@
 package storage
 
 import (
-	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 )
 
-func TestWriteMarkdownFileWithChildren(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "zamm-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tempDir) }()
+func TestReadProjectNode(t *testing.T) {
+	// Use the existing testdata from the CLI package
+	testDataPath := filepath.Join("..", "cli", "interactive", "common", "testdata")
+	fs := NewFileStorage(filepath.Join(testDataPath, ".zamm"))
 
-	fs := NewFileStorage(tempDir)
+	// Read the project node
+	var project models.Project
+	nodePath := fs.GetNodeFilePath("4c09428a-ce7e-43d0-85da-6f671453c06f")
 
-	err = fs.InitializeStorage()
+	err := fs.readMarkdownFile(nodePath, &project)
 	if err != nil {
-		t.Fatalf("Failed to initialize storage: %v", err)
+		t.Fatalf("Failed to read project node: %v", err)
 	}
+
+	// Verify all metadata is correctly parsed
+	if project.ID != "4c09428a-ce7e-43d0-85da-6f671453c06f" {
+		t.Errorf("Expected ID '4c09428a-ce7e-43d0-85da-6f671453c06f', got '%s'", project.ID)
+	}
+
+	if project.Type != "project" {
+		t.Errorf("Expected type 'project', got '%s'", project.Type)
+	}
+
+	if project.Title != "Test Project" {
+		t.Errorf("Expected title 'Test Project', got '%s'", project.Title)
+	}
+
+	expectedContent := "This project is meant to help tests pass"
+	if project.Content != expectedContent {
+		t.Errorf("Expected content '%s', got '%s'", expectedContent, project.Content)
+	}
+
+	// Verify that divider lines and child sections are ignored
+	if strings.Contains(project.Content, "---") {
+		t.Error("Content should not contain YAML front matter dividers")
+	}
+
+	if strings.Contains(project.Content, "## Child") {
+		t.Error("Content should not contain child specification sections")
+	}
+}
+
+func TestReadImplementationNode(t *testing.T) {
+	// Use the existing testdata from the CLI package
+	testDataPath := filepath.Join("..", "cli", "interactive", "common", "testdata")
+	fs := NewFileStorage(filepath.Join(testDataPath, ".zamm"))
+
+	// Read the implementation node
+	var impl models.Implementation
+	nodePath := fs.GetNodeFilePath("eb76cdc6-f24c-432a-bfa3-c2ac3257146c")
+
+	err := fs.readMarkdownFile(nodePath, &impl)
+	if err != nil {
+		t.Fatalf("Failed to read implementation node: %v", err)
+	}
+
+	// Verify all metadata is correctly parsed
+	if impl.ID != "eb76cdc6-f24c-432a-bfa3-c2ac3257146c" {
+		t.Errorf("Expected ID 'eb76cdc6-f24c-432a-bfa3-c2ac3257146c', got '%s'", impl.ID)
+	}
+
+	if impl.Type != "implementation" {
+		t.Errorf("Expected type 'implementation', got '%s'", impl.Type)
+	}
+
+	if impl.Title != "Rust Implementation" {
+		t.Errorf("Expected title 'Rust Implementation', got '%s'", impl.Title)
+	}
+
+	expectedContent := "This is an implementation of the project in Rust"
+	if impl.Content != expectedContent {
+		t.Errorf("Expected content '%s', got '%s'", expectedContent, impl.Content)
+	}
+
+	// Check that branch metadata is correctly parsed
+	if impl.Branch == nil || *impl.Branch != "rust" {
+		t.Errorf("Expected branch 'rust', got %v", impl.Branch)
+	}
+
+	// Verify that divider lines are ignored
+	if strings.Contains(impl.Content, "---") {
+		t.Error("Content should not contain YAML front matter dividers")
+	}
+}
+
+func TestGenerateMarkdownStringWithoutChildren(t *testing.T) {
+	testDataPath := filepath.Join("..", "cli", "interactive", "common", "testdata")
+	fs := NewFileStorage(filepath.Join(testDataPath, ".zamm"))
+
+	node := &models.Spec{
+		NodeBase: models.NodeBase{
+			ID:      "test-spec-id",
+			Title:   "Test Specification",
+			Content: "This is a test specification content.",
+			Type:    "specification",
+		},
+	}
+
+	output, err := fs.generateMarkdownString(node)
+	if err != nil {
+		t.Fatalf("Failed to generate markdown string: %v", err)
+	}
+
+	// Verify YAML frontmatter
+	if !strings.Contains(output, "---\n") {
+		t.Error("Output should contain YAML frontmatter delimiters")
+	}
+
+	if !strings.Contains(output, "id: test-spec-id") {
+		t.Error("Output should contain node ID in frontmatter")
+	}
+
+	if !strings.Contains(output, "type: specification") {
+		t.Error("Output should contain node type in frontmatter")
+	}
+
+	// Verify title as markdown header
+	if !strings.Contains(output, "# Test Specification") {
+		t.Error("Output should contain title as level 1 heading")
+	}
+
+	// Verify content
+	if !strings.Contains(output, "This is a test specification content.") {
+		t.Error("Output should contain node content")
+	}
+
+	// Verify no child section
+	if strings.Contains(output, "## Child Specifications") {
+		t.Error("Output should not contain child specifications section when no children")
+	}
+
+	if strings.Contains(output, "\n---\n\n## Child") {
+		t.Error("Output should not contain divider before children when no children")
+	}
+}
+
+func TestGenerateMarkdownStringWithChildren(t *testing.T) {
+	testDataPath := filepath.Join("..", "cli", "interactive", "common", "testdata")
+	fs := NewFileStorage(filepath.Join(testDataPath, ".zamm"))
 
 	parentNode := &models.Spec{
 		NodeBase: models.NodeBase{
-			ID:      "parent-id",
-			Title:   "Parent Node",
-			Content: "This is the parent content.",
+			ID:      "parent-spec-id",
+			Title:   "Parent Specification",
+			Content: "This is the parent specification content.",
 			Type:    "specification",
 		},
 	}
@@ -51,109 +177,50 @@ func TestWriteMarkdownFileWithChildren(t *testing.T) {
 
 	children := []models.Node{child1, child2}
 
-	err = fs.WriteNodeWithChildren(parentNode, children)
+	output, err := fs.generateMarkdownStringWithChildren(parentNode, children)
 	if err != nil {
-		t.Fatalf("Failed to write node with children: %v", err)
+		t.Fatalf("Failed to generate markdown string with children: %v", err)
 	}
 
-	filePath := fs.GetNodeFilePath(parentNode.GetID())
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		t.Fatalf("Failed to read written file: %v", err)
+	// Verify YAML frontmatter
+	if !strings.Contains(output, "---\n") {
+		t.Error("Output should contain YAML frontmatter delimiters")
 	}
 
-	contentStr := string(content)
-
-	if !strings.Contains(contentStr, "\n---\n") {
-		t.Error("File should contain horizontal divider")
+	if !strings.Contains(output, "id: parent-spec-id") {
+		t.Error("Output should contain parent node ID in frontmatter")
 	}
 
-	if !strings.Contains(contentStr, "## Child Specifications") {
-		t.Error("File should contain child specifications section")
+	if !strings.Contains(output, "type: specification") {
+		t.Error("Output should contain node type in frontmatter")
 	}
 
-	if !strings.Contains(contentStr, "[Child 1](.zamm/nodes/child-1-id.md)") {
-		t.Error("File should contain link to child 1")
+	// Verify title as markdown header
+	if !strings.Contains(output, "# Parent Specification") {
+		t.Error("Output should contain title as level 1 heading")
 	}
 
-	if !strings.Contains(contentStr, "[Child 2](.zamm/nodes/child-2-id.md)") {
-		t.Error("File should contain link to child 2")
+	// Verify content
+	if !strings.Contains(output, "This is the parent specification content.") {
+		t.Error("Output should contain parent node content")
 	}
 
-	var readNode models.Spec
-	err = fs.readMarkdownFile(filePath, &readNode)
-	if err != nil {
-		t.Fatalf("Failed to read markdown file: %v", err)
+	// Verify additional divider before children
+	if !strings.Contains(output, "\n---\n\n## Child Specifications") {
+		t.Error("Output should contain horizontal divider before child specifications section")
 	}
 
-	if strings.Contains(readNode.Content, "## Child Specifications") {
-		t.Error("Read content should not include child specifications section")
+	// Verify child specifications section
+	if !strings.Contains(output, "## Child Specifications") {
+		t.Error("Output should contain child specifications section")
 	}
 
-	if strings.Contains(readNode.Content, "[Child 1](.zamm/nodes/child-1-id.md)") {
-		t.Error("Read content should not include child links")
+	// Verify child links
+	if !strings.Contains(output, "[Child 1](/.zamm/nodes/child-1-id.md)") {
+		t.Error("Output should contain link to child 1")
 	}
 
-	if readNode.Title != "Parent Node" {
-		t.Errorf("Expected title 'Parent Node', got '%s'", readNode.Title)
-	}
-
-	if readNode.Content != "This is the parent content." {
-		t.Errorf("Expected content 'This is the parent content.', got '%s'", readNode.Content)
-	}
-}
-
-func TestWriteMarkdownFileWithoutChildren(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "zamm-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tempDir) }()
-
-	fs := NewFileStorage(tempDir)
-
-	err = fs.InitializeStorage()
-	if err != nil {
-		t.Fatalf("Failed to initialize storage: %v", err)
-	}
-
-	node := &models.Spec{
-		NodeBase: models.NodeBase{
-			ID:      "test-id",
-			Title:   "Test Node",
-			Content: "This is test content.",
-			Type:    "specification",
-		},
-	}
-
-	err = fs.WriteNodeWithChildren(node, []models.Node{})
-	if err != nil {
-		t.Fatalf("Failed to write node without children: %v", err)
-	}
-
-	filePath := fs.GetNodeFilePath(node.GetID())
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		t.Fatalf("Failed to read written file: %v", err)
-	}
-
-	contentStr := string(content)
-
-	if strings.Contains(contentStr, "## Child Specifications") {
-		t.Error("File should not contain child specifications section when no children")
-	}
-
-	var readNode models.Spec
-	err = fs.readMarkdownFile(filePath, &readNode)
-	if err != nil {
-		t.Fatalf("Failed to read markdown file: %v", err)
-	}
-
-	if readNode.Title != "Test Node" {
-		t.Errorf("Expected title 'Test Node', got '%s'", readNode.Title)
-	}
-
-	if readNode.Content != "This is test content." {
-		t.Errorf("Expected content 'This is test content.', got '%s'", readNode.Content)
+	if !strings.Contains(output, "[Child 2](/.zamm/nodes/child-2-id.md)") {
+		t.Error("Output should contain link to child 2")
 	}
 }
