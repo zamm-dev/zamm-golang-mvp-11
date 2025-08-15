@@ -649,6 +649,11 @@ func (fs *FileStorage) readMarkdownFile(path string, v interface{}) error {
 	yamlContent := parts[0]
 	markdownContent := strings.TrimSpace(parts[1])
 
+	// Remove content after the last horizontal divider (child links section)
+	if lastDividerIndex := strings.LastIndex(markdownContent, "\n---\n"); lastDividerIndex != -1 {
+		markdownContent = strings.TrimSpace(markdownContent[:lastDividerIndex])
+	}
+
 	var frontmatter map[string]interface{}
 	if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
 		return fmt.Errorf("failed to parse YAML frontmatter: %w", err)
@@ -725,6 +730,68 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 	if content != "" {
 		mdContent.WriteString(content)
 		mdContent.WriteString("\n")
+	}
+
+	return os.WriteFile(path, []byte(mdContent.String()), 0644)
+}
+
+// writeMarkdownFileWithChildren writes markdown data with YAML frontmatter and optional child links
+func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{}, children []models.Node) error {
+	jsonData, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data: %w", err)
+	}
+
+	var nodeData map[string]interface{}
+	if err := json.Unmarshal(jsonData, &nodeData); err != nil {
+		return fmt.Errorf("failed to unmarshal data: %w", err)
+	}
+
+	content, hasContent := nodeData["content"].(string)
+	if !hasContent {
+		content = ""
+	}
+
+	title, hasTitle := nodeData["title"].(string)
+
+	// Create frontmatter map with all fields except content and title
+	frontmatter := make(map[string]interface{})
+	for key, value := range nodeData {
+		if key != "content" && key != "title" {
+			frontmatter[key] = value
+		}
+	}
+
+	yamlData, err := yaml.Marshal(frontmatter)
+	if err != nil {
+		return fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
+	}
+
+	var mdContent strings.Builder
+	mdContent.WriteString("---\n")
+	mdContent.Write(yamlData)
+	mdContent.WriteString("---\n\n")
+
+	// Add title as level 1 heading
+	if hasTitle && title != "" {
+		mdContent.WriteString("# ")
+		mdContent.WriteString(title)
+		mdContent.WriteString("\n\n")
+	}
+
+	if content != "" {
+		mdContent.WriteString(content)
+		mdContent.WriteString("\n")
+	}
+
+	if len(children) > 0 {
+		mdContent.WriteString("\n---\n\n")
+		mdContent.WriteString("## Child Specifications\n\n")
+		for _, child := range children {
+			// Create relative link to child node file
+			childFileName := child.GetID() + ".md"
+			mdContent.WriteString(fmt.Sprintf("- [%s](%s)\n", child.GetTitle(), childFileName))
+		}
 	}
 
 	return os.WriteFile(path, []byte(mdContent.String()), 0644)
@@ -829,6 +896,28 @@ func (fs *FileStorage) writeNodeFileLinks(nodeFiles map[string]string) error {
 	}
 
 	return fs.writeCSVFile(path, records)
+}
+
+func (fs *FileStorage) WriteNodeWithChildren(node models.Node, children []models.Node) error {
+	if node.GetID() == "" {
+		return fmt.Errorf("node ID cannot be empty")
+	}
+
+	path := fs.GetNodeFilePath(node.GetID())
+	
+	// Write the node file with children
+	if err := fs.writeMarkdownFileWithChildren(path, node, children); err != nil {
+		return err
+	}
+
+	// Ensure the node is tracked in node-files.csv
+	projectRoot := filepath.Dir(fs.baseDir)
+	relPath, err := filepath.Rel(projectRoot, path)
+	if err != nil {
+		relPath = path
+	}
+
+	return fs.UpdateNodeFilePath(node.GetID(), relPath)
 }
 
 // UpdateNodeFilePath updates a single node's file path in the CSV

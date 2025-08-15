@@ -16,6 +16,7 @@ type Storage interface {
 	CreateNode(node models.Node) error
 	GetNode(id string) (models.Node, error)
 	UpdateNode(node models.Node) error
+	WriteNodeWithChildren(node models.Node, children []models.Node) error
 	DeleteNode(id string) error
 	ListNodes() ([]models.Node, error)
 
