@@ -163,20 +163,16 @@ func (fs *FileStorage) DeleteNode(id string) error {
 
 // ListNodes returns all nodes
 func (fs *FileStorage) ListNodes() ([]models.Node, error) {
-	nodesDir := filepath.Join(fs.baseDir, "nodes")
-	entries, err := os.ReadDir(nodesDir)
+	nodes := make([]models.Node, 0)
+
+	// Get all nodes from node-files.csv
+	nodeFiles, err := fs.getAllNodeFileLinks()
 	if err != nil {
 		return nil, err
 	}
 
-	nodes := make([]models.Node, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-
-		id := strings.TrimSuffix(entry.Name(), ".md")
-		node, err := fs.GetNode(id)
+	for nodeID := range nodeFiles {
+		node, err := fs.GetNode(nodeID)
 		if err != nil {
 			continue // Skip invalid files
 		}
