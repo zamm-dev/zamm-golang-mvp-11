@@ -649,6 +649,11 @@ func (fs *FileStorage) readMarkdownFile(path string, v interface{}) error {
 	yamlContent := parts[0]
 	markdownContent := strings.TrimSpace(parts[1])
 
+	// Remove content after the last horizontal divider (child links section)
+	if lastDividerIndex := strings.LastIndex(markdownContent, "\n---\n"); lastDividerIndex != -1 {
+		markdownContent = strings.TrimSpace(markdownContent[:lastDividerIndex])
+	}
+
 	var frontmatter map[string]interface{}
 	if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
 		return fmt.Errorf("failed to parse YAML frontmatter: %w", err)
@@ -678,16 +683,16 @@ func (fs *FileStorage) readMarkdownFile(path string, v interface{}) error {
 	return json.Unmarshal(jsonData, v)
 }
 
-// writeMarkdownFile writes markdown data with YAML frontmatter to a file
-func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
+// generateMarkdownString generates markdown content with YAML frontmatter
+func (fs *FileStorage) generateMarkdownString(v interface{}) (string, error) {
 	jsonData, err := json.Marshal(v)
 	if err != nil {
-		return fmt.Errorf("failed to marshal data: %w", err)
+		return "", fmt.Errorf("failed to marshal data: %w", err)
 	}
 
 	var nodeData map[string]interface{}
 	if err := json.Unmarshal(jsonData, &nodeData); err != nil {
-		return fmt.Errorf("failed to unmarshal data: %w", err)
+		return "", fmt.Errorf("failed to unmarshal data: %w", err)
 	}
 
 	content, hasContent := nodeData["content"].(string)
@@ -707,7 +712,7 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 
 	yamlData, err := yaml.Marshal(frontmatter)
 	if err != nil {
-		return fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
+		return "", fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
 	}
 
 	var mdContent strings.Builder
@@ -727,7 +732,56 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 		mdContent.WriteString("\n")
 	}
 
-	return os.WriteFile(path, []byte(mdContent.String()), 0644)
+	return mdContent.String(), nil
+}
+
+// generateMarkdownStringWithChildren generates markdown content with YAML frontmatter and optional child links
+func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, children []models.Node) (string, error) {
+	// Get the base markdown content
+	baseContent, err := fs.generateMarkdownString(v)
+	if err != nil {
+		return "", err
+	}
+
+	if len(children) == 0 {
+		return baseContent, nil
+	}
+
+	// Append children section
+	var childrenSection strings.Builder
+	childrenSection.WriteString("\n---\n\n")
+	childrenSection.WriteString("## Child Specifications\n\n")
+	for _, child := range children {
+		// Get the child path using GetNodeFilePath
+		childPath := fs.GetNodeFilePath(child.GetID())
+		// Make it relative to the project root
+		projectRoot := filepath.Dir(fs.baseDir)
+		relChildPath, err := filepath.Rel(projectRoot, childPath)
+		if err != nil {
+			relChildPath = childPath
+		}
+		childrenSection.WriteString(fmt.Sprintf("- [%s](/%s)\n", child.GetTitle(), relChildPath))
+	}
+
+	return baseContent + childrenSection.String(), nil
+}
+
+// writeMarkdownFile writes markdown data with YAML frontmatter to a file
+func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
+	content, err := fs.generateMarkdownString(v)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// writeMarkdownFileWithChildren writes markdown data with YAML frontmatter and optional child links
+func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{}, children []models.Node) error {
+	content, err := fs.generateMarkdownStringWithChildren(v, children)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // readJSONFile reads JSON data from a file
@@ -829,6 +883,28 @@ func (fs *FileStorage) writeNodeFileLinks(nodeFiles map[string]string) error {
 	}
 
 	return fs.writeCSVFile(path, records)
+}
+
+func (fs *FileStorage) WriteNodeWithChildren(node models.Node, children []models.Node) error {
+	if node.GetID() == "" {
+		return fmt.Errorf("node ID cannot be empty")
+	}
+
+	path := fs.GetNodeFilePath(node.GetID())
+
+	// Write the node file with children
+	if err := fs.writeMarkdownFileWithChildren(path, node, children); err != nil {
+		return err
+	}
+
+	// Ensure the node is tracked in node-files.csv
+	projectRoot := filepath.Dir(fs.baseDir)
+	relPath, err := filepath.Rel(projectRoot, path)
+	if err != nil {
+		relPath = path
+	}
+
+	return fs.UpdateNodeFilePath(node.GetID(), relPath)
 }
 
 // UpdateNodeFilePath updates a single node's file path in the CSV

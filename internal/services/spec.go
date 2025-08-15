@@ -273,9 +273,20 @@ func (s *specService) UpdateNode(id, title, content string) (models.Node, error)
 		return nil, models.NewZammError(models.ErrTypeValidation, "unknown node type")
 	}
 
-	// Save changes
-	if err := s.storage.UpdateNode(node); err != nil {
-		return nil, err
+	// Save changes with children links if any exist
+	children, err := s.GetChildren(node.GetID())
+	if err != nil {
+		if err := s.storage.UpdateNode(node); err != nil {
+			return nil, err
+		}
+	} else if len(children) > 0 {
+		if err := s.storage.WriteNodeWithChildren(node, children); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.storage.UpdateNode(node); err != nil {
+			return nil, err
+		}
 	}
 
 	return node, nil
