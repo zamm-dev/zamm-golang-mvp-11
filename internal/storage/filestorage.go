@@ -788,9 +788,15 @@ func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{},
 		mdContent.WriteString("\n---\n\n")
 		mdContent.WriteString("## Child Specifications\n\n")
 		for _, child := range children {
-			// Get the absolute path from project root as specified in node-files.csv
-			childPath := ".zamm/nodes/" + child.GetID() + ".md"
-			mdContent.WriteString(fmt.Sprintf("- [%s](%s)\n", child.GetTitle(), childPath))
+			// Get the child path using GetNodeFilePath
+			childPath := fs.GetNodeFilePath(child.GetID())
+			// Make it relative to the project root
+			projectRoot := filepath.Dir(fs.baseDir)
+			relChildPath, err := filepath.Rel(projectRoot, childPath)
+			if err != nil {
+				relChildPath = childPath
+			}
+			mdContent.WriteString(fmt.Sprintf("- [%s](/%s)\n", child.GetTitle(), relChildPath))
 		}
 	}
 
@@ -904,7 +910,7 @@ func (fs *FileStorage) WriteNodeWithChildren(node models.Node, children []models
 	}
 
 	path := fs.GetNodeFilePath(node.GetID())
-	
+
 	// Write the node file with children
 	if err := fs.writeMarkdownFileWithChildren(path, node, children); err != nil {
 		return err
