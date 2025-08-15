@@ -286,7 +286,8 @@ func (r *MessageRouter) handleEditSlug(msg nodes.EditSlugMsg) tea.Cmd {
 	r.stateManager.ResetInputs()
 	r.stateManager.SetSelectedSpecID(msg.SpecID)
 
-	slugEditor := common.NewSlugEditor(msg.SpecID, msg.InitialSlug)
+	llmService := r.coordinator.app.LLMService()
+	slugEditor := common.NewSlugEditor(msg.SpecID, msg.OriginalTitle, msg.InitialSlug, llmService)
 	r.stateManager.SetSlugEditor(slugEditor)
 	r.stateManager.SetState(SlugEditor)
 	return slugEditor.Init()
@@ -299,7 +300,7 @@ func (r *MessageRouter) handleOrganizeSpec(msg nodes.OrganizeSpecMsg) tea.Cmd {
 func (r *MessageRouter) handleNodeEditorComplete(msg common.NodeEditorCompleteMsg) tea.Cmd {
 	editingSpecID := r.stateManager.GetEditingSpecID()
 	parentSpecID := r.stateManager.GetParentSpecID()
-	
+
 	if editingSpecID != "" {
 		return r.coordinator.UpdateNodeCmd(editingSpecID, msg.Title, msg.Content, msg.NodeType, nil, nil, nil)
 	} else {
@@ -403,7 +404,7 @@ func (r *MessageRouter) handleSlugEditorComplete(msg common.SlugEditorCompleteMs
 }
 
 func (r *MessageRouter) handleSlugEditorCancel() tea.Cmd {
-	return tea.Batch(r.coordinator.LoadSpecsCmd(), r.stateManager.RefreshSpecListView())
+	return func() tea.Msg { return ReturnToSpecListMsg{} }
 }
 
 func (r *MessageRouter) handleLinkSelectorComplete(msg common.LinkSelectorCompleteMsg) tea.Cmd {

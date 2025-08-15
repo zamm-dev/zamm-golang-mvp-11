@@ -10,9 +10,9 @@ import (
 type ConfirmationDialogConfig struct {
 	Title         string
 	Message       string
-	ConfirmAction string // "delete_spec", "delete_link", etc.
-	TargetID      string // ID of the target being confirmed
-	TargetTitle   string // Title/description of the target
+	ConfirmAction string      // "delete_spec", "delete_link", etc.
+	TargetID      string      // ID of the target being confirmed
+	TargetTitle   string      // Title/description of the target
 	ExtraData     interface{} // Additional data needed for the action
 }
 
@@ -76,19 +76,20 @@ func (d DeleteConfirmationDialog) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the confirmation dialog
 func (d DeleteConfirmationDialog) View() string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("⚠️  Confirm Deletion\n")
 	sb.WriteString("===================\n\n")
 
-	if d.config.ConfirmAction == "delete_spec" {
+	switch d.config.ConfirmAction {
+	case "delete_spec":
 		sb.WriteString(fmt.Sprintf("Are you sure you want to delete the specification '%s'?\n\n", d.config.TargetTitle))
-	} else if d.config.ConfirmAction == "delete_link" {
+	case "delete_link":
 		if linkData, ok := d.config.ExtraData.(LinkItem); ok {
 			sb.WriteString(fmt.Sprintf("Are you sure you want to delete the link to commit %s?\n\n", linkData.CommitID[:12]+"..."))
 		} else {
 			sb.WriteString("Are you sure you want to delete this link?\n\n")
 		}
-	} else {
+	default:
 		sb.WriteString(d.config.Message + "\n\n")
 	}
 

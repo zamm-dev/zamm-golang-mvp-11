@@ -1,23 +1,25 @@
 package interactive
 
 import (
-	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
-	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/config"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 )
 
 type AppAdapter struct {
 	specService services.SpecService
 	linkService services.LinkService
+	llmService  services.LLMService
 	storage     storage.Storage
 	config      *config.Config
 }
 
-func NewAppAdapter(specService services.SpecService, linkService services.LinkService, storage storage.Storage, config *config.Config) *AppAdapter {
+func NewAppAdapter(specService services.SpecService, linkService services.LinkService, llmService services.LLMService, storage storage.Storage, config *config.Config) *AppAdapter {
 	return &AppAdapter{
 		specService: specService,
 		linkService: linkService,
+		llmService:  llmService,
 		storage:     storage,
 		config:      config,
 	}
@@ -29,6 +31,10 @@ func (a *AppAdapter) SpecService() services.SpecService {
 
 func (a *AppAdapter) LinkService() services.LinkService {
 	return a.linkService
+}
+
+func (a *AppAdapter) LLMService() services.LLMService {
+	return a.llmService
 }
 
 func (a *AppAdapter) Storage() StorageInterface {

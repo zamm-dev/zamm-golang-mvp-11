@@ -16,6 +16,7 @@ type Config struct {
 	Git     GitConfig     `mapstructure:"git"`
 	Logging LoggingConfig `mapstructure:"logging"`
 	CLI     CLIConfig     `mapstructure:"cli"`
+	LLM     LLMConfig     `mapstructure:"llm"`
 }
 
 // StorageConfig holds storage-related configuration
@@ -38,6 +39,11 @@ type LoggingConfig struct {
 type CLIConfig struct {
 	OutputFormat string `mapstructure:"output_format"`
 	Color        string `mapstructure:"color"`
+}
+
+// LLMConfig holds LLM-related configuration
+type LLMConfig struct {
+	AnthropicAPIKey string `mapstructure:"anthropic_api_key"`
 }
 
 // LocalMetadata represents the structure of local-metadata.json
@@ -113,6 +119,9 @@ func Load() (*Config, error) {
 	viper.SetEnvPrefix("ZAMM")
 	viper.AutomaticEnv()
 
+	// Bind specific environment variables
+	_ = viper.BindEnv("llm.anthropic_api_key", "ANTHROPIC_API_KEY")
+
 	// Handle environment variable overrides
 	if configPath := os.Getenv("ZAMM_CONFIG_PATH"); configPath != "" {
 		viper.SetConfigFile(configPath)
@@ -171,6 +180,9 @@ func setDefaults(zammDir string) {
 	// CLI defaults
 	viper.SetDefault("cli.output_format", "table")
 	viper.SetDefault("cli.color", "auto")
+
+	// LLM defaults
+	viper.SetDefault("llm.anthropic_api_key", "")
 }
 
 // expandPaths expands ~ and relative paths in configuration

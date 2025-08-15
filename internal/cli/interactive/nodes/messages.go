@@ -30,8 +30,9 @@ type OrganizeSpecMsg struct {
 }
 
 type EditSlugMsg struct {
-	SpecID      string
-	InitialSlug string
+	SpecID        string
+	OriginalTitle string
+	InitialSlug   string
 }
 
 type ExitMsg struct{}

@@ -14,6 +14,7 @@ type App struct {
 	storage     storage.Storage
 	specService services.SpecService
 	linkService services.LinkService
+	llmService  services.LLMService
 }
 
 // NewApp creates a new CLI application
@@ -25,11 +26,18 @@ func NewApp() (*App, error) {
 
 	store := storage.NewFileStorage(cfg.Storage.Path)
 
+	// Initialize LLM service (can be nil if no API key provided)
+	var llmService services.LLMService
+	if cfg.LLM.AnthropicAPIKey != "" {
+		llmService = services.NewLLMService(cfg.LLM.AnthropicAPIKey)
+	}
+
 	return &App{
 		config:      cfg,
 		storage:     store,
 		specService: services.NewSpecService(store),
 		linkService: services.NewLinkService(store),
+		llmService:  llmService,
 	}, nil
 }
 

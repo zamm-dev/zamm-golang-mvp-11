@@ -4,7 +4,6 @@ import (
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 )
 
-
 type NodesLoadedMsg struct {
 	nodes []Spec
 	err   error

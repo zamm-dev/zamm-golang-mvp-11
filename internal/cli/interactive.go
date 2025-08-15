@@ -13,7 +13,6 @@ import (
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/nodes"
 )
 
-
 // Model represents the state of our TUI application
 type Model struct {
 	app           *App
@@ -23,7 +22,6 @@ type Model struct {
 	textInput     textinput.Model
 	debugWriter   io.Writer
 }
-
 
 // createInteractiveCommand creates the interactive mode command
 func (a *App) createInteractiveCommand() *cobra.Command {
@@ -54,9 +52,9 @@ func NewModel(app *App, debugWriter io.Writer) *Model {
 
 	combinedSvc := interactive.NewCombinedService(app.linkService, app.specService)
 	specListView := nodes.NewSpecExplorer(combinedSvc)
-	
+
 	stateManager := interactive.NewStateManager(specListView)
-	appAdapter := interactive.NewAppAdapter(app.specService, app.linkService, app.storage, app.config)
+	appAdapter := interactive.NewAppAdapter(app.specService, app.linkService, app.llmService, app.storage, app.config)
 	coordinator := interactive.NewCoordinator(appAdapter)
 	messageRouter := interactive.NewMessageRouter(stateManager, coordinator)
 
@@ -125,11 +123,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.stateManager.HandleMessageDismissal(msg) {
 			return m, tea.Batch(m.coordinator.LoadSpecsCmd(), m.stateManager.RefreshSpecListView())
 		}
-		
-		// Delegate to component update
-		if cmd := m.stateManager.UpdateComponent(msg); cmd != nil {
-			return m, cmd
-		}
+	}
+
+	// Always try to forward messages to StateManager components first
+	if cmd := m.stateManager.UpdateComponent(msg); cmd != nil {
+		return m, cmd
 	}
 
 	if cmd := m.messageRouter.RouteMessage(msg); cmd != nil {
@@ -138,9 +136,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	return m, nil
 }
-
-
-
 
 // View renders the UI
 func (m *Model) View() string {

@@ -93,7 +93,7 @@ func (s LinkSelector) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (s LinkSelector) View() string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("🗑️  Delete Specification Link\n")
 	sb.WriteString("=============================\n\n")
 

@@ -32,21 +32,20 @@ type StateManager struct {
 	confirmAction string
 	parentSpecID  string
 
-	linkEditor           *common.LinkEditor
-	nodeEditor           *common.NodeEditor
-	nodeTypeSelector     *common.NodeTypeSelector
-	pendingNodeType      common.NodeType
-	implForm             *common.ImplementationForm
-	implRepoURL          *string
-	implBranch           *string
-	implFolderPath       *string
-	slugEditor           *common.SlugEditor
-	linkSelector         *common.LinkSelector
-	confirmationDialog   *common.DeleteConfirmationDialog
+	linkEditor         *common.LinkEditor
+	nodeEditor         *common.NodeEditor
+	nodeTypeSelector   *common.NodeTypeSelector
+	pendingNodeType    common.NodeType
+	implForm           *common.ImplementationForm
+	implRepoURL        *string
+	implBranch         *string
+	implFolderPath     *string
+	slugEditor         *common.SlugEditor
+	linkSelector       *common.LinkSelector
+	confirmationDialog *common.DeleteConfirmationDialog
 
 	cursor int
 }
-
 
 func NewStateManager(specListView nodes.NodeExplorer) *StateManager {
 	return &StateManager{

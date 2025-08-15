@@ -11,6 +11,7 @@ import (
 type AppInterface interface {
 	SpecService() services.SpecService
 	LinkService() services.LinkService
+	LLMService() services.LLMService
 	Storage() StorageInterface
 	Config() ConfigInterface
 }
@@ -279,7 +280,6 @@ func (cs *combinedService) GetRootNode() (models.Node, error) {
 	}
 	return rootNode, nil
 }
-
 
 func NewCombinedService(linkService services.LinkService, specService services.SpecService) *combinedService {
 	return &combinedService{

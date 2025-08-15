@@ -217,7 +217,9 @@ func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 			if e.activeSpec.GetSlug() == nil {
 				// Generate auto-slug from title for editing
 				autoSlug := e.generateAutoSlug(e.activeSpec.GetTitle())
-				return *e, func() tea.Msg { return EditSlugMsg{SpecID: e.activeSpec.GetID(), InitialSlug: autoSlug} }
+				return *e, func() tea.Msg {
+					return EditSlugMsg{SpecID: e.activeSpec.GetID(), OriginalTitle: e.activeSpec.GetTitle(), InitialSlug: autoSlug}
+				}
 			}
 			return *e, func() tea.Msg { return OrganizeSpecMsg{SpecID: e.activeSpec.GetID()} }
 		case key.Matches(msg, e.keys.Back):
