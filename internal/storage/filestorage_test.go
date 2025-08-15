@@ -72,11 +72,11 @@ func TestWriteMarkdownFileWithChildren(t *testing.T) {
 		t.Error("File should contain child specifications section")
 	}
 
-	if !strings.Contains(contentStr, "[Child 1](child-1-id.md)") {
+	if !strings.Contains(contentStr, "[Child 1](.zamm/nodes/child-1-id.md)") {
 		t.Error("File should contain link to child 1")
 	}
 
-	if !strings.Contains(contentStr, "[Child 2](child-2-id.md)") {
+	if !strings.Contains(contentStr, "[Child 2](.zamm/nodes/child-2-id.md)") {
 		t.Error("File should contain link to child 2")
 	}
 
@@ -90,7 +90,7 @@ func TestWriteMarkdownFileWithChildren(t *testing.T) {
 		t.Error("Read content should not include child specifications section")
 	}
 
-	if strings.Contains(readNode.Content, "[Child 1](child-1-id.md)") {
+	if strings.Contains(readNode.Content, "[Child 1](.zamm/nodes/child-1-id.md)") {
 		t.Error("Read content should not include child links")
 	}
 

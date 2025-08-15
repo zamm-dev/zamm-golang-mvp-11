@@ -788,9 +788,9 @@ func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{},
 		mdContent.WriteString("\n---\n\n")
 		mdContent.WriteString("## Child Specifications\n\n")
 		for _, child := range children {
-			// Create relative link to child node file
-			childFileName := child.GetID() + ".md"
-			mdContent.WriteString(fmt.Sprintf("- [%s](%s)\n", child.GetTitle(), childFileName))
+			// Get the absolute path from project root as specified in node-files.csv
+			childPath := ".zamm/nodes/" + child.GetID() + ".md"
+			mdContent.WriteString(fmt.Sprintf("- [%s](%s)\n", child.GetTitle(), childPath))
 		}
 	}
 
