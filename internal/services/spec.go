@@ -11,6 +11,8 @@ import (
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 )
 
+const DocumentationRoot = "docs"
+
 // SpecService interface defines operations for managing specifications
 type SpecService interface {
 	CreateSpec(title, content string) (*models.Spec, error)
@@ -547,7 +549,7 @@ func (s *specService) OrganizeNodes(nodeID string) error {
 		return fmt.Errorf("failed to get root node: %w", err)
 	}
 
-	return s.organizeNodeRecursively(rootNode, "documentation")
+	return s.organizeNodeRecursively(rootNode, DocumentationRoot)
 }
 
 func (s *specService) generateMissingSlugs() error {
@@ -665,10 +667,10 @@ func (s *specService) organizeSingleNode(node models.Node, basePath string) erro
 	// Handle root node specially
 	if s.isRootNode(node) {
 		if len(children) > 0 {
-			// Root node with children goes to documentation/index.md
+			// Root node with children goes to docs/index.md
 			newPath = filepath.Join(basePath, "index.md")
 		} else {
-			// Root node without children goes to documentation/index.md
+			// Root node without children goes to docs/index.md
 			newPath = filepath.Join(basePath, "index.md")
 		}
 	} else {
@@ -735,9 +737,9 @@ func (s *specService) computeNodeBasePath(node models.Node) (string, error) {
 		}
 
 		if len(parents) == 0 {
-			// If this is the root node, its base path is just "documentation"
-			// If this is an orphan (non-root) node, it goes under "documentation" too
-			pathSegments = append([]string{"documentation"}, pathSegments...)
+			// If this is the root node, its base path is just "docs"
+			// If this is an orphan (non-root) node, it goes under "docs" too
+			pathSegments = append([]string{DocumentationRoot}, pathSegments...)
 			break
 		}
 

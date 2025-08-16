@@ -13,7 +13,7 @@ func (a *App) createOrganizeCommand(jsonOutput, quiet bool) *cobra.Command {
 		Long: `Move nodes from generic .zamm/nodes/<UUID>.md locations to hierarchical paths 
 based on their parent-child relationships. Uses slug metadata for consistent path computation.
 
-Root nodes are placed at documentation/index.md, and child nodes are organized under their 
+Root nodes are placed at docs/index.md, and child nodes are organized under their 
 parent's slug as either folders (for nodes with children) or files (for leaf nodes).
 
 If a node ID is provided, only that specific node will be organized.
