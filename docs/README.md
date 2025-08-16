@@ -12,11 +12,11 @@ ZAMM is a literate programming tool that tracks the relationship between human-a
 
 ## Child Specifications
 
-- [CLI](/docs/cli/index.md)
-- [Test Infrastructure](/docs/testing/index.md)
+- [CLI](/docs/cli/README.md)
+- [Test Infrastructure](/docs/testing/README.md)
 - [Link removal should make use of a linked node retrieval function](/.zamm/nodes/218df91d-aba9-4053-b0df-7d1c3bd608ee.md)
 - [Commands module should be split up into submodules by command type](/.zamm/nodes/d231c582-fad2-4bab-8352-eef2f46187f8.md)
-- [Architecture](/docs/architecture/index.md)
+- [Architecture](/docs/architecture/README.md)
 - [Data Models](/.zamm/nodes/002e9c7e-8725-480a-b3d6-bc82ae714cb2.md)
 - [Project Setup](/.zamm/nodes/02a38b8f-8e66-4dd8-87a3-7b7870f22578.md)
 - [Golang CLI Implementation](/.zamm/nodes/8d36673a-0cc9-4484-aa90-7e9670a67f90.md)

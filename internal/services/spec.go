@@ -11,7 +11,10 @@ import (
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
 )
 
-const DocumentationRoot = "docs"
+const (
+	DocumentationRoot = "docs"
+	IndexFile         = "README.md"
+)
 
 // SpecService interface defines operations for managing specifications
 type SpecService interface {
@@ -667,16 +670,16 @@ func (s *specService) organizeSingleNode(node models.Node, basePath string) erro
 	// Handle root node specially
 	if s.isRootNode(node) {
 		if len(children) > 0 {
-			// Root node with children goes to docs/index.md
-			newPath = filepath.Join(basePath, "index.md")
+			// Root node with children goes to docs/README.md
+			newPath = filepath.Join(basePath, IndexFile)
 		} else {
-			// Root node without children goes to docs/index.md
-			newPath = filepath.Join(basePath, "index.md")
+			// Root node without children goes to docs/README.md
+			newPath = filepath.Join(basePath, IndexFile)
 		}
 	} else {
 		// Non-root nodes follow the regular logic
 		if len(children) > 0 {
-			newPath = filepath.Join(basePath, slug, "index.md")
+			newPath = filepath.Join(basePath, slug, IndexFile)
 		} else {
 			newPath = filepath.Join(basePath, slug+".md")
 		}
