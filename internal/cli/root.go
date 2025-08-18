@@ -30,6 +30,7 @@ func (a *App) CreateRootCommand() *cobra.Command {
 	rootCmd.AddCommand(a.createMigrateCommand())
 	rootCmd.AddCommand(a.createRedirectCommand())
 	rootCmd.AddCommand(a.createRecacheCommand())
+	rootCmd.AddCommand(a.createMCPCommand())
 
 	return rootCmd
 }
