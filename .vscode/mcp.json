@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "zamm": {
+      "type": "stdio",
+      "command": "zamm",
+      "cwd": "${workspaceFolder}",
+      "args": ["mcp", "--transport=stdio"]
+    }
+  }
+}
