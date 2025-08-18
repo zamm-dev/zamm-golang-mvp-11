@@ -7,9 +7,9 @@ This project is meant to help tests pass
                                                                                 
                                                                                 
 Implementations:                                                                
-  Rust Implementation                                                           
+    Rust Implementation                                                         
                                                                                 
 Child Nodes:                                                                    
-  Hello World                                                                   
-  Lorem Ipsum command should print a few paragraphs of Lorem Ipsum              
+    Hello World                                                                 
+    Lorem Ipsum command should print a few paragraphs of Lorem Ipsum            
                                                                                 [80D

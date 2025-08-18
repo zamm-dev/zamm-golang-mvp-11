@@ -11,13 +11,30 @@ import (
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 )
 
+type GroupedChildren struct {
+	Groups    []ChildGroup
+	Ungrouped []models.Node
+}
+
+type ChildGroup struct {
+	Label    string
+	Children []GroupedChild
+}
+
+type GroupedChild struct {
+	Node     models.Node
+	IsGroup  bool
+	Label    string
+	Children []GroupedChild
+}
+
 // NodeDetail encapsulates all state and logic for a spec detail
 // (separated from the viewport logic)
 type NodeDetail struct {
 	node                models.Node
 	links               []*models.SpecCommitLink
 	implementationNodes []models.Node
-	regularChildNodes   []models.Node
+	groupedChildren     GroupedChildren
 	cursor              int
 	table               table.Model
 	width               int
@@ -98,13 +115,13 @@ func (d *NodeDetail) SetSpec(node models.Node) {
 }
 
 func (d *NodeDetail) categorizeChildren(childNodes []models.Node) {
-	// Check if this is a project node
+	d.groupedChildren = d.organizeChildrenByGroups(childNodes)
+
 	if d.node != nil && d.node.GetType() == "project" {
-		// Separate implementation nodes from other children
 		implementations := make([]models.Node, 0)
 		others := make([]models.Node, 0)
 
-		for _, child := range childNodes {
+		for _, child := range d.groupedChildren.Ungrouped {
 			if child.GetType() == "implementation" {
 				implementations = append(implementations, child)
 			} else {
@@ -113,42 +130,96 @@ func (d *NodeDetail) categorizeChildren(childNodes []models.Node) {
 		}
 
 		d.implementationNodes = implementations
-		d.regularChildNodes = others
+		d.groupedChildren.Ungrouped = others
 	} else {
-		// For non-project nodes, all children are "regular" children
 		d.implementationNodes = make([]models.Node, 0)
-		d.regularChildNodes = childNodes
 	}
 }
 
-func (d *NodeDetail) GetSelectedChild() models.Node {
-	totalChildren := len(d.implementationNodes) + len(d.regularChildNodes)
-	if d.cursor >= 0 && d.cursor < totalChildren {
-		if d.cursor < len(d.implementationNodes) {
-			return d.implementationNodes[d.cursor]
-		} else {
-			otherIndex := d.cursor - len(d.implementationNodes)
-			return d.regularChildNodes[otherIndex]
+func (d *NodeDetail) organizeChildrenByGroups(allChildren []models.Node) GroupedChildren {
+	if d.node == nil || d.node.GetChildGroups() == nil {
+		return GroupedChildren{Ungrouped: allChildren}
+	}
+
+	childMap := make(map[string]models.Node)
+	for _, child := range allChildren {
+		childMap[child.GetID()] = child
+	}
+
+	groups := []ChildGroup{}
+	usedChildIDs := make(map[string]bool)
+
+	for label, value := range *d.node.GetChildGroups() {
+		group := ChildGroup{Label: label}
+		group.Children = d.processTreeNode(value, childMap, usedChildIDs)
+		if len(group.Children) > 0 {
+			groups = append(groups, group)
 		}
+	}
+
+	ungrouped := []models.Node{}
+	for _, child := range allChildren {
+		if !usedChildIDs[child.GetID()] {
+			ungrouped = append(ungrouped, child)
+		}
+	}
+
+	return GroupedChildren{Groups: groups, Ungrouped: ungrouped}
+}
+
+func (d *NodeDetail) processTreeNode(value interface{}, childMap map[string]models.Node, usedChildIDs map[string]bool) []GroupedChild {
+	result := []GroupedChild{}
+
+	switch v := value.(type) {
+	case string:
+		if child, exists := childMap[v]; exists {
+			usedChildIDs[v] = true
+			result = append(result, GroupedChild{Node: child, IsGroup: false})
+		}
+	case map[string]interface{}:
+		for label, subValue := range v {
+			subChildren := d.processTreeNode(subValue, childMap, usedChildIDs)
+			if len(subChildren) > 0 {
+				result = append(result, GroupedChild{
+					IsGroup:  true,
+					Label:    label,
+					Children: subChildren,
+				})
+			}
+		}
+	case []interface{}:
+		for _, item := range v {
+			subChildren := d.processTreeNode(item, childMap, usedChildIDs)
+			result = append(result, subChildren...)
+		}
+	}
+
+	return result
+}
+
+func (d *NodeDetail) GetSelectedChild() models.Node {
+	allSelectableChildren := d.getAllSelectableChildren()
+	if d.cursor >= 0 && d.cursor < len(allSelectableChildren) {
+		return allSelectableChildren[d.cursor]
 	}
 	return nil
 }
 
 func (d *NodeDetail) SelectNextChild() {
-	totalChildren := len(d.implementationNodes) + len(d.regularChildNodes)
-	if totalChildren == 0 {
+	allSelectableChildren := d.getAllSelectableChildren()
+	if len(allSelectableChildren) == 0 {
 		d.cursor = -1
 		return
 	}
 	d.cursor++
-	if d.cursor >= totalChildren {
-		d.cursor = totalChildren - 1
+	if d.cursor >= len(allSelectableChildren) {
+		d.cursor = len(allSelectableChildren) - 1
 	}
 }
 
 func (d *NodeDetail) SelectPrevChild() {
-	totalChildren := len(d.implementationNodes) + len(d.regularChildNodes)
-	if totalChildren == 0 {
+	allSelectableChildren := d.getAllSelectableChildren()
+	if len(allSelectableChildren) == 0 {
 		d.cursor = -1
 		return
 	}
@@ -156,6 +227,38 @@ func (d *NodeDetail) SelectPrevChild() {
 	if d.cursor < 0 {
 		d.cursor = 0
 	}
+}
+
+func (d *NodeDetail) getAllSelectableChildren() []models.Node {
+	result := make([]models.Node, 0)
+	
+	result = append(result, d.implementationNodes...)
+	
+	result = append(result, d.flattenGroupedChildren(d.groupedChildren.Groups)...)
+	
+	result = append(result, d.groupedChildren.Ungrouped...)
+	
+	return result
+}
+
+func (d *NodeDetail) flattenGroupedChildren(groups []ChildGroup) []models.Node {
+	result := make([]models.Node, 0)
+	for _, group := range groups {
+		result = append(result, d.flattenGroupedChildList(group.Children)...)
+	}
+	return result
+}
+
+func (d *NodeDetail) flattenGroupedChildList(children []GroupedChild) []models.Node {
+	result := make([]models.Node, 0)
+	for _, child := range children {
+		if child.IsGroup {
+			result = append(result, d.flattenGroupedChildList(child.Children)...)
+		} else {
+			result = append(result, child.Node)
+		}
+	}
+	return result
 }
 
 func (d *NodeDetail) ResetCursor() {
@@ -194,18 +297,6 @@ func (d *NodeDetail) updateCommitsTable() {
 	d.table.SetHeight(len(rows) + 2)
 }
 
-func (d *NodeDetail) renderChildNode(contentBuilder *strings.Builder, childNode models.Node, cursorIndex int) {
-	nodeTitle := childNode.GetTitle()
-	if len(nodeTitle) > d.width-2 && d.width > 5 {
-		nodeTitle = nodeTitle[:d.width-5] + "..."
-	}
-	if cursorIndex == d.cursor {
-		contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("> %s", nodeTitle)))
-		contentBuilder.WriteString("\n")
-	} else {
-		fmt.Fprintf(contentBuilder, "  %s\n", nodeTitle)
-	}
-}
 
 // tea.Model interface implementation
 func (d *NodeDetail) Init() tea.Cmd {
@@ -247,16 +338,63 @@ func (d *NodeDetail) View() string {
 
 	// Display regular children section
 	contentBuilder.WriteString("Child Nodes:\n")
-	if len(d.regularChildNodes) == 0 {
+	
+	cursorIndex := len(d.implementationNodes)
+	
+	for _, group := range d.groupedChildren.Groups {
+		contentBuilder.WriteString(fmt.Sprintf("  %s:\n", group.Label))
+		cursorIndex = d.renderGroupedChildren(&contentBuilder, group.Children, cursorIndex, 2)
+	}
+	
+	if len(d.groupedChildren.Ungrouped) == 0 && len(d.groupedChildren.Groups) == 0 {
 		contentBuilder.WriteString("  -\n")
 	} else {
-		for i, childNode := range d.regularChildNodes {
-			cursorIndex := len(d.implementationNodes) + i
+		for _, childNode := range d.groupedChildren.Ungrouped {
 			d.renderChildNode(&contentBuilder, childNode, cursorIndex)
+			cursorIndex++
 		}
 	}
 
 	// Use lipgloss to constrain the entire output to the component width
 	style := lipgloss.NewStyle().Width(d.width)
 	return style.Render(contentBuilder.String())
+}
+
+func (d *NodeDetail) renderGroupedChildren(contentBuilder *strings.Builder, children []GroupedChild, startCursor int, indent int) int {
+	cursorIndex := startCursor
+	indentStr := strings.Repeat(" ", indent)
+	
+	for _, child := range children {
+		if child.IsGroup {
+			contentBuilder.WriteString(fmt.Sprintf("%s%s:\n", indentStr, child.Label))
+			cursorIndex = d.renderGroupedChildren(contentBuilder, child.Children, cursorIndex, indent+2)
+		} else {
+			nodeTitle := child.Node.GetTitle()
+			if len(nodeTitle) > d.width-indent-2 && d.width > indent+5 {
+				nodeTitle = nodeTitle[:d.width-indent-5] + "..."
+			}
+			if cursorIndex == d.cursor {
+				contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("%s> %s", indentStr, nodeTitle)))
+				contentBuilder.WriteString("\n")
+			} else {
+				contentBuilder.WriteString(fmt.Sprintf("%s  %s\n", indentStr, nodeTitle))
+			}
+			cursorIndex++
+		}
+	}
+	
+	return cursorIndex
+}
+
+func (d *NodeDetail) renderChildNode(contentBuilder *strings.Builder, childNode models.Node, cursorIndex int) {
+	nodeTitle := childNode.GetTitle()
+	if len(nodeTitle) > d.width-4 && d.width > 7 {
+		nodeTitle = nodeTitle[:d.width-7] + "..."
+	}
+	if cursorIndex == d.cursor {
+		contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("  > %s", nodeTitle)))
+		contentBuilder.WriteString("\n")
+	} else {
+		contentBuilder.WriteString(fmt.Sprintf("    %s\n", nodeTitle))
+	}
 }

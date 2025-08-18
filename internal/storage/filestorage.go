@@ -747,23 +747,77 @@ func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, childre
 		return baseContent, nil
 	}
 
+	// Check if the node has child groups
+	var childGroups *map[string]interface{}
+	if node, ok := v.(models.Node); ok {
+		childGroups = node.GetChildGroups()
+	}
+
 	// Append children section
 	var childrenSection strings.Builder
 	childrenSection.WriteString("\n---\n\n")
 	childrenSection.WriteString("## Child Specifications\n\n")
-	for _, child := range children {
-		// Get the child path using GetNodeFilePath
-		childPath := fs.GetNodeFilePath(child.GetID())
-		// Make it relative to the project root
-		projectRoot := filepath.Dir(fs.baseDir)
-		relChildPath, err := filepath.Rel(projectRoot, childPath)
-		if err != nil {
-			relChildPath = childPath
+	
+	if childGroups != nil {
+		childMap := make(map[string]models.Node)
+		for _, child := range children {
+			childMap[child.GetID()] = child
 		}
-		childrenSection.WriteString(fmt.Sprintf("- [%s](/%s)\n", child.GetTitle(), relChildPath))
+		
+		usedChildIDs := make(map[string]bool)
+		
+		for label, value := range *childGroups {
+			childrenSection.WriteString(fmt.Sprintf("### %s\n\n", label))
+			fs.processMarkdownTreeNode(value, childMap, usedChildIDs, &childrenSection)
+			childrenSection.WriteString("\n")
+		}
+		
+		ungroupedFound := false
+		for _, child := range children {
+			if !usedChildIDs[child.GetID()] {
+				if !ungroupedFound {
+					childrenSection.WriteString("### Other\n\n")
+					ungroupedFound = true
+				}
+				fs.writeChildLink(child, &childrenSection)
+			}
+		}
+	} else {
+		for _, child := range children {
+			fs.writeChildLink(child, &childrenSection)
+		}
 	}
 
 	return baseContent + childrenSection.String(), nil
+}
+
+func (fs *FileStorage) processMarkdownTreeNode(value interface{}, childMap map[string]models.Node, usedChildIDs map[string]bool, builder *strings.Builder) {
+	switch v := value.(type) {
+	case string:
+		if child, exists := childMap[v]; exists {
+			usedChildIDs[v] = true
+			fs.writeChildLink(child, builder)
+		}
+	case map[string]interface{}:
+		for label, subValue := range v {
+			builder.WriteString(fmt.Sprintf("#### %s\n\n", label))
+			fs.processMarkdownTreeNode(subValue, childMap, usedChildIDs, builder)
+		}
+	case []interface{}:
+		for _, item := range v {
+			fs.processMarkdownTreeNode(item, childMap, usedChildIDs, builder)
+		}
+	}
+}
+
+func (fs *FileStorage) writeChildLink(child models.Node, builder *strings.Builder) {
+	childPath := fs.GetNodeFilePath(child.GetID())
+	projectRoot := filepath.Dir(fs.baseDir)
+	relChildPath, err := filepath.Rel(projectRoot, childPath)
+	if err != nil {
+		relChildPath = childPath
+	}
+	builder.WriteString(fmt.Sprintf("- [%s](/%s)\n", child.GetTitle(), relChildPath))
 }
 
 // writeMarkdownFile writes markdown data with YAML frontmatter to a file

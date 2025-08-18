@@ -14,11 +14,12 @@ const (
 
 // NodeBase represents the base structure for all nodes in the system
 type NodeBase struct {
-	ID      string  `json:"id"`
-	Title   string  `json:"title"`
-	Content string  `json:"content"`
-	Type    string  `json:"type"`
-	Slug    *string `json:"slug,omitempty"`
+	ID          string                 `json:"id"`
+	Title       string                 `json:"title"`
+	Content     string                 `json:"content"`
+	Type        string                 `json:"type"`
+	Slug        *string                `json:"slug,omitempty"`
+	ChildGroups *map[string]interface{} `json:"child_groups,omitempty"`
 }
 
 // Node interface that all node types must implement
@@ -31,6 +32,8 @@ type Node interface {
 	SetTitle(string)
 	SetContent(string)
 	SetSlug(*string)
+	GetChildGroups() *map[string]interface{}
+	SetChildGroups(*map[string]interface{})
 }
 
 // Implement Node interface for NodeBase
@@ -47,6 +50,14 @@ func (n *NodeBase) SetContent(content string) {
 }
 func (n *NodeBase) SetSlug(slug *string) {
 	n.Slug = slug
+}
+
+func (n *NodeBase) GetChildGroups() *map[string]interface{} {
+	return n.ChildGroups
+}
+
+func (n *NodeBase) SetChildGroups(groups *map[string]interface{}) {
+	n.ChildGroups = groups
 }
 
 // Spec represents a specification node in the system
