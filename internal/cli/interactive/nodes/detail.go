@@ -11,21 +11,10 @@ import (
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
 )
 
-type GroupedChildren struct {
-	Groups    []ChildGroup
-	Ungrouped []models.Node
-}
-
 type ChildGroup struct {
 	Label    string
-	Children []GroupedChild
-}
-
-type GroupedChild struct {
-	Node     models.Node
-	IsGroup  bool
-	Label    string
-	Children []GroupedChild
+	Children []models.Node
+	Groups   []ChildGroup
 }
 
 // NodeDetail encapsulates all state and logic for a spec detail
@@ -34,7 +23,7 @@ type NodeDetail struct {
 	node                models.Node
 	links               []*models.SpecCommitLink
 	implementationNodes []models.Node
-	groupedChildren     GroupedChildren
+	childGroups         []ChildGroup
 	cursor              int
 	table               table.Model
 	width               int
@@ -115,30 +104,22 @@ func (d *NodeDetail) SetSpec(node models.Node) {
 }
 
 func (d *NodeDetail) categorizeChildren(childNodes []models.Node) {
-	d.groupedChildren = d.organizeChildrenByGroups(childNodes)
+	d.childGroups = d.organizeChildrenByGroups(childNodes)
 
 	if d.node != nil && d.node.GetType() == "project" {
 		implementations := make([]models.Node, 0)
-		others := make([]models.Node, 0)
-
-		for _, child := range d.groupedChildren.Ungrouped {
-			if child.GetType() == "implementation" {
-				implementations = append(implementations, child)
-			} else {
-				others = append(others, child)
-			}
-		}
-
+		
+		d.childGroups = d.extractImplementations(d.childGroups, &implementations)
+		
 		d.implementationNodes = implementations
-		d.groupedChildren.Ungrouped = others
 	} else {
 		d.implementationNodes = make([]models.Node, 0)
 	}
 }
 
-func (d *NodeDetail) organizeChildrenByGroups(allChildren []models.Node) GroupedChildren {
+func (d *NodeDetail) organizeChildrenByGroups(allChildren []models.Node) []ChildGroup {
 	if d.node == nil || d.node.GetChildGroups() == nil {
-		return GroupedChildren{Ungrouped: allChildren}
+		return []ChildGroup{{Children: allChildren}}
 	}
 
 	childMap := make(map[string]models.Node)
@@ -150,9 +131,8 @@ func (d *NodeDetail) organizeChildrenByGroups(allChildren []models.Node) Grouped
 	usedChildIDs := make(map[string]bool)
 
 	for label, value := range *d.node.GetChildGroups() {
-		group := ChildGroup{Label: label}
-		group.Children = d.processTreeNode(value, childMap, usedChildIDs)
-		if len(group.Children) > 0 {
+		group := d.processTreeNode(label, value, childMap, usedChildIDs)
+		if len(group.Children) > 0 || len(group.Groups) > 0 {
 			groups = append(groups, group)
 		}
 	}
@@ -163,37 +143,73 @@ func (d *NodeDetail) organizeChildrenByGroups(allChildren []models.Node) Grouped
 			ungrouped = append(ungrouped, child)
 		}
 	}
+	
+	if len(ungrouped) > 0 {
+		groups = append(groups, ChildGroup{Children: ungrouped})
+	}
 
-	return GroupedChildren{Groups: groups, Ungrouped: ungrouped}
+	return groups
 }
 
-func (d *NodeDetail) processTreeNode(value interface{}, childMap map[string]models.Node, usedChildIDs map[string]bool) []GroupedChild {
-	result := []GroupedChild{}
+func (d *NodeDetail) processTreeNode(label string, value interface{}, childMap map[string]models.Node, usedChildIDs map[string]bool) ChildGroup {
+	group := ChildGroup{Label: label}
 
 	switch v := value.(type) {
 	case string:
 		if child, exists := childMap[v]; exists {
 			usedChildIDs[v] = true
-			result = append(result, GroupedChild{Node: child, IsGroup: false})
+			group.Children = append(group.Children, child)
 		}
 	case map[string]interface{}:
-		for label, subValue := range v {
-			subChildren := d.processTreeNode(subValue, childMap, usedChildIDs)
-			if len(subChildren) > 0 {
-				result = append(result, GroupedChild{
-					IsGroup:  true,
-					Label:    label,
-					Children: subChildren,
-				})
+		for subLabel, subValue := range v {
+			subGroup := d.processTreeNode(subLabel, subValue, childMap, usedChildIDs)
+			if len(subGroup.Children) > 0 || len(subGroup.Groups) > 0 {
+				group.Groups = append(group.Groups, subGroup)
 			}
 		}
 	case []interface{}:
 		for _, item := range v {
-			subChildren := d.processTreeNode(item, childMap, usedChildIDs)
-			result = append(result, subChildren...)
+			switch itemValue := item.(type) {
+			case string:
+				if child, exists := childMap[itemValue]; exists {
+					usedChildIDs[itemValue] = true
+					group.Children = append(group.Children, child)
+				}
+			case map[string]interface{}:
+				for subLabel, subValue := range itemValue {
+					subGroup := d.processTreeNode(subLabel, subValue, childMap, usedChildIDs)
+					if len(subGroup.Children) > 0 || len(subGroup.Groups) > 0 {
+						group.Groups = append(group.Groups, subGroup)
+					}
+				}
+			}
 		}
 	}
 
+	return group
+}
+
+func (d *NodeDetail) extractImplementations(groups []ChildGroup, implementations *[]models.Node) []ChildGroup {
+	result := []ChildGroup{}
+	
+	for _, group := range groups {
+		newGroup := ChildGroup{Label: group.Label}
+		
+		for _, child := range group.Children {
+			if child.GetType() == "implementation" {
+				*implementations = append(*implementations, child)
+			} else {
+				newGroup.Children = append(newGroup.Children, child)
+			}
+		}
+		
+		newGroup.Groups = d.extractImplementations(group.Groups, implementations)
+		
+		if len(newGroup.Children) > 0 || len(newGroup.Groups) > 0 {
+			result = append(result, newGroup)
+		}
+	}
+	
 	return result
 }
 
@@ -233,30 +249,16 @@ func (d *NodeDetail) getAllSelectableChildren() []models.Node {
 	result := make([]models.Node, 0)
 	
 	result = append(result, d.implementationNodes...)
-	
-	result = append(result, d.flattenGroupedChildren(d.groupedChildren.Groups)...)
-	
-	result = append(result, d.groupedChildren.Ungrouped...)
+	result = append(result, d.flattenChildGroups(d.childGroups)...)
 	
 	return result
 }
 
-func (d *NodeDetail) flattenGroupedChildren(groups []ChildGroup) []models.Node {
+func (d *NodeDetail) flattenChildGroups(groups []ChildGroup) []models.Node {
 	result := make([]models.Node, 0)
 	for _, group := range groups {
-		result = append(result, d.flattenGroupedChildList(group.Children)...)
-	}
-	return result
-}
-
-func (d *NodeDetail) flattenGroupedChildList(children []GroupedChild) []models.Node {
-	result := make([]models.Node, 0)
-	for _, child := range children {
-		if child.IsGroup {
-			result = append(result, d.flattenGroupedChildList(child.Children)...)
-		} else {
-			result = append(result, child.Node)
-		}
+		result = append(result, group.Children...)
+		result = append(result, d.flattenChildGroups(group.Groups)...)
 	}
 	return result
 }
@@ -330,7 +332,7 @@ func (d *NodeDetail) View() string {
 			contentBuilder.WriteString("  - no implementations\n")
 		} else {
 			for i, childNode := range d.implementationNodes {
-				d.renderChildNode(&contentBuilder, childNode, i)
+				d.renderChildNode(&contentBuilder, childNode, i, 1)
 			}
 		}
 		contentBuilder.WriteString("\n")
@@ -341,18 +343,10 @@ func (d *NodeDetail) View() string {
 	
 	cursorIndex := len(d.implementationNodes)
 	
-	for _, group := range d.groupedChildren.Groups {
-		contentBuilder.WriteString(fmt.Sprintf("  %s:\n", group.Label))
-		cursorIndex = d.renderGroupedChildren(&contentBuilder, group.Children, cursorIndex, 2)
-	}
-	
-	if len(d.groupedChildren.Ungrouped) == 0 && len(d.groupedChildren.Groups) == 0 {
+	if len(d.childGroups) == 0 {
 		contentBuilder.WriteString("  -\n")
 	} else {
-		for _, childNode := range d.groupedChildren.Ungrouped {
-			d.renderChildNode(&contentBuilder, childNode, cursorIndex)
-			cursorIndex++
-		}
+		d.renderChildGroups(&contentBuilder, d.childGroups, cursorIndex, 1)
 	}
 
 	// Use lipgloss to constrain the entire output to the component width
@@ -360,41 +354,44 @@ func (d *NodeDetail) View() string {
 	return style.Render(contentBuilder.String())
 }
 
-func (d *NodeDetail) renderGroupedChildren(contentBuilder *strings.Builder, children []GroupedChild, startCursor int, indent int) int {
+func (d *NodeDetail) renderChildGroups(contentBuilder *strings.Builder, groups []ChildGroup, startCursor int, indent int) int {
 	cursorIndex := startCursor
 	indentStr := strings.Repeat(" ", indent)
 	
-	for _, child := range children {
-		if child.IsGroup {
-			contentBuilder.WriteString(fmt.Sprintf("%s%s:\n", indentStr, child.Label))
-			cursorIndex = d.renderGroupedChildren(contentBuilder, child.Children, cursorIndex, indent+2)
-		} else {
-			nodeTitle := child.Node.GetTitle()
-			if len(nodeTitle) > d.width-indent-2 && d.width > indent+5 {
-				nodeTitle = nodeTitle[:d.width-indent-5] + "..."
-			}
-			if cursorIndex == d.cursor {
-				contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("%s> %s", indentStr, nodeTitle)))
-				contentBuilder.WriteString("\n")
-			} else {
-				contentBuilder.WriteString(fmt.Sprintf("%s  %s\n", indentStr, nodeTitle))
-			}
-			cursorIndex++
+	for _, group := range groups {
+		if group.Label != "" {
+			contentBuilder.WriteString(fmt.Sprintf("%s%s:\n", indentStr, group.Label))
 		}
+		
+		childIndent := indent + 1
+		if group.Label != "" {
+			childIndent = indent + 2
+		}
+		for _, child := range group.Children {
+			cursorIndex = d.renderChildNode(contentBuilder, child, cursorIndex, childIndent)
+		}
+		
+		nestedIndent := indent + 1
+		if group.Label != "" {
+			nestedIndent = indent + 2
+		}
+		cursorIndex = d.renderChildGroups(contentBuilder, group.Groups, cursorIndex, nestedIndent)
 	}
 	
 	return cursorIndex
 }
 
-func (d *NodeDetail) renderChildNode(contentBuilder *strings.Builder, childNode models.Node, cursorIndex int) {
+func (d *NodeDetail) renderChildNode(contentBuilder *strings.Builder, childNode models.Node, cursorIndex int, indent int) int {
+	indentStr := strings.Repeat(" ", indent*2)
 	nodeTitle := childNode.GetTitle()
-	if len(nodeTitle) > d.width-4 && d.width > 7 {
-		nodeTitle = nodeTitle[:d.width-7] + "..."
+	if len(nodeTitle) > d.width-len(indentStr)-2 && d.width > len(indentStr)+5 {
+		nodeTitle = nodeTitle[:d.width-len(indentStr)-5] + "..."
 	}
 	if cursorIndex == d.cursor {
-		contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("  > %s", nodeTitle)))
+		contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("%s> %s", indentStr, nodeTitle)))
 		contentBuilder.WriteString("\n")
 	} else {
-		contentBuilder.WriteString(fmt.Sprintf("    %s\n", nodeTitle))
+		contentBuilder.WriteString(fmt.Sprintf("%s  %s\n", indentStr, nodeTitle))
 	}
+	return cursorIndex + 1
 }
