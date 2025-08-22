@@ -175,7 +175,9 @@ func TestGenerateMarkdownStringWithChildren(t *testing.T) {
 		},
 	}
 
-	children := []models.Node{child1, child2}
+	children := models.ChildGroup{
+		Children: []models.Node{child1, child2},
+	}
 
 	output, err := fs.generateMarkdownStringWithChildren(parentNode, children)
 	if err != nil {

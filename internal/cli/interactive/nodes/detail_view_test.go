@@ -83,7 +83,7 @@ func TestNodeDetailViewInitialRender(t *testing.T) {
 	}
 
 	// Create spec detail view with the combined service
-	view := NewNodeDetailView(combinedSvc)
+	view := NewNodeDetailView(combinedSvc, specService)
 	view.SetSize(80, 24)
 	view.SetSpec(spec)
 
@@ -112,7 +112,7 @@ func TestNodeDetailViewScrolling(t *testing.T) {
 	}
 
 	// Create spec detail view with smaller height to force scrolling
-	view := NewNodeDetailView(combinedSvc)
+	view := NewNodeDetailView(combinedSvc, specService)
 	view.SetSize(80, 24)
 	view.SetSpec(spec)
 

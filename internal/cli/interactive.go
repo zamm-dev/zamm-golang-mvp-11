@@ -51,7 +51,7 @@ func NewModel(app *App, debugWriter io.Writer) *Model {
 	ti.Focus()
 
 	combinedSvc := interactive.NewCombinedService(app.linkService, app.specService)
-	specListView := nodes.NewSpecExplorer(combinedSvc)
+	specListView := nodes.NewSpecExplorer(combinedSvc, app.specService)
 
 	stateManager := interactive.NewStateManager(specListView)
 	appAdapter := interactive.NewAppAdapter(app.specService, app.linkService, app.llmService, app.storage, app.config)

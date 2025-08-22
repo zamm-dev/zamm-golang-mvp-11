@@ -67,7 +67,7 @@ func TestNodeDetailProjectRender(t *testing.T) {
 	}
 
 	// Create project detail with the combined service
-	detail := NewNodeDetail(combinedSvc)
+	detail := NewNodeDetail(combinedSvc, specService)
 	detail.SetSize(80, 24)
 	detail.SetSpec(project)
 
@@ -101,7 +101,7 @@ func TestNodeDetailSpecificationRender(t *testing.T) {
 	}
 
 	// Create spec detail with the combined service
-	detail := NewNodeDetail(combinedSvc)
+	detail := NewNodeDetail(combinedSvc, specService)
 	detail.SetSize(80, 24)
 	detail.SetSpec(spec)
 

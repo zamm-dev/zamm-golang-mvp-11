@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/common"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
 )
 
 // NodeDetail encapsulates all state and logic for a spec detail
@@ -22,9 +23,10 @@ type NodeDetail struct {
 	width         int
 	height        int
 	linkService   LinkService
+	specService   services.SpecService
 }
 
-func NewNodeDetail(linkService LinkService) *NodeDetail {
+func NewNodeDetail(linkService LinkService, specService services.SpecService) *NodeDetail {
 	if linkService == nil {
 		panic("linkService cannot be nil in NewNodeDetail")
 	}
@@ -54,6 +56,7 @@ func NewNodeDetail(linkService LinkService) *NodeDetail {
 		table:       commitsTable,
 		cursor:      -1,
 		linkService: linkService,
+		specService: specService,
 	}
 }
 
@@ -79,30 +82,13 @@ func (d *NodeDetail) SetSpec(node models.Node) {
 		d.links = links
 	}
 
-	// Retrieve child nodes for this node
-	childNodes, err := d.linkService.GetChildNodes(node.GetID())
+	d.childGrouping, err = GetOrganizedChildren(d.specService, node)
 	if err != nil {
-		childNodes = []models.Node{}
+		d.childGrouping = models.ChildGroup{}
 	}
-
-	d.updateChildGroups(childNodes)
 
 	d.updateCommitsTable()
 	d.cursor = -1
-}
-
-func isImplementationNode(node models.Node) bool {
-	return node.GetType() == "implementation"
-}
-
-func (d *NodeDetail) updateChildGroups(childNodes []models.Node) {
-	d.childGrouping = d.node.GetChildGrouping()
-	d.childGrouping.AppendUnmatched(childNodes)
-	d.childGrouping.UngroupedLabel = "Children"
-
-	if d.node.GetType() == "project" {
-		d.childGrouping.Regroup("Implementations", isImplementationNode)
-	}
 }
 
 func (d *NodeDetail) GetSelectedChild() models.Node {

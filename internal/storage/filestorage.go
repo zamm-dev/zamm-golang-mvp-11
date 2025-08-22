@@ -736,26 +736,17 @@ func (fs *FileStorage) generateMarkdownString(v interface{}) (string, error) {
 }
 
 // generateMarkdownStringWithChildren generates markdown content with YAML frontmatter and optional child links
-func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, children []models.Node) (string, error) {
+func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, children models.ChildGroup) (string, error) {
 	// Get the base markdown content
 	baseContent, err := fs.generateMarkdownString(v)
 	if err != nil {
 		return "", err
 	}
 
-	if len(children) == 0 {
-		return baseContent, nil
-	}
-
-	// Check if the node has child groups
-	var childGrouping models.ChildGroup
 	node, ok := v.(models.Node)
 	if !ok {
 		return "", fmt.Errorf("invalid node type")
 	}
-
-	childGrouping = node.GetChildGrouping()
-	childGrouping.AppendUnmatched(children)
 
 	// Append children section
 	var childrenSection strings.Builder
@@ -767,7 +758,7 @@ func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, childre
 		nodePathRetriever: fs.GetNodeFilePath,
 		originPath:        filepath.Dir(fs.GetNodeFilePath(node.GetID())),
 	}
-	childGrouping.Render(renderer)
+	children.Render(renderer)
 
 	return baseContent + childrenSection.String(), nil
 }
@@ -782,7 +773,7 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 }
 
 // writeMarkdownFileWithChildren writes markdown data with YAML frontmatter and optional child links
-func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{}, children []models.Node) error {
+func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{}, children models.ChildGroup) error {
 	content, err := fs.generateMarkdownStringWithChildren(v, children)
 	if err != nil {
 		return err
@@ -891,7 +882,7 @@ func (fs *FileStorage) writeNodeFileLinks(nodeFiles map[string]string) error {
 	return fs.writeCSVFile(path, records)
 }
 
-func (fs *FileStorage) WriteNodeWithChildren(node models.Node, children []models.Node) error {
+func (fs *FileStorage) WriteNodeWithChildren(node models.Node, childGrouping models.ChildGroup) error {
 	if node.GetID() == "" {
 		return fmt.Errorf("node ID cannot be empty")
 	}
@@ -899,7 +890,7 @@ func (fs *FileStorage) WriteNodeWithChildren(node models.Node, children []models
 	path := fs.GetNodeFilePath(node.GetID())
 
 	// Write the node file with children
-	if err := fs.writeMarkdownFileWithChildren(path, node, children); err != nil {
+	if err := fs.writeMarkdownFileWithChildren(path, node, childGrouping); err != nil {
 		return err
 	}
 
