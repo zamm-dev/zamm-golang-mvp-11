@@ -21,12 +21,36 @@ func (cg *ChildGroup) Contains(node Node) bool {
 	return false
 }
 
+func (cg *ChildGroup) Size() int {
+	size := len(cg.Children)
+	for _, group := range cg.Groups {
+		size += group.Size()
+	}
+	return size
+}
+
+func (cg *ChildGroup) NodeAt(index int) Node {
+	if index < 0 || index >= cg.Size() {
+		return nil
+	}
+	for _, group := range cg.Groups {
+		if index < group.Size() {
+			return group.NodeAt(index)
+		}
+		index -= group.Size()
+	}
+	if index < len(cg.Children) {
+		return cg.Children[index]
+	}
+	return nil
+}
+
 func (cg *ChildGroup) AllNodes() []Node {
 	var allNodes []Node
-	allNodes = append(allNodes, cg.Children...)
 	for _, group := range cg.Groups {
 		allNodes = append(allNodes, group.AllNodes()...)
 	}
+	allNodes = append(allNodes, cg.Children...)
 	return allNodes
 }
 

@@ -106,39 +106,19 @@ func (d *NodeDetail) updateChildGroups(childNodes []models.Node) {
 }
 
 func (d *NodeDetail) GetSelectedChild() models.Node {
-	allSelectableChildren := d.getAllSelectableChildren()
-	if d.cursor >= 0 && d.cursor < len(allSelectableChildren) {
-		return allSelectableChildren[d.cursor]
-	}
-	return nil
+	return d.childGrouping.NodeAt(d.cursor)
 }
 
 func (d *NodeDetail) SelectNextChild() {
-	allSelectableChildren := d.getAllSelectableChildren()
-	if len(allSelectableChildren) == 0 {
-		d.cursor = -1
-		return
-	}
-	d.cursor++
-	if d.cursor >= len(allSelectableChildren) {
-		d.cursor = len(allSelectableChildren) - 1
+	if d.cursor < d.childGrouping.Size()-1 {
+		d.cursor++
 	}
 }
 
 func (d *NodeDetail) SelectPrevChild() {
-	allSelectableChildren := d.getAllSelectableChildren()
-	if len(allSelectableChildren) == 0 {
-		d.cursor = -1
-		return
+	if d.cursor > 0 {
+		d.cursor--
 	}
-	d.cursor--
-	if d.cursor < 0 {
-		d.cursor = 0
-	}
-}
-
-func (d *NodeDetail) getAllSelectableChildren() []models.Node {
-	return d.childGrouping.AllNodes()
 }
 
 func (d *NodeDetail) ResetCursor() {
