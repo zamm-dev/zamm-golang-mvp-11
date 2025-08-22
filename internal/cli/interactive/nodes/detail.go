@@ -216,9 +216,10 @@ func (r *cliChildrenRenderer) RenderGroupEnd(nestingLevel int) {
 
 func (r *cliChildrenRenderer) RenderNode(nestingLevel int, node models.Node) {
 	nodeTitle := node.GetTitle()
-	indentStr := strings.Repeat(" ", nestingLevel*2)
-	// -2 for prepended `> `, -1 for ellipsis, -1 for buffer
-	maxTitleWidth := r.width - len(indentStr) - 4
+	// account for prepended `> ` taking up the first level of indentation
+	indentStr := strings.Repeat(" ", (nestingLevel-1)*2)
+	// -1 for ellipsis, -1 for buffer
+	maxTitleWidth := r.width - len(indentStr) - 2
 	if len(nodeTitle) > maxTitleWidth && maxTitleWidth > 0 {
 		nodeTitle = nodeTitle[:maxTitleWidth] + "…"
 	}

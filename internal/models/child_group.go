@@ -1,9 +1,8 @@
 package models
 
 type ChildGroup struct {
-	Label          string // can be empty for root node
 	Children       []Node
-	Groups         []ChildGroup
+	Groups         map[string]*ChildGroup
 	UngroupedLabel string
 }
 
@@ -69,11 +68,10 @@ func (cg *ChildGroup) AppendUnmatched(nodes []Node) {
 func (cg *ChildGroup) Remove(predicate func(Node) bool) []Node {
 	var removed []Node
 	removed, cg.Children = partitionNodes(cg.Children, predicate)
-	for i := 0; i < len(cg.Groups); i++ {
-		removed = append(removed, cg.Groups[i].Remove(predicate)...)
-		if len(cg.Groups[i].Children) == 0 {
-			cg.Groups = append(cg.Groups[:i], cg.Groups[i+1:]...)
-			i--
+	for label, group := range cg.Groups {
+		removed = append(removed, group.Remove(predicate)...)
+		if len(group.Children) == 0 && len(group.Groups) == 0 {
+			delete(cg.Groups, label)
 		}
 	}
 	return removed
@@ -95,45 +93,36 @@ func partitionNodes(nodes []Node, predicate func(Node) bool) ([]Node, []Node) {
 func (cg *ChildGroup) Regroup(label string, filter func(Node) bool) {
 	removed := cg.Remove(filter)
 	if len(removed) > 0 {
-		cg.Groups = append([]ChildGroup{{Label: label, Children: removed}}, cg.Groups...)
+		if cg.Groups == nil {
+			cg.Groups = make(map[string]*ChildGroup)
+		}
+		cg.Groups[label] = &ChildGroup{Children: removed}
 	}
 }
 
 func (cg *ChildGroup) Render(renderer ChildGroupRenderer) {
-	cg.recursivelyRender(-1, renderer)
+	cg.recursivelyRender(0, renderer)
 }
 
 func (cg *ChildGroup) recursivelyRender(nestingLevel int, renderer ChildGroupRenderer) {
-	renderOverallEnclosure := nestingLevel >= 0
 	renderUngroupedEnclosure := cg.UngroupedLabel != "" && len(cg.Children) > 0
 
-	if renderOverallEnclosure {
-		renderer.RenderGroupStart(nestingLevel, cg.Label)
+	for groupLabel, subGroup := range cg.Groups {
+		renderer.RenderGroupStart(nestingLevel, groupLabel)
+		subGroup.recursivelyRender(nestingLevel+1, renderer)
+		renderer.RenderGroupEnd(nestingLevel)
 	}
 
-	for _, subGroup := range cg.Groups {
-		subGroup.recursivelyRender(nestingLevel+1, renderer)
-	}
 	if renderUngroupedEnclosure {
-		ungroupedLevel := nestingLevel + 1
-		renderer.RenderGroupStart(ungroupedLevel, cg.UngroupedLabel)
+		renderer.RenderGroupStart(nestingLevel, cg.UngroupedLabel)
 		for _, child := range cg.Children {
-			renderer.RenderNode(ungroupedLevel, child)
+			renderer.RenderNode(nestingLevel+1, child)
 		}
-		if renderUngroupedEnclosure {
-			renderer.RenderGroupEnd(ungroupedLevel)
-		}
+		renderer.RenderGroupEnd(nestingLevel)
 	} else {
-		if nestingLevel < 0 {
-			nestingLevel = 0 // Ensure we start at level 0 for the root group
-		}
 		for _, child := range cg.Children {
 			renderer.RenderNode(nestingLevel, child)
 		}
-	}
-
-	if renderOverallEnclosure {
-		renderer.RenderGroupEnd(nestingLevel)
 	}
 }
 
