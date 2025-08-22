@@ -942,5 +942,5 @@ func (r *markdownChildrenRenderer) RenderNode(nestingLevel int, node models.Node
 	if err != nil {
 		relNodePath = childPath
 	}
-	fmt.Fprintf(r.sb, "%*s- [%s](/%s)\n", nestingLevel*2, "", node.GetTitle(), relNodePath)
+	fmt.Fprintf(r.sb, "%*s- [%s](%s)\n", nestingLevel*2, "", node.GetTitle(), relNodePath)
 }
