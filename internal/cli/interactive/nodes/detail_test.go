@@ -108,5 +108,5 @@ func TestNodeDetailSpecificationRender(t *testing.T) {
 	tm := teatest.NewTestModel(t, detail, teatest.WithInitialTermSize(80, 24))
 
 	// Wait for initial render and capture golden output (should NOT contain Implementations section)
-	waitForGoldenOutput(t, tm, []byte("Child Nodes:"), "TestNodeDetailSpecificationRender.golden")
+	waitForGoldenOutput(t, tm, []byte("No children"), "TestNodeDetailSpecificationRender.golden")
 }

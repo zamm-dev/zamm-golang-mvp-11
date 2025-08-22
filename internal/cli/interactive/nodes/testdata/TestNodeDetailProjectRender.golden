@@ -5,11 +5,11 @@ This project is meant to help tests pass
                                                                                 
 [No linked commits found]                                                       
                                                                                 
-                                                                                
 Implementations:                                                                
-    Rust Implementation                                                         
+  Rust Implementation                                                           
                                                                                 
-Child Nodes:                                                                    
-      Hello World                                                               
-      Lorem Ipsum command should print a few paragraphs of Lorem Ipsum          
+Children:                                                                       
+  Hello World                                                                   
+  Lorem Ipsum command should print a few paragraphs of Lorem Ipsum              
+                                                                                
                                                                                 [80D
