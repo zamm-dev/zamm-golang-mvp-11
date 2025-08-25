@@ -175,7 +175,9 @@ func TestGenerateMarkdownStringWithChildren(t *testing.T) {
 		},
 	}
 
-	children := []models.Node{child1, child2}
+	children := models.ChildGroup{
+		Children: []models.Node{child1, child2},
+	}
 
 	output, err := fs.generateMarkdownStringWithChildren(parentNode, children)
 	if err != nil {
@@ -216,11 +218,11 @@ func TestGenerateMarkdownStringWithChildren(t *testing.T) {
 	}
 
 	// Verify child links
-	if !strings.Contains(output, "[Child 1](/.zamm/nodes/child-1-id.md)") {
-		t.Error("Output should contain link to child 1")
+	if !strings.Contains(output, "[Child 1](child-1-id.md)") {
+		t.Error("Output should contain link to child 1", output)
 	}
 
-	if !strings.Contains(output, "[Child 2](/.zamm/nodes/child-2-id.md)") {
-		t.Error("Output should contain link to child 2")
+	if !strings.Contains(output, "[Child 2](child-2-id.md)") {
+		t.Error("Output should contain link to child 2", output)
 	}
 }

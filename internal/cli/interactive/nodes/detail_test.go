@@ -67,7 +67,7 @@ func TestNodeDetailProjectRender(t *testing.T) {
 	}
 
 	// Create project detail with the combined service
-	detail := NewNodeDetail(combinedSvc)
+	detail := NewNodeDetail(combinedSvc, specService)
 	detail.SetSize(80, 24)
 	detail.SetSpec(project)
 
@@ -101,12 +101,12 @@ func TestNodeDetailSpecificationRender(t *testing.T) {
 	}
 
 	// Create spec detail with the combined service
-	detail := NewNodeDetail(combinedSvc)
+	detail := NewNodeDetail(combinedSvc, specService)
 	detail.SetSize(80, 24)
 	detail.SetSpec(spec)
 
 	tm := teatest.NewTestModel(t, detail, teatest.WithInitialTermSize(80, 24))
 
 	// Wait for initial render and capture golden output (should NOT contain Implementations section)
-	waitForGoldenOutput(t, tm, []byte("Child Nodes:"), "TestNodeDetailSpecificationRender.golden")
+	waitForGoldenOutput(t, tm, []byte("No children"), "TestNodeDetailSpecificationRender.golden")
 }

@@ -9,23 +9,24 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/common"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
 )
 
 // NodeDetail encapsulates all state and logic for a spec detail
 // (separated from the viewport logic)
 type NodeDetail struct {
-	node                models.Node
-	links               []*models.SpecCommitLink
-	implementationNodes []models.Node
-	regularChildNodes   []models.Node
-	cursor              int
-	table               table.Model
-	width               int
-	height              int
-	linkService         LinkService
+	node          models.Node
+	links         []*models.SpecCommitLink
+	childGrouping models.ChildGroup
+	cursor        int
+	table         table.Model
+	width         int
+	height        int
+	linkService   LinkService
+	specService   services.SpecService
 }
 
-func NewNodeDetail(linkService LinkService) *NodeDetail {
+func NewNodeDetail(linkService LinkService, specService services.SpecService) *NodeDetail {
 	if linkService == nil {
 		panic("linkService cannot be nil in NewNodeDetail")
 	}
@@ -55,6 +56,7 @@ func NewNodeDetail(linkService LinkService) *NodeDetail {
 		table:       commitsTable,
 		cursor:      -1,
 		linkService: linkService,
+		specService: specService,
 	}
 }
 
@@ -73,88 +75,35 @@ func (d *NodeDetail) SetSize(width, height int) {
 func (d *NodeDetail) SetSpec(node models.Node) {
 	d.node = node
 
-	// Retrieve links for this node
-	if d.linkService != nil && node != nil {
-		links, err := d.linkService.GetCommitsForSpec(node.GetID())
-		if err != nil {
-			d.links = nil
-		} else {
-			d.links = links
-		}
-
-		// Retrieve child nodes for this node
-		childNodes, err := d.linkService.GetChildNodes(node.GetID())
-		if err != nil {
-			childNodes = nil
-		}
-		d.categorizeChildren(childNodes)
-	} else {
+	links, err := d.linkService.GetCommitsForSpec(node.GetID())
+	if err != nil {
 		d.links = nil
-		d.categorizeChildren(nil)
+	} else {
+		d.links = links
+	}
+
+	d.childGrouping, err = GetOrganizedChildren(d.specService, node)
+	if err != nil {
+		d.childGrouping = models.ChildGroup{}
 	}
 
 	d.updateCommitsTable()
 	d.cursor = -1
 }
 
-func (d *NodeDetail) categorizeChildren(childNodes []models.Node) {
-	// Check if this is a project node
-	if d.node != nil && d.node.GetType() == "project" {
-		// Separate implementation nodes from other children
-		implementations := make([]models.Node, 0)
-		others := make([]models.Node, 0)
-
-		for _, child := range childNodes {
-			if child.GetType() == "implementation" {
-				implementations = append(implementations, child)
-			} else {
-				others = append(others, child)
-			}
-		}
-
-		d.implementationNodes = implementations
-		d.regularChildNodes = others
-	} else {
-		// For non-project nodes, all children are "regular" children
-		d.implementationNodes = make([]models.Node, 0)
-		d.regularChildNodes = childNodes
-	}
-}
-
 func (d *NodeDetail) GetSelectedChild() models.Node {
-	totalChildren := len(d.implementationNodes) + len(d.regularChildNodes)
-	if d.cursor >= 0 && d.cursor < totalChildren {
-		if d.cursor < len(d.implementationNodes) {
-			return d.implementationNodes[d.cursor]
-		} else {
-			otherIndex := d.cursor - len(d.implementationNodes)
-			return d.regularChildNodes[otherIndex]
-		}
-	}
-	return nil
+	return d.childGrouping.NodeAt(d.cursor)
 }
 
 func (d *NodeDetail) SelectNextChild() {
-	totalChildren := len(d.implementationNodes) + len(d.regularChildNodes)
-	if totalChildren == 0 {
-		d.cursor = -1
-		return
-	}
-	d.cursor++
-	if d.cursor >= totalChildren {
-		d.cursor = totalChildren - 1
+	if d.cursor < d.childGrouping.Size()-1 {
+		d.cursor++
 	}
 }
 
 func (d *NodeDetail) SelectPrevChild() {
-	totalChildren := len(d.implementationNodes) + len(d.regularChildNodes)
-	if totalChildren == 0 {
-		d.cursor = -1
-		return
-	}
-	d.cursor--
-	if d.cursor < 0 {
-		d.cursor = 0
+	if d.cursor > 0 {
+		d.cursor--
 	}
 }
 
@@ -194,19 +143,6 @@ func (d *NodeDetail) updateCommitsTable() {
 	d.table.SetHeight(len(rows) + 2)
 }
 
-func (d *NodeDetail) renderChildNode(contentBuilder *strings.Builder, childNode models.Node, cursorIndex int) {
-	nodeTitle := childNode.GetTitle()
-	if len(nodeTitle) > d.width-2 && d.width > 5 {
-		nodeTitle = nodeTitle[:d.width-5] + "..."
-	}
-	if cursorIndex == d.cursor {
-		contentBuilder.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("> %s", nodeTitle)))
-		contentBuilder.WriteString("\n")
-	} else {
-		fmt.Fprintf(contentBuilder, "  %s\n", nodeTitle)
-	}
-}
-
 // tea.Model interface implementation
 func (d *NodeDetail) Init() tea.Cmd {
 	return nil
@@ -225,38 +161,61 @@ func (d *NodeDetail) View() string {
 	var contentBuilder strings.Builder
 	contentBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n%s\n\n", d.node.GetTitle(), strings.Repeat("=", d.width), d.node.GetContent()))
 	if len(d.links) == 0 {
-		contentBuilder.WriteString("[No linked commits found]\n")
+		contentBuilder.WriteString("[No linked commits found]")
 	} else {
 		contentBuilder.WriteString(d.table.View())
 	}
 
 	contentBuilder.WriteString("\n\n")
 
-	// For project nodes, always show implementations section
-	if d.node.GetType() == "project" {
-		contentBuilder.WriteString("Implementations:\n")
-		if len(d.implementationNodes) == 0 {
-			contentBuilder.WriteString("  - no implementations\n")
-		} else {
-			for i, childNode := range d.implementationNodes {
-				d.renderChildNode(&contentBuilder, childNode, i)
-			}
-		}
-		contentBuilder.WriteString("\n")
-	}
-
 	// Display regular children section
-	contentBuilder.WriteString("Child Nodes:\n")
-	if len(d.regularChildNodes) == 0 {
-		contentBuilder.WriteString("  -\n")
+	if d.childGrouping.IsEmpty() {
+		contentBuilder.WriteString("[No children]")
 	} else {
-		for i, childNode := range d.regularChildNodes {
-			cursorIndex := len(d.implementationNodes) + i
-			d.renderChildNode(&contentBuilder, childNode, cursorIndex)
+		renderer := &cliChildrenRenderer{
+			sb:     &contentBuilder,
+			width:  d.width,
+			cursor: d.cursor,
 		}
+		d.childGrouping.Render(renderer)
 	}
 
 	// Use lipgloss to constrain the entire output to the component width
 	style := lipgloss.NewStyle().Width(d.width)
 	return style.Render(contentBuilder.String())
+}
+
+type cliChildrenRenderer struct {
+	sb     *strings.Builder
+	width  int
+	index  int
+	cursor int
+}
+
+func (r *cliChildrenRenderer) RenderGroupStart(nestingLevel int, label string) {
+	fmt.Fprintf(r.sb, "%*s%s:\n", nestingLevel*2, "", label)
+}
+
+func (r *cliChildrenRenderer) RenderGroupEnd(nestingLevel int) {
+	fmt.Fprintf(r.sb, "\n")
+}
+
+func (r *cliChildrenRenderer) RenderNode(nestingLevel int, node models.Node) {
+	nodeTitle := node.GetTitle()
+	// account for prepended `> ` taking up the first level of indentation
+	indentStr := strings.Repeat(" ", (nestingLevel-1)*2)
+	// -1 for ellipsis, -1 for buffer
+	maxTitleWidth := r.width - len(indentStr) - 2
+	if len(nodeTitle) > maxTitleWidth && maxTitleWidth > 0 {
+		nodeTitle = nodeTitle[:maxTitleWidth] + "…"
+	}
+	if r.index == r.cursor {
+		// newline must come after formatting, or else the next line will somehow be off by the length
+		// of the entire string
+		r.sb.WriteString(common.ActiveNodeStyle().Render(fmt.Sprintf("%s> %s", indentStr, nodeTitle)))
+		r.sb.WriteString("\n")
+	} else {
+		fmt.Fprintf(r.sb, "%s  %s\n", indentStr, nodeTitle)
+	}
+	r.index++
 }

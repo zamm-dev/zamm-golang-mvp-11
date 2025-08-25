@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/cli/interactive/common"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
 )
 
 type keyMap struct {
@@ -121,14 +122,14 @@ type NodeExplorer struct {
 	showHelp bool
 }
 
-func NewSpecExplorer(linkService LinkService) NodeExplorer {
+func NewSpecExplorer(linkService LinkService, specService services.SpecService) NodeExplorer {
 	if linkService == nil {
 		panic("linkService cannot be nil in NewSpecExplorer")
 	}
 
 	explorer := NodeExplorer{
-		leftPane:    NewNodeDetailView(linkService),
-		rightPane:   NewNodeDetailView(linkService),
+		leftPane:    NewNodeDetailView(linkService, specService),
+		rightPane:   NewNodeDetailView(linkService, specService),
 		linkService: linkService,
 		keys:        keys,
 		help:        help.New(),

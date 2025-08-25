@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/models"
+	"github.com/zamm-dev/zamm-golang-mvp-11/internal/services"
 )
 
 // DebugMsg is a generic debug message for logging
@@ -23,9 +24,9 @@ type NodeDetailView struct {
 	height   int
 }
 
-func NewNodeDetailView(linkService LinkService) NodeDetailView {
+func NewNodeDetailView(linkService LinkService, specService services.SpecService) NodeDetailView {
 	return NodeDetailView{
-		detail:   NewNodeDetail(linkService),
+		detail:   NewNodeDetail(linkService, specService),
 		viewport: viewport.New(0, 0),
 	}
 }

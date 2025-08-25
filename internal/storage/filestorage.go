@@ -736,32 +736,29 @@ func (fs *FileStorage) generateMarkdownString(v interface{}) (string, error) {
 }
 
 // generateMarkdownStringWithChildren generates markdown content with YAML frontmatter and optional child links
-func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, children []models.Node) (string, error) {
+func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, children models.ChildGroup) (string, error) {
 	// Get the base markdown content
 	baseContent, err := fs.generateMarkdownString(v)
 	if err != nil {
 		return "", err
 	}
 
-	if len(children) == 0 {
-		return baseContent, nil
+	node, ok := v.(models.Node)
+	if !ok {
+		return "", fmt.Errorf("invalid node type")
 	}
 
 	// Append children section
 	var childrenSection strings.Builder
 	childrenSection.WriteString("\n---\n\n")
 	childrenSection.WriteString("## Child Specifications\n\n")
-	for _, child := range children {
-		// Get the child path using GetNodeFilePath
-		childPath := fs.GetNodeFilePath(child.GetID())
-		// Make it relative to the project root
-		projectRoot := filepath.Dir(fs.baseDir)
-		relChildPath, err := filepath.Rel(projectRoot, childPath)
-		if err != nil {
-			relChildPath = childPath
-		}
-		childrenSection.WriteString(fmt.Sprintf("- [%s](/%s)\n", child.GetTitle(), relChildPath))
+
+	renderer := &markdownChildrenRenderer{
+		sb:                &childrenSection,
+		nodePathRetriever: fs.GetNodeFilePath,
+		originPath:        filepath.Dir(fs.GetNodeFilePath(node.GetID())),
 	}
+	children.Render(renderer)
 
 	return baseContent + childrenSection.String(), nil
 }
@@ -776,7 +773,7 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 }
 
 // writeMarkdownFileWithChildren writes markdown data with YAML frontmatter and optional child links
-func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{}, children []models.Node) error {
+func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{}, children models.ChildGroup) error {
 	content, err := fs.generateMarkdownStringWithChildren(v, children)
 	if err != nil {
 		return err
@@ -885,7 +882,7 @@ func (fs *FileStorage) writeNodeFileLinks(nodeFiles map[string]string) error {
 	return fs.writeCSVFile(path, records)
 }
 
-func (fs *FileStorage) WriteNodeWithChildren(node models.Node, children []models.Node) error {
+func (fs *FileStorage) WriteNodeWithChildren(node models.Node, childGrouping models.ChildGroup) error {
 	if node.GetID() == "" {
 		return fmt.Errorf("node ID cannot be empty")
 	}
@@ -893,7 +890,7 @@ func (fs *FileStorage) WriteNodeWithChildren(node models.Node, children []models
 	path := fs.GetNodeFilePath(node.GetID())
 
 	// Write the node file with children
-	if err := fs.writeMarkdownFileWithChildren(path, node, children); err != nil {
+	if err := fs.writeMarkdownFileWithChildren(path, node, childGrouping); err != nil {
 		return err
 	}
 
@@ -916,4 +913,25 @@ func (fs *FileStorage) UpdateNodeFilePath(nodeID, newPath string) error {
 
 	nodeFiles[nodeID] = newPath
 	return fs.writeNodeFileLinks(nodeFiles)
+}
+
+type markdownChildrenRenderer struct {
+	sb                *strings.Builder
+	nodePathRetriever func(nodeID string) string
+	originPath        string
+}
+
+func (r *markdownChildrenRenderer) RenderGroupStart(nestingLevel int, label string) {
+	fmt.Fprintf(r.sb, "%*s- %s\n", nestingLevel*2, "", label)
+}
+
+func (r *markdownChildrenRenderer) RenderGroupEnd(nestingLevel int) {}
+
+func (r *markdownChildrenRenderer) RenderNode(nestingLevel int, node models.Node) {
+	childPath := r.nodePathRetriever(node.GetID())
+	relNodePath, err := filepath.Rel(r.originPath, childPath)
+	if err != nil {
+		relNodePath = childPath
+	}
+	fmt.Fprintf(r.sb, "%*s- [%s](%s)\n", nestingLevel*2, "", node.GetTitle(), relNodePath)
 }

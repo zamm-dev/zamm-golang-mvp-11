@@ -243,6 +243,27 @@ func (s *specService) UpdateImplementation(id, title, content string, repoURL, b
 	return impl, nil
 }
 
+func isImplementationNode(node models.Node) bool {
+	return node.GetType() == "implementation"
+}
+
+func (s *specService) GetOrganizedChildren(node models.Node) (models.ChildGroup, error) {
+	cg := node.GetChildGrouping()
+	allChildren, err := s.GetChildren(node.GetID())
+	if err != nil {
+		return cg, err
+	}
+
+	cg.AppendUnmatched(allChildren)
+	cg.UngroupedLabel = "Children"
+
+	if node.GetType() == "project" {
+		cg.Regroup("Implementations", isImplementationNode)
+	}
+
+	return cg, nil
+}
+
 // UpdateNode updates an existing node regardless of its type
 func (s *specService) UpdateNode(id, title, content string) (models.Node, error) {
 	if id == "" {
@@ -279,22 +300,13 @@ func (s *specService) UpdateNode(id, title, content string) (models.Node, error)
 	}
 
 	// Save changes with children links if any exist
-	children, err := s.GetChildren(node.GetID())
+	children, err := s.GetOrganizedChildren(node)
 	if err != nil {
-		if err := s.storage.UpdateNode(node); err != nil {
-			return nil, err
-		}
-	} else if len(children) > 0 {
-		if err := s.storage.WriteNodeWithChildren(node, children); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := s.storage.UpdateNode(node); err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
-	return node, nil
+	err = s.storage.WriteNodeWithChildren(node, children)
+	return node, err
 }
 
 // ListNodes retrieves all nodes regardless of type
