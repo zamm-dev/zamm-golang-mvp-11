@@ -29,5 +29,5 @@ lint:
 fmt:
 	go fmt ./...
 
-migrations-up:
-	./bin/zamm migration up
+precommit-hooks:
+	lefthook install
