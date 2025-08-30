@@ -125,7 +125,7 @@ func (fs *FileStorage) GetNode(id string) (models.Node, error) {
 	}
 
 	// Based on the type, create the appropriate node
-	switch nodeBase.Type {
+	switch nodeBase.GetType() {
 	case "specification":
 		var spec models.Spec
 		if err := fs.readMarkdownFile(path, &spec); err != nil {
@@ -467,7 +467,7 @@ func (fs *FileStorage) GetOrphanSpecs() ([]*models.Spec, error) {
 	for _, node := range allNodes {
 		// Only include Spec nodes
 		if spec, ok := node.(*models.Spec); ok {
-			if !hasParents[spec.ID] {
+			if !hasParents[spec.GetID()] {
 				orphans = append(orphans, spec)
 			}
 		}

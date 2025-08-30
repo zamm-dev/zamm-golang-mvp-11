@@ -58,7 +58,7 @@ func (s *Server) CreateChildSpec(ctx context.Context, ss *mcp.ServerSession, par
 		}, nil
 	}
 
-	_, err = s.specService.AddChildToParent(childSpec.ID, args.ParentID, "child")
+	_, err = s.specService.AddChildToParent(childSpec.GetID(), args.ParentID, "child")
 	if err != nil {
 		return &mcp.CallToolResultFor[CreateChildSpecResult]{
 			Content: []mcp.Content{
@@ -68,11 +68,11 @@ func (s *Server) CreateChildSpec(ctx context.Context, ss *mcp.ServerSession, par
 	}
 
 	result := CreateChildSpecResult{
-		ChildID:  childSpec.ID,
+		ChildID:  childSpec.GetID(),
 		ParentID: args.ParentID,
-		Title:    childSpec.Title,
-		Content:  childSpec.Content,
-		Message:  fmt.Sprintf("Successfully created child spec '%s' under parent '%s'", childSpec.Title, parentNode.GetTitle()),
+		Title:    childSpec.GetTitle(),
+		Content:  childSpec.GetContent(),
+		Message:  fmt.Sprintf("Successfully created child spec '%s' under parent '%s'", childSpec.GetTitle(), parentNode.GetTitle()),
 	}
 
 	resultJSON, err := json.Marshal(result)

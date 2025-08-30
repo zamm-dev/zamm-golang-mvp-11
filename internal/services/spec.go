@@ -174,9 +174,9 @@ func (s *specService) UpdateSpec(id, title, content string) (*models.Spec, error
 	}
 
 	// Update fields
-	spec.Title = strings.TrimSpace(title)
-	spec.Content = strings.TrimSpace(content)
-	spec.Type = "specification"
+	spec.SetTitle(strings.TrimSpace(title))
+	spec.SetContent(strings.TrimSpace(content))
+	spec.SetType("specification")
 
 	// Save changes
 	if err := s.storage.UpdateNode(spec); err != nil {
@@ -210,9 +210,9 @@ func (s *specService) UpdateImplementation(id, title, content string, repoURL, b
 	}
 
 	// Update basic fields
-	impl.Title = strings.TrimSpace(title)
-	impl.Content = strings.TrimSpace(content)
-	impl.Type = "implementation"
+	impl.SetTitle(strings.TrimSpace(title))
+	impl.SetContent(strings.TrimSpace(content))
+	impl.SetType("implementation")
 
 	// Update optional fields if provided
 	if repoURL != nil && strings.TrimSpace(*repoURL) != "" {
@@ -283,17 +283,17 @@ func (s *specService) UpdateNode(id, title, content string) (models.Node, error)
 	// Update fields based on node type
 	switch n := node.(type) {
 	case *models.Spec:
-		n.Title = strings.TrimSpace(title)
-		n.Content = strings.TrimSpace(content)
-		n.Type = "specification"
+		n.SetTitle(strings.TrimSpace(title))
+		n.SetContent(strings.TrimSpace(content))
+		n.SetType("specification")
 	case *models.Project:
-		n.Title = strings.TrimSpace(title)
-		n.Content = strings.TrimSpace(content)
-		n.Type = "project"
+		n.SetTitle(strings.TrimSpace(title))
+		n.SetContent(strings.TrimSpace(content))
+		n.SetType("project")
 	case *models.Implementation:
-		n.Title = strings.TrimSpace(title)
-		n.Content = strings.TrimSpace(content)
-		n.Type = "implementation"
+		n.SetTitle(strings.TrimSpace(title))
+		n.SetContent(strings.TrimSpace(content))
+		n.SetType("implementation")
 	default:
 		return nil, models.NewZammError(models.ErrTypeValidation, "unknown node type")
 	}
@@ -416,7 +416,8 @@ func (s *specService) InitializeRootSpec() error {
 		}
 
 		// Set it as the root spec in metadata
-		err = s.storage.SetRootSpecID(&newRootProject.ID)
+		rootId := newRootProject.GetID()
+		err = s.storage.SetRootSpecID(&rootId)
 		if err != nil {
 			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to set root spec ID", err)
 		}
@@ -433,13 +434,10 @@ func (s *specService) InitializeRootSpec() error {
 	if rootNode.GetType() == "project" {
 		return nil
 	} else { // otherwise, convert it to a Project
-		// Create a new Project with the same content
-		newProject := models.NewProject(rootNode.GetTitle(), rootNode.GetContent())
-		// Keep the same ID to maintain references
-		newProject.ID = rootNode.GetID()
+		rootNode.SetType("project")
 
 		// Update the node in storage
-		if err := s.storage.UpdateNode(newProject); err != nil {
+		if err := s.storage.UpdateNode(rootNode); err != nil {
 			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to convert root spec to project", err)
 		}
 	}

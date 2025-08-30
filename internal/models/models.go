@@ -1,6 +1,8 @@
 package models
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 )
 
@@ -12,8 +14,8 @@ const (
 	Incoming                  // Get parents (specs that point to this spec)
 )
 
-// NodeBase represents the base structure for all nodes in the system
-type NodeBase struct {
+// to keep NodeBase fields private https://stackoverflow.com/a/11129633
+type NodeBaseJSON struct {
 	ID            string      `json:"id"`
 	Title         string      `json:"title"`
 	Content       string      `json:"content"`
@@ -22,12 +24,50 @@ type NodeBase struct {
 	ChildGrouping *ChildGroup `json:"child_grouping,omitempty"`
 }
 
+// NodeBase represents the base structure for all nodes in the system
+type NodeBase struct {
+	id            string
+	title         string
+	content       string
+	nodeType      string
+	slug          *string
+	childGrouping *ChildGroup
+}
+
+func (n *NodeBase) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&NodeBaseJSON{
+		ID:            n.id,
+		Title:         n.title,
+		Content:       n.content,
+		Type:          n.nodeType,
+		Slug:          n.slug,
+		ChildGrouping: n.childGrouping,
+	})
+}
+
+func (n *NodeBase) UnmarshalJSON(data []byte) error {
+	var nodeJSON NodeBaseJSON
+	if err := json.Unmarshal(data, &nodeJSON); err != nil {
+		return err
+	}
+
+	n.id = nodeJSON.ID
+	n.title = nodeJSON.Title
+	n.content = nodeJSON.Content
+	n.nodeType = nodeJSON.Type
+	n.slug = nodeJSON.Slug
+	n.childGrouping = nodeJSON.ChildGrouping
+
+	return nil
+}
+
 // Node interface that all node types must implement
 type Node interface {
 	GetID() string
 	GetTitle() string
 	GetContent() string
 	GetType() string
+	SetType(string)
 	GetSlug() *string
 	SetTitle(string)
 	SetContent(string)
@@ -37,30 +77,33 @@ type Node interface {
 }
 
 // Implement Node interface for NodeBase
-func (n *NodeBase) GetID() string      { return n.ID }
-func (n *NodeBase) GetTitle() string   { return n.Title }
-func (n *NodeBase) GetContent() string { return n.Content }
-func (n *NodeBase) GetType() string    { return n.Type }
-func (n *NodeBase) GetSlug() *string   { return n.Slug }
+func (n *NodeBase) GetID() string      { return n.id }
+func (n *NodeBase) GetTitle() string   { return n.title }
+func (n *NodeBase) GetContent() string { return n.content }
+func (n *NodeBase) GetType() string    { return n.nodeType }
+func (n *NodeBase) SetType(nodeType string) {
+	n.nodeType = nodeType
+}
+func (n *NodeBase) GetSlug() *string { return n.slug }
 func (n *NodeBase) SetTitle(title string) {
-	n.Title = title
+	n.title = title
 }
 func (n *NodeBase) SetContent(content string) {
-	n.Content = content
+	n.content = content
 }
 func (n *NodeBase) SetSlug(slug *string) {
-	n.Slug = slug
+	n.slug = slug
 }
 
 func (n *NodeBase) GetChildGrouping() ChildGroup {
-	if n.ChildGrouping == nil {
+	if n.childGrouping == nil {
 		return ChildGroup{}
 	}
-	return *n.ChildGrouping
+	return *n.childGrouping
 }
 
 func (n *NodeBase) SetChildGrouping(grouping ChildGroup) {
-	n.ChildGrouping = &grouping
+	n.childGrouping = &grouping
 }
 
 // Spec represents a specification node in the system
@@ -73,10 +116,22 @@ type Spec struct {
 func NewSpec(title, content string) *Spec {
 	return &Spec{
 		NodeBase: NodeBase{
-			ID:      uuid.New().String(),
-			Title:   title,
-			Content: content,
-			Type:    "specification",
+			id:       uuid.New().String(),
+			title:    title,
+			content:  content,
+			nodeType: "specification",
+		},
+	}
+}
+
+// NewSpecWithID creates a new Spec with a specific ID for testing
+func NewSpecWithID(id, title, content string) *Spec {
+	return &Spec{
+		NodeBase: NodeBase{
+			id:       id,
+			title:    title,
+			content:  content,
+			nodeType: "specification",
 		},
 	}
 }
@@ -90,10 +145,10 @@ type Project struct {
 func NewProject(title, content string) *Project {
 	return &Project{
 		NodeBase: NodeBase{
-			ID:      uuid.New().String(),
-			Title:   title,
-			Content: content,
-			Type:    "project",
+			id:       uuid.New().String(),
+			title:    title,
+			content:  content,
+			nodeType: "project",
 		},
 	}
 }
@@ -110,12 +165,42 @@ type Implementation struct {
 func NewImplementation(title, content string) *Implementation {
 	return &Implementation{
 		NodeBase: NodeBase{
-			ID:      uuid.New().String(),
-			Title:   title,
-			Content: content,
-			Type:    "implementation",
+			id:       uuid.New().String(),
+			title:    title,
+			content:  content,
+			nodeType: "implementation",
 		},
 	}
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for Implementation
+func (impl *Implementation) UnmarshalJSON(data []byte) error {
+	// First unmarshal into a temporary struct that has all fields
+	var temp struct {
+		NodeBaseJSON
+		RepoURL    *string `json:"repo_url,omitempty"`
+		Branch     *string `json:"branch,omitempty"`
+		FolderPath *string `json:"folder_path,omitempty"`
+	}
+
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	// Set the NodeBase fields
+	impl.id = temp.ID
+	impl.title = temp.Title
+	impl.content = temp.Content
+	impl.nodeType = temp.Type
+	impl.slug = temp.Slug
+	impl.childGrouping = temp.ChildGrouping
+
+	// Set the Implementation specific fields
+	impl.RepoURL = temp.RepoURL
+	impl.Branch = temp.Branch
+	impl.FolderPath = temp.FolderPath
+
+	return nil
 }
 
 // SpecCommitLink represents a link between a spec and a git commit

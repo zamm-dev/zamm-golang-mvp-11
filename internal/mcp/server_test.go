@@ -36,7 +36,7 @@ func TestCreateChildSpec_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	args := CreateChildSpecArgs{
-		ParentID: parentSpec.ID,
+		ParentID: parentSpec.GetID(),
 		Title:    "Child Spec",
 		Content:  "Child content",
 	}
@@ -60,7 +60,7 @@ func TestCreateChildSpec_Success(t *testing.T) {
 	err = json.Unmarshal([]byte(textContent.Text), &resultData)
 	require.NoError(t, err, "Failed to unmarshal result JSON")
 
-	assert.Equal(t, parentSpec.ID, resultData.ParentID)
+	assert.Equal(t, parentSpec.GetID(), resultData.ParentID)
 	assert.Equal(t, "Child Spec", resultData.Title)
 	assert.Equal(t, "Child content", resultData.Content)
 	assert.NotEmpty(t, resultData.ChildID)
@@ -73,7 +73,7 @@ func TestCreateChildSpec_Success(t *testing.T) {
 	assert.Equal(t, "Child Spec", childSpec.GetTitle())
 	assert.Equal(t, "Child content", childSpec.GetContent())
 
-	children, err := specService.GetChildren(parentSpec.ID)
+	children, err := specService.GetChildren(parentSpec.GetID())
 	require.NoError(t, err)
 	require.Len(t, children, 1)
 	assert.Equal(t, resultData.ChildID, children[0].GetID())
@@ -126,7 +126,7 @@ func TestCreateChildSpec_EmptyTitle(t *testing.T) {
 	require.NoError(t, err)
 
 	args := CreateChildSpecArgs{
-		ParentID: parentSpec.ID,
+		ParentID: parentSpec.GetID(),
 		Title:    "",
 		Content:  "Child content",
 	}

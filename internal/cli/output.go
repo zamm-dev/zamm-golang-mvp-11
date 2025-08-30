@@ -29,12 +29,12 @@ func (a *App) outputSpecTable(specs []*models.Spec) error {
 	_, _ = fmt.Fprintln(w, "ID\tTITLE")
 
 	for _, spec := range specs {
-		title := spec.Title
+		title := spec.GetTitle()
 		if len(title) > 50 {
 			title = title[:47] + "..."
 		}
 		_, _ = fmt.Fprintf(w, "%s\t%s\n",
-			spec.ID,
+			spec.GetID(),
 			title,
 		)
 	}

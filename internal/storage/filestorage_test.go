@@ -23,29 +23,29 @@ func TestReadProjectNode(t *testing.T) {
 	}
 
 	// Verify all metadata is correctly parsed
-	if project.ID != "4c09428a-ce7e-43d0-85da-6f671453c06f" {
-		t.Errorf("Expected ID '4c09428a-ce7e-43d0-85da-6f671453c06f', got '%s'", project.ID)
+	if project.GetID() != "4c09428a-ce7e-43d0-85da-6f671453c06f" {
+		t.Errorf("Expected ID '4c09428a-ce7e-43d0-85da-6f671453c06f', got '%s'", project.GetID())
 	}
 
-	if project.Type != "project" {
-		t.Errorf("Expected type 'project', got '%s'", project.Type)
+	if project.GetType() != "project" {
+		t.Errorf("Expected type 'project', got '%s'", project.GetType())
 	}
 
-	if project.Title != "Test Project" {
-		t.Errorf("Expected title 'Test Project', got '%s'", project.Title)
+	if project.GetTitle() != "Test Project" {
+		t.Errorf("Expected title 'Test Project', got '%s'", project.GetTitle())
 	}
 
 	expectedContent := "This project is meant to help tests pass"
-	if project.Content != expectedContent {
-		t.Errorf("Expected content '%s', got '%s'", expectedContent, project.Content)
+	if project.GetContent() != expectedContent {
+		t.Errorf("Expected content '%s', got '%s'", expectedContent, project.GetContent())
 	}
 
 	// Verify that divider lines and child sections are ignored
-	if strings.Contains(project.Content, "---") {
+	if strings.Contains(project.GetContent(), "---") {
 		t.Error("Content should not contain YAML front matter dividers")
 	}
 
-	if strings.Contains(project.Content, "## Child") {
+	if strings.Contains(project.GetContent(), "## Child") {
 		t.Error("Content should not contain child specification sections")
 	}
 }
@@ -65,21 +65,21 @@ func TestReadImplementationNode(t *testing.T) {
 	}
 
 	// Verify all metadata is correctly parsed
-	if impl.ID != "eb76cdc6-f24c-432a-bfa3-c2ac3257146c" {
-		t.Errorf("Expected ID 'eb76cdc6-f24c-432a-bfa3-c2ac3257146c', got '%s'", impl.ID)
+	if impl.GetID() != "eb76cdc6-f24c-432a-bfa3-c2ac3257146c" {
+		t.Errorf("Expected ID 'eb76cdc6-f24c-432a-bfa3-c2ac3257146c', got '%s'", impl.GetID())
 	}
 
-	if impl.Type != "implementation" {
-		t.Errorf("Expected type 'implementation', got '%s'", impl.Type)
+	if impl.GetType() != "implementation" {
+		t.Errorf("Expected type 'implementation', got '%s'", impl.GetType())
 	}
 
-	if impl.Title != "Rust Implementation" {
-		t.Errorf("Expected title 'Rust Implementation', got '%s'", impl.Title)
+	if impl.GetTitle() != "Rust Implementation" {
+		t.Errorf("Expected title 'Rust Implementation', got '%s'", impl.GetTitle())
 	}
 
 	expectedContent := "This is an implementation of the project in Rust"
-	if impl.Content != expectedContent {
-		t.Errorf("Expected content '%s', got '%s'", expectedContent, impl.Content)
+	if impl.GetContent() != expectedContent {
+		t.Errorf("Expected content '%s', got '%s'", expectedContent, impl.GetContent())
 	}
 
 	// Check that branch metadata is correctly parsed
@@ -88,7 +88,7 @@ func TestReadImplementationNode(t *testing.T) {
 	}
 
 	// Verify that divider lines are ignored
-	if strings.Contains(impl.Content, "---") {
+	if strings.Contains(impl.GetContent(), "---") {
 		t.Error("Content should not contain YAML front matter dividers")
 	}
 }
@@ -97,14 +97,7 @@ func TestGenerateMarkdownStringWithoutChildren(t *testing.T) {
 	testDataPath := filepath.Join("..", "cli", "interactive", "common", "testdata")
 	fs := NewFileStorage(filepath.Join(testDataPath, ".zamm"))
 
-	node := &models.Spec{
-		NodeBase: models.NodeBase{
-			ID:      "test-spec-id",
-			Title:   "Test Specification",
-			Content: "This is a test specification content.",
-			Type:    "specification",
-		},
-	}
+	node := models.NewSpecWithID("test-spec-id", "Test Specification", "This is a test specification content.")
 
 	output, err := fs.generateMarkdownString(node)
 	if err != nil {
@@ -148,32 +141,11 @@ func TestGenerateMarkdownStringWithChildren(t *testing.T) {
 	testDataPath := filepath.Join("..", "cli", "interactive", "common", "testdata")
 	fs := NewFileStorage(filepath.Join(testDataPath, ".zamm"))
 
-	parentNode := &models.Spec{
-		NodeBase: models.NodeBase{
-			ID:      "parent-spec-id",
-			Title:   "Parent Specification",
-			Content: "This is the parent specification content.",
-			Type:    "specification",
-		},
-	}
+	parentNode := models.NewSpecWithID("parent-spec-id", "Parent Specification", "This is the parent specification content.")
 
-	child1 := &models.Spec{
-		NodeBase: models.NodeBase{
-			ID:      "child-1-id",
-			Title:   "Child 1",
-			Content: "Child 1 content",
-			Type:    "specification",
-		},
-	}
+	child1 := models.NewSpecWithID("child-1-id", "Child 1", "Child 1 content")
 
-	child2 := &models.Spec{
-		NodeBase: models.NodeBase{
-			ID:      "child-2-id",
-			Title:   "Child 2",
-			Content: "Child 2 content",
-			Type:    "specification",
-		},
-	}
+	child2 := models.NewSpecWithID("child-2-id", "Child 2", "Child 2 content")
 
 	children := models.ChildGroup{
 		Children: []models.Node{child1, child2},

@@ -30,8 +30,8 @@ func (a *App) createSpecCommand(jsonOutput, quiet bool) *cobra.Command {
 			}
 
 			if !quiet {
-				fmt.Printf("Created spec: %s\n", spec.ID)
-				fmt.Printf("Title: %s\n", spec.Title)
+				fmt.Printf("Created spec: %s\n", spec.GetID())
+				fmt.Printf("Title: %s\n", spec.GetTitle())
 			}
 			return nil
 		},
@@ -94,7 +94,7 @@ func (a *App) createSpecCommand(jsonOutput, quiet bool) *cobra.Command {
 			}
 
 			if !quiet {
-				fmt.Printf("Updated spec: %s\n", spec.ID)
+				fmt.Printf("Updated spec: %s\n", spec.GetID())
 			}
 			return nil
 		},

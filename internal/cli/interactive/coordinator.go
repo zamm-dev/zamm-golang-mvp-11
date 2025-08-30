@@ -149,13 +149,13 @@ func (c *Coordinator) createProjectCmd(title, content, parentSpecID string) tea.
 		}
 
 		if parentSpecID != "" {
-			_, err := c.app.SpecService().AddChildToParent(project.ID, parentSpecID, "child")
+			_, err := c.app.SpecService().AddChildToParent(project.GetID(), parentSpecID, "child")
 			if err != nil {
 				return OperationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
 			}
 		}
 
-		return NavigateToNodeMsg{nodeID: project.ID}
+		return NavigateToNodeMsg{nodeID: project.GetID()}
 	}
 }
 
@@ -168,13 +168,13 @@ func (c *Coordinator) createSpecCmd(title, content, parentSpecID string) tea.Cmd
 		}
 
 		if parentSpecID != "" {
-			_, err := c.app.SpecService().AddChildToParent(spec.ID, parentSpecID, "child")
+			_, err := c.app.SpecService().AddChildToParent(spec.GetID(), parentSpecID, "child")
 			if err != nil {
 				return OperationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
 			}
 		}
 
-		return NavigateToNodeMsg{nodeID: spec.ID}
+		return NavigateToNodeMsg{nodeID: spec.GetID()}
 	}
 }
 
@@ -187,13 +187,13 @@ func (c *Coordinator) createImplementationCmd(title, content, parentSpecID strin
 		}
 
 		if parentSpecID != "" {
-			_, err := c.app.SpecService().AddChildToParent(impl.ID, parentSpecID, "child")
+			_, err := c.app.SpecService().AddChildToParent(impl.GetID(), parentSpecID, "child")
 			if err != nil {
 				return OperationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
 			}
 		}
 
-		return NavigateToNodeMsg{nodeID: impl.ID}
+		return NavigateToNodeMsg{nodeID: impl.GetID()}
 	}
 }
 
