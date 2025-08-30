@@ -34,15 +34,28 @@ type NodeBase struct {
 	childGrouping *ChildGroup
 }
 
-func (n *NodeBase) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&NodeBaseJSON{
+func (n *NodeBase) asBaseJsonStruct() NodeBaseJSON {
+	return NodeBaseJSON{
 		ID:            n.id,
 		Title:         n.title,
 		Content:       n.content,
 		Type:          n.nodeType,
 		Slug:          n.slug,
 		ChildGrouping: n.childGrouping,
-	})
+	}
+}
+
+func (n *NodeBase) fromBaseJsonStruct(jsonStruct NodeBaseJSON) {
+	n.id = jsonStruct.ID
+	n.title = jsonStruct.Title
+	n.content = jsonStruct.Content
+	n.nodeType = jsonStruct.Type
+	n.slug = jsonStruct.Slug
+	n.childGrouping = jsonStruct.ChildGrouping
+}
+
+func (n *NodeBase) MarshalJSON() ([]byte, error) {
+	return json.Marshal(n.asBaseJsonStruct())
 }
 
 func (n *NodeBase) UnmarshalJSON(data []byte) error {
@@ -51,12 +64,7 @@ func (n *NodeBase) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	n.id = nodeJSON.ID
-	n.title = nodeJSON.Title
-	n.content = nodeJSON.Content
-	n.nodeType = nodeJSON.Type
-	n.slug = nodeJSON.Slug
-	n.childGrouping = nodeJSON.ChildGrouping
+	n.fromBaseJsonStruct(nodeJSON)
 
 	return nil
 }
@@ -141,6 +149,14 @@ type Project struct {
 	NodeBase
 }
 
+func (p *Project) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&p.NodeBase)
+}
+
+func (p *Project) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &p.NodeBase)
+}
+
 // NewProject creates a new Project with the type field set
 func NewProject(title, content string) *Project {
 	return &Project{
@@ -151,56 +167,6 @@ func NewProject(title, content string) *Project {
 			nodeType: "project",
 		},
 	}
-}
-
-// Implementation represents an implementation node in the system
-type Implementation struct {
-	NodeBase
-	RepoURL    *string `json:"repo_url,omitempty"`    // Optional repository URL
-	Branch     *string `json:"branch,omitempty"`      // Optional branch name
-	FolderPath *string `json:"folder_path,omitempty"` // Optional folder path within the repo
-}
-
-// NewImplementation creates a new Implementation with the type field set
-func NewImplementation(title, content string) *Implementation {
-	return &Implementation{
-		NodeBase: NodeBase{
-			id:       uuid.New().String(),
-			title:    title,
-			content:  content,
-			nodeType: "implementation",
-		},
-	}
-}
-
-// UnmarshalJSON implements custom JSON unmarshaling for Implementation
-func (impl *Implementation) UnmarshalJSON(data []byte) error {
-	// First unmarshal into a temporary struct that has all fields
-	var temp struct {
-		NodeBaseJSON
-		RepoURL    *string `json:"repo_url,omitempty"`
-		Branch     *string `json:"branch,omitempty"`
-		FolderPath *string `json:"folder_path,omitempty"`
-	}
-
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
-	}
-
-	// Set the NodeBase fields
-	impl.id = temp.ID
-	impl.title = temp.Title
-	impl.content = temp.Content
-	impl.nodeType = temp.Type
-	impl.slug = temp.Slug
-	impl.childGrouping = temp.ChildGrouping
-
-	// Set the Implementation specific fields
-	impl.RepoURL = temp.RepoURL
-	impl.Branch = temp.Branch
-	impl.FolderPath = temp.FolderPath
-
-	return nil
 }
 
 // SpecCommitLink represents a link between a spec and a git commit
