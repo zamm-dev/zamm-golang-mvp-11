@@ -433,7 +433,7 @@ func TestInitializeRootSpec(t *testing.T) {
 		}
 
 		// Verify root spec was created
-		rootSpec, err := service.GetRootSpec()
+		rootSpec, err := service.GetRootNode()
 		if err != nil {
 			t.Fatalf("Failed to get root spec: %v", err)
 		}
@@ -442,14 +442,14 @@ func TestInitializeRootSpec(t *testing.T) {
 			t.Fatal("Root spec should not be nil")
 		}
 
-		if rootSpec.Title != "New Project" {
-			t.Errorf("Expected title 'New Project', got '%s'", rootSpec.Title)
+		if rootSpec.GetTitle() != "New Project" {
+			t.Errorf("Expected title 'New Project', got '%s'", rootSpec.GetTitle())
 		}
 	})
 
 	t.Run("DoesNotRecreateExistingRootSpec", func(t *testing.T) {
 		// Get the current root spec
-		originalRoot, err := service.GetRootSpec()
+		originalRoot, err := service.GetRootNode()
 		if err != nil {
 			t.Fatalf("Failed to get original root spec: %v", err)
 		}
@@ -461,13 +461,13 @@ func TestInitializeRootSpec(t *testing.T) {
 		}
 
 		// Verify the same root spec is returned
-		currentRoot, err := service.GetRootSpec()
+		currentRoot, err := service.GetRootNode()
 		if err != nil {
 			t.Fatalf("Failed to get current root spec: %v", err)
 		}
 
-		if currentRoot.ID != originalRoot.ID {
-			t.Errorf("Root spec ID changed from %s to %s", originalRoot.ID, currentRoot.ID)
+		if currentRoot.GetID() != originalRoot.GetID() {
+			t.Errorf("Root spec ID changed from %s to %s", originalRoot.GetID(), currentRoot.GetID())
 		}
 	})
 
@@ -477,13 +477,13 @@ func TestInitializeRootSpec(t *testing.T) {
 		defer freshCleanup()
 
 		// Verify root spec was created
-		rootSpec, err := freshService.GetRootSpec()
+		rootSpec, err := freshService.GetRootNode()
 		if err != nil {
 			t.Errorf("Failed to get root spec after initialization: %v", err)
 		} else if rootSpec == nil {
 			t.Error("Root spec should not be nil after initialization")
 		} else {
-			t.Logf("Root spec created successfully with ID: %s", rootSpec.ID)
+			t.Logf("Root spec created successfully with ID: %s", rootSpec.GetID())
 		}
 	})
 }

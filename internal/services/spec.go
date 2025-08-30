@@ -37,7 +37,6 @@ type SpecService interface {
 
 	// Root spec operations
 	InitializeRootSpec() error
-	GetRootSpec() (*models.Spec, error)
 	GetRootNode() (models.Node, error)
 	GetOrphanSpecs() ([]*models.Spec, error)
 
@@ -446,42 +445,6 @@ func (s *specService) InitializeRootSpec() error {
 	}
 
 	return nil
-}
-
-// GetRootSpec retrieves the root specification
-func (s *specService) GetRootSpec() (*models.Spec, error) {
-	metadata, err := s.storage.GetProjectMetadata()
-	if err != nil {
-		return nil, err
-	}
-
-	if metadata.RootSpecID == nil {
-		return nil, models.NewZammError(models.ErrTypeNotFound, "root spec ID not set in project metadata")
-	}
-
-	node, err := s.storage.GetNode(*metadata.RootSpecID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Handle both Spec and Project types for backward compatibility
-	switch n := node.(type) {
-	case *models.Spec:
-		return n, nil
-	case *models.Project:
-		// Convert Project to Spec for backward compatibility
-		spec := &models.Spec{
-			NodeBase: models.NodeBase{
-				ID:      n.ID,
-				Title:   n.Title,
-				Content: n.Content,
-				Type:    "specification", // Present as spec for compatibility
-			},
-		}
-		return spec, nil
-	default:
-		return nil, models.NewZammError(models.ErrTypeValidation, "root node is not a spec or project")
-	}
 }
 
 // GetRootNode retrieves the root node without type conversion
