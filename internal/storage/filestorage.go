@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,9 +21,16 @@ type FileStorage struct {
 
 // NewFileStorage creates a new file-based storage instance
 func NewFileStorage(baseDir string) *FileStorage {
-	return &FileStorage{
+	fs := &FileStorage{
 		baseDir: baseDir,
 	}
+
+	if _, err := os.Stat(fs.nodesDir()); errors.Is(err, os.ErrNotExist) {
+		if err := fs.InitializeStorage(); err != nil {
+			return nil
+		}
+	}
+	return fs
 }
 
 // BaseDir returns the base directory path
@@ -30,11 +38,15 @@ func (fs *FileStorage) BaseDir() string {
 	return fs.baseDir
 }
 
+func (fs *FileStorage) nodesDir() string {
+	return filepath.Join(fs.baseDir, "nodes")
+}
+
 // InitializeStorage creates the necessary directory structure
 func (fs *FileStorage) InitializeStorage() error {
 	dirs := []string{
 		fs.baseDir,
-		filepath.Join(fs.baseDir, "nodes"),
+		fs.nodesDir(),
 	}
 
 	for _, dir := range dirs {
@@ -200,6 +212,18 @@ func (fs *FileStorage) ListNodes() ([]models.Node, error) {
 	})
 
 	return nodes, nil
+}
+
+func (fs *FileStorage) ReadNode(id string) (models.Node, error) {
+	return fs.GetNode(id)
+}
+
+func (fs *FileStorage) WriteNode(node models.Node) error {
+	path, exists := fs.getNodeFilePathIfExists(node.ID())
+	if !exists {
+		return fs.CreateNode(node)
+	}
+	return fs.writeMarkdownFile(path, node)
 }
 
 // SpecCommitLink operations
@@ -513,18 +537,25 @@ func (fs *FileStorage) SetRootSpecID(specID *string) error {
 
 // Helper methods
 
-// GetNodeFilePath returns the file path for a node from node-files.csv or default location
-func (fs *FileStorage) GetNodeFilePath(nodeID string) string {
+func (fs *FileStorage) getNodeFilePathIfExists(nodeID string) (string, bool) {
 	nodeFiles, err := fs.getAllNodeFileLinks()
 	if err == nil {
 		if customPath, exists := nodeFiles[nodeID]; exists {
 			if !filepath.IsAbs(customPath) {
-				return filepath.Join(filepath.Dir(fs.baseDir), customPath)
+				return filepath.Join(filepath.Dir(fs.baseDir), customPath), true
 			}
-			return customPath
+			return customPath, true
 		}
 	}
+	return "", false
+}
 
+// GetNodeFilePath returns the file path for a node from node-files.csv or default location
+func (fs *FileStorage) GetNodeFilePath(nodeID string) string {
+	path, exists := fs.getNodeFilePathIfExists(nodeID)
+	if exists {
+		return path
+	}
 	return filepath.Join(fs.baseDir, "nodes", nodeID+".md")
 }
 
