@@ -151,32 +151,9 @@ func TestGenerateMarkdownStringWithChildren(t *testing.T) {
 		Children: []models.Node{child1, child2},
 	}
 
-	output, err := fs.generateMarkdownStringWithChildren(parentNode, children)
+	output, err := fs.generateChildrenString(parentNode, children)
 	if err != nil {
 		t.Fatalf("Failed to generate markdown string with children: %v", err)
-	}
-
-	// Verify YAML frontmatter
-	if !strings.Contains(output, "---\n") {
-		t.Error("Output should contain YAML frontmatter delimiters")
-	}
-
-	if !strings.Contains(output, "id: parent-spec-id") {
-		t.Error("Output should contain parent node ID in frontmatter")
-	}
-
-	if !strings.Contains(output, "type: specification") {
-		t.Error("Output should contain node type in frontmatter")
-	}
-
-	// Verify title as markdown header
-	if !strings.Contains(output, "# Parent Specification") {
-		t.Error("Output should contain title as level 1 heading")
-	}
-
-	// Verify content
-	if !strings.Contains(output, "This is the parent specification content.") {
-		t.Error("Output should contain parent node content")
 	}
 
 	// Verify additional divider before children

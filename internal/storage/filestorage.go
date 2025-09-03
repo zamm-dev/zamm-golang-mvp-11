@@ -766,14 +766,37 @@ func (fs *FileStorage) generateMarkdownString(v interface{}) (string, error) {
 	return mdContent.String(), nil
 }
 
-// generateMarkdownStringWithChildren generates markdown content with YAML frontmatter and optional child links
-func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, children models.ChildGroup) (string, error) {
-	// Get the base markdown content
-	baseContent, err := fs.generateMarkdownString(v)
-	if err != nil {
-		return "", err
+func (fs *FileStorage) WriteNodeWithExtraData(node models.Node, extraData string) error {
+	path, exists := fs.getNodeFilePathIfExists(node.ID())
+	if !exists {
+		path = fs.GetNodeFilePath(node.ID())
+
+		// Ensure the node is tracked in node-files.csv
+		// Get relative path from the project root for storage
+		projectRoot := filepath.Dir(fs.baseDir)
+		relPath, err := filepath.Rel(projectRoot, path)
+		if err != nil {
+			// If we can't make it relative, use absolute path
+			relPath = path
+		}
+
+		err = fs.UpdateNodeFilePath(node.ID(), relPath)
+		if err != nil {
+			return err
+		}
 	}
 
+	content, err := fs.generateMarkdownString(node)
+	if err != nil {
+		return err
+	}
+
+	content += extraData
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// generateChildrenString generates child links for the markdown
+func (fs *FileStorage) generateChildrenString(v interface{}, children models.ChildGroup) (string, error) {
 	node, ok := v.(models.Node)
 	if !ok {
 		return "", fmt.Errorf("invalid node type")
@@ -791,7 +814,7 @@ func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, childre
 	}
 	children.Render(renderer)
 
-	return baseContent + childrenSection.String(), nil
+	return childrenSection.String(), nil
 }
 
 // writeMarkdownFile writes markdown data with YAML frontmatter to a file
@@ -805,11 +828,11 @@ func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
 
 // writeMarkdownFileWithChildren writes markdown data with YAML frontmatter and optional child links
 func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{}, children models.ChildGroup) error {
-	content, err := fs.generateMarkdownStringWithChildren(v, children)
+	childrenContent, err := fs.generateChildrenString(v, children)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(content), 0644)
+	return fs.WriteNodeWithExtraData(v.(models.Node), childrenContent)
 }
 
 // readJSONFile reads JSON data from a file
