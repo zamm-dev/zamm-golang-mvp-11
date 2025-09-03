@@ -82,7 +82,7 @@ type Node interface {
 	Type() string
 	SetType(string)
 
-	GetSlug() string
+	Slug() string
 	SetSlug(string)
 
 	GetChildGrouping() ChildGroup
@@ -97,7 +97,7 @@ func (n *NodeBase) Type() string    { return n.nodeType }
 func (n *NodeBase) SetType(nodeType string) {
 	n.nodeType = nodeType
 }
-func (n *NodeBase) GetSlug() string {
+func (n *NodeBase) Slug() string {
 	if n.slug == nil {
 		return ""
 	}

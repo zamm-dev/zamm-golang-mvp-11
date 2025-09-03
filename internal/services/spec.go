@@ -536,7 +536,7 @@ func (s *specService) generateMissingSlugs() error {
 	}
 
 	for _, node := range nodes {
-		if node.GetSlug() == "" && !s.IsRootNode(node) {
+		if node.Slug() == "" && !s.IsRootNode(node) {
 			slug := s.sanitizeSlug(node.Title())
 			node.SetSlug(slug)
 			if err := s.storage.UpdateNode(node); err != nil {
@@ -579,7 +579,7 @@ func (s *specService) generateSlugForNodeAndAncestors(node models.Node) error {
 
 // generateSlugForSingleNode generates a slug for a single node if it doesn't already have one
 func (s *specService) generateSlugForSingleNode(node models.Node) error {
-	if node.GetSlug() == "" && !s.IsRootNode(node) {
+	if node.Slug() == "" && !s.IsRootNode(node) {
 		slug := s.sanitizeSlug(node.Title())
 		node.SetSlug(slug)
 		if err := s.storage.UpdateNode(node); err != nil {
@@ -682,7 +682,7 @@ func (s *specService) IsRootNode(node models.Node) bool {
 }
 
 func (s *specService) getNodeSlug(node models.Node) string {
-	if slug := node.GetSlug(); slug != "" || s.IsRootNode(node) {
+	if slug := node.Slug(); slug != "" || s.IsRootNode(node) {
 		return slug
 	}
 	// todo: don't auto-sanitize if missing
