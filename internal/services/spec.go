@@ -28,6 +28,7 @@ type SpecService interface {
 	UpdateNode(id, title, content string) (models.Node, error)
 	ListNodes() ([]models.Node, error)
 	DeleteSpec(id string) error
+	IsRootNode(node models.Node) bool
 
 	// Hierarchical operations
 	AddChildToParent(childSpecID, parentSpecID, label string) (*models.SpecSpecLink, error)
@@ -535,14 +536,9 @@ func (s *specService) generateMissingSlugs() error {
 	}
 
 	for _, node := range nodes {
-		if node.GetSlug() == nil {
-			var slug string
-			if s.isRootNode(node) {
-				slug = "" // Root node gets empty slug
-			} else {
-				slug = s.sanitizeSlug(node.Title())
-			}
-			node.SetSlug(&slug)
+		if node.GetSlug() == "" && !s.IsRootNode(node) {
+			slug := s.sanitizeSlug(node.Title())
+			node.SetSlug(slug)
 			if err := s.storage.UpdateNode(node); err != nil {
 				return fmt.Errorf("failed to update node %s: %w", node.ID(), err)
 			}
@@ -583,14 +579,9 @@ func (s *specService) generateSlugForNodeAndAncestors(node models.Node) error {
 
 // generateSlugForSingleNode generates a slug for a single node if it doesn't already have one
 func (s *specService) generateSlugForSingleNode(node models.Node) error {
-	if node.GetSlug() == nil {
-		var slug string
-		if s.isRootNode(node) {
-			slug = "" // Root node gets empty slug
-		} else {
-			slug = s.sanitizeSlug(node.Title())
-		}
-		node.SetSlug(&slug)
+	if node.GetSlug() == "" && !s.IsRootNode(node) {
+		slug := s.sanitizeSlug(node.Title())
+		node.SetSlug(slug)
 		if err := s.storage.UpdateNode(node); err != nil {
 			return fmt.Errorf("failed to update node %s: %w", node.ID(), err)
 		}
@@ -615,7 +606,7 @@ func (s *specService) organizeNodeRecursively(node models.Node, basePath string)
 		var childBasePath string
 
 		// Handle root node specially - its children go directly under basePath
-		if s.isRootNode(node) {
+		if s.IsRootNode(node) {
 			childBasePath = basePath
 		} else {
 			childBasePath = filepath.Join(basePath, slug)
@@ -641,7 +632,7 @@ func (s *specService) organizeSingleNode(node models.Node, basePath string) erro
 	slug := s.getNodeSlug(node)
 
 	// Handle root node specially
-	if s.isRootNode(node) {
+	if s.IsRootNode(node) {
 		if len(children) > 0 {
 			// Root node with children goes to docs/README.md
 			newPath = filepath.Join(basePath, IndexFile)
@@ -682,7 +673,7 @@ func (s *specService) moveNodeToPath(node models.Node, newPath string) error {
 	return fileStorage.UpdateNodeFilePath(node.ID(), newPath)
 }
 
-func (s *specService) isRootNode(node models.Node) bool {
+func (s *specService) IsRootNode(node models.Node) bool {
 	metadata, err := s.storage.GetProjectMetadata()
 	if err != nil || metadata.RootSpecID == nil {
 		return false
@@ -691,14 +682,10 @@ func (s *specService) isRootNode(node models.Node) bool {
 }
 
 func (s *specService) getNodeSlug(node models.Node) string {
-	// Root node should have empty slug
-	if s.isRootNode(node) {
-		return ""
+	if slug := node.GetSlug(); slug != "" || s.IsRootNode(node) {
+		return slug
 	}
-
-	if slug := node.GetSlug(); slug != nil && *slug != "" {
-		return *slug
-	}
+	// todo: don't auto-sanitize if missing
 	return s.sanitizeSlug(node.Title())
 }
 

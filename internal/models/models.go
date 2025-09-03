@@ -82,8 +82,8 @@ type Node interface {
 	Type() string
 	SetType(string)
 
-	GetSlug() *string
-	SetSlug(*string)
+	GetSlug() string
+	SetSlug(string)
 
 	GetChildGrouping() ChildGroup
 	SetChildGrouping(ChildGroup)
@@ -97,15 +97,20 @@ func (n *NodeBase) Type() string    { return n.nodeType }
 func (n *NodeBase) SetType(nodeType string) {
 	n.nodeType = nodeType
 }
-func (n *NodeBase) GetSlug() *string { return n.slug }
+func (n *NodeBase) GetSlug() string {
+	if n.slug == nil {
+		return ""
+	}
+	return *n.slug
+}
 func (n *NodeBase) SetTitle(title string) {
 	n.title = title
 }
 func (n *NodeBase) SetContent(content string) {
 	n.content = content
 }
-func (n *NodeBase) SetSlug(slug *string) {
-	n.slug = slug
+func (n *NodeBase) SetSlug(slug string) {
+	n.slug = &slug
 }
 
 func (n *NodeBase) GetChildGrouping() ChildGroup {

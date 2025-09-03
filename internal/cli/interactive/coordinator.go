@@ -127,7 +127,7 @@ func (c *Coordinator) SetSlugAndOrganizeCmd(nodeID, slug string) tea.Cmd {
 			return OperationCompleteMsg{message: fmt.Sprintf("Error getting node: %v. Press Enter to continue...", err)}
 		}
 
-		node.SetSlug(&slug)
+		node.SetSlug(slug)
 		if err := c.app.Storage().UpdateNode(node); err != nil {
 			return OperationCompleteMsg{message: fmt.Sprintf("Error updating slug: %v. Press Enter to continue...", err)}
 		}

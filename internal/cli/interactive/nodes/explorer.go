@@ -113,6 +113,7 @@ type NodeExplorer struct {
 	activeSpec  models.Node
 
 	linkService LinkService
+	specService services.SpecService
 
 	width  int
 	height int
@@ -131,6 +132,7 @@ func NewSpecExplorer(linkService LinkService, specService services.SpecService) 
 		leftPane:    NewNodeDetailView(linkService, specService),
 		rightPane:   NewNodeDetailView(linkService, specService),
 		linkService: linkService,
+		specService: specService,
 		keys:        keys,
 		help:        help.New(),
 		showHelp:    false,
@@ -222,7 +224,7 @@ func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 			return *e, func() tea.Msg { return MoveSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Organize):
 			// Check if node has a slug, if not, go to slug editing screen first
-			if e.activeSpec.GetSlug() == nil {
+			if e.activeSpec.GetSlug() == "" && !e.specService.IsRootNode(e.activeSpec) {
 				// Generate auto-slug from title for editing
 				autoSlug := e.generateAutoSlug(e.activeSpec.Title())
 				return *e, func() tea.Msg {
