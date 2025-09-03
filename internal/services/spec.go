@@ -243,12 +243,12 @@ func (s *specService) UpdateImplementation(id, title, content string, repoURL, b
 }
 
 func isImplementationNode(node models.Node) bool {
-	return node.GetType() == "implementation"
+	return node.Type() == "implementation"
 }
 
 func (s *specService) GetOrganizedChildren(node models.Node) (models.ChildGroup, error) {
 	cg := node.GetChildGrouping()
-	allChildren, err := s.GetChildren(node.GetID())
+	allChildren, err := s.GetChildren(node.ID())
 	if err != nil {
 		return cg, err
 	}
@@ -256,7 +256,7 @@ func (s *specService) GetOrganizedChildren(node models.Node) (models.ChildGroup,
 	cg.AppendUnmatched(allChildren)
 	cg.UngroupedLabel = "Children"
 
-	if node.GetType() == "project" {
+	if node.Type() == "project" {
 		cg.Regroup("Implementations", isImplementationNode)
 	}
 
@@ -416,7 +416,7 @@ func (s *specService) InitializeRootSpec() error {
 		}
 
 		// Set it as the root spec in metadata
-		rootId := newRootProject.GetID()
+		rootId := newRootProject.ID()
 		err = s.storage.SetRootSpecID(&rootId)
 		if err != nil {
 			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to set root spec ID", err)
@@ -431,7 +431,7 @@ func (s *specService) InitializeRootSpec() error {
 	}
 
 	// If it's already a Project, we're done
-	if rootNode.GetType() == "project" {
+	if rootNode.Type() == "project" {
 		return nil
 	} else { // otherwise, convert it to a Project
 		rootNode.SetType("project")
@@ -540,11 +540,11 @@ func (s *specService) generateMissingSlugs() error {
 			if s.isRootNode(node) {
 				slug = "" // Root node gets empty slug
 			} else {
-				slug = s.sanitizeSlug(node.GetTitle())
+				slug = s.sanitizeSlug(node.Title())
 			}
 			node.SetSlug(&slug)
 			if err := s.storage.UpdateNode(node); err != nil {
-				return fmt.Errorf("failed to update node %s: %w", node.GetID(), err)
+				return fmt.Errorf("failed to update node %s: %w", node.ID(), err)
 			}
 		}
 	}
@@ -562,9 +562,9 @@ func (s *specService) generateSlugForNodeAndAncestors(node models.Node) error {
 	// Generate slugs for all ancestors (needed for path computation)
 	currentNode := node
 	for {
-		parents, err := s.GetParents(currentNode.GetID())
+		parents, err := s.GetParents(currentNode.ID())
 		if err != nil {
-			return fmt.Errorf("failed to get parents for node %s: %w", currentNode.GetID(), err)
+			return fmt.Errorf("failed to get parents for node %s: %w", currentNode.ID(), err)
 		}
 
 		if len(parents) == 0 {
@@ -588,11 +588,11 @@ func (s *specService) generateSlugForSingleNode(node models.Node) error {
 		if s.isRootNode(node) {
 			slug = "" // Root node gets empty slug
 		} else {
-			slug = s.sanitizeSlug(node.GetTitle())
+			slug = s.sanitizeSlug(node.Title())
 		}
 		node.SetSlug(&slug)
 		if err := s.storage.UpdateNode(node); err != nil {
-			return fmt.Errorf("failed to update node %s: %w", node.GetID(), err)
+			return fmt.Errorf("failed to update node %s: %w", node.ID(), err)
 		}
 	}
 	return nil
@@ -605,9 +605,9 @@ func (s *specService) organizeNodeRecursively(node models.Node, basePath string)
 	}
 
 	// Then recursively organize its children
-	children, err := s.GetChildren(node.GetID())
+	children, err := s.GetChildren(node.ID())
 	if err != nil {
-		return fmt.Errorf("failed to get children for node %s: %w", node.GetID(), err)
+		return fmt.Errorf("failed to get children for node %s: %w", node.ID(), err)
 	}
 
 	if len(children) > 0 {
@@ -632,9 +632,9 @@ func (s *specService) organizeNodeRecursively(node models.Node, basePath string)
 }
 
 func (s *specService) organizeSingleNode(node models.Node, basePath string) error {
-	children, err := s.GetChildren(node.GetID())
+	children, err := s.GetChildren(node.ID())
 	if err != nil {
-		return fmt.Errorf("failed to get children for node %s: %w", node.GetID(), err)
+		return fmt.Errorf("failed to get children for node %s: %w", node.ID(), err)
 	}
 
 	var newPath string
@@ -667,7 +667,7 @@ func (s *specService) moveNodeToPath(node models.Node, newPath string) error {
 		return fmt.Errorf("storage is not FileStorage type")
 	}
 
-	currentPath := fileStorage.GetNodeFilePath(node.GetID())
+	currentPath := fileStorage.GetNodeFilePath(node.ID())
 
 	fullNewPath := filepath.Join(filepath.Dir(fileStorage.BaseDir()), newPath)
 
@@ -679,7 +679,7 @@ func (s *specService) moveNodeToPath(node models.Node, newPath string) error {
 		return fmt.Errorf("failed to move file: %w", err)
 	}
 
-	return fileStorage.UpdateNodeFilePath(node.GetID(), newPath)
+	return fileStorage.UpdateNodeFilePath(node.ID(), newPath)
 }
 
 func (s *specService) isRootNode(node models.Node) bool {
@@ -687,7 +687,7 @@ func (s *specService) isRootNode(node models.Node) bool {
 	if err != nil || metadata.RootSpecID == nil {
 		return false
 	}
-	return node.GetID() == *metadata.RootSpecID
+	return node.ID() == *metadata.RootSpecID
 }
 
 func (s *specService) getNodeSlug(node models.Node) string {
@@ -699,7 +699,7 @@ func (s *specService) getNodeSlug(node models.Node) string {
 	if slug := node.GetSlug(); slug != nil && *slug != "" {
 		return *slug
 	}
-	return s.sanitizeSlug(node.GetTitle())
+	return s.sanitizeSlug(node.Title())
 }
 
 func (s *specService) computeNodeBasePath(node models.Node) (string, error) {
@@ -707,9 +707,9 @@ func (s *specService) computeNodeBasePath(node models.Node) (string, error) {
 	currentNode := node
 
 	for {
-		parents, err := s.GetParents(currentNode.GetID())
+		parents, err := s.GetParents(currentNode.ID())
 		if err != nil {
-			return "", fmt.Errorf("failed to get parents for node %s: %w", currentNode.GetID(), err)
+			return "", fmt.Errorf("failed to get parents for node %s: %w", currentNode.ID(), err)
 		}
 
 		if len(parents) == 0 {

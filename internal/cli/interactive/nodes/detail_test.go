@@ -62,8 +62,8 @@ func TestNodeDetailProjectRender(t *testing.T) {
 	}
 
 	// Verify it's a project node
-	if project.GetType() != "project" {
-		t.Fatalf("Expected project node, got: %s", project.GetType())
+	if project.Type() != "project" {
+		t.Fatalf("Expected project node, got: %s", project.Type())
 	}
 
 	// Create project detail with the combined service
@@ -96,8 +96,8 @@ func TestNodeDetailSpecificationRender(t *testing.T) {
 	}
 
 	// Verify it's a specification node
-	if spec.GetType() != "specification" {
-		t.Fatalf("Expected specification node, got: %s", spec.GetType())
+	if spec.Type() != "specification" {
+		t.Fatalf("Expected specification node, got: %s", spec.Type())
 	}
 
 	// Create spec detail with the combined service

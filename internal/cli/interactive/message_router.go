@@ -177,9 +177,9 @@ func (r *MessageRouter) handleEditSpec(msg nodes.EditSpecMsg) tea.Cmd {
 
 	config := common.NodeEditorConfig{
 		Title:          "✏️  Edit Node",
-		InitialTitle:   node.GetTitle(),
-		InitialContent: node.GetContent(),
-		NodeType:       node.GetType(),
+		InitialTitle:   node.Title(),
+		InitialContent: node.Content(),
+		NodeType:       node.Type(),
 	}
 	r.stateManager.SetNodeEditor(common.NewNodeEditor(config))
 	r.stateManager.SetState(NodeEditor)

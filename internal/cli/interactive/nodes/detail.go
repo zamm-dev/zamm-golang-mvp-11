@@ -75,7 +75,7 @@ func (d *NodeDetail) SetSize(width, height int) {
 func (d *NodeDetail) SetSpec(node models.Node) {
 	d.node = node
 
-	links, err := d.linkService.GetCommitsForSpec(node.GetID())
+	links, err := d.linkService.GetCommitsForSpec(node.ID())
 	if err != nil {
 		d.links = nil
 	} else {
@@ -159,7 +159,7 @@ func (d *NodeDetail) View() string {
 	}
 
 	var contentBuilder strings.Builder
-	contentBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n%s\n\n", d.node.GetTitle(), strings.Repeat("=", d.width), d.node.GetContent()))
+	contentBuilder.WriteString(fmt.Sprintf("%s\n%s\n\n%s\n\n", d.node.Title(), strings.Repeat("=", d.width), d.node.Content()))
 	if len(d.links) == 0 {
 		contentBuilder.WriteString("[No linked commits found]")
 	} else {
@@ -201,7 +201,7 @@ func (r *cliChildrenRenderer) RenderGroupEnd(nestingLevel int) {
 }
 
 func (r *cliChildrenRenderer) RenderNode(nestingLevel int, node models.Node) {
-	nodeTitle := node.GetTitle()
+	nodeTitle := node.Title()
 	// account for prepended `> ` taking up the first level of indentation
 	indentStr := strings.Repeat(" ", (nestingLevel-1)*2)
 	// -1 for ellipsis, -1 for buffer

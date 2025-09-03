@@ -177,15 +177,15 @@ func (l *LinkEditor) loadSpecsExceptCurrent() tea.Cmd {
 		filteredSpecs := make([]Spec, 0)
 		for _, node := range nodes {
 			// Exclude current node and old parent if in move mode
-			if node.GetID() != l.config.CurrentSpecID {
+			if node.ID() != l.config.CurrentSpecID {
 				// For move mode's second step, also filter out the old parent
-				if l.config.IsMoveMode && l.mode == MoveNewParentSelection && node.GetID() == l.moveOldParentID {
+				if l.config.IsMoveMode && l.mode == MoveNewParentSelection && node.ID() == l.moveOldParentID {
 					continue
 				}
 				filteredSpecs = append(filteredSpecs, Spec{
-					ID:      node.GetID(),
-					Title:   node.GetTitle(),
-					Content: node.GetContent(),
+					ID:      node.ID(),
+					Title:   node.Title(),
+					Content: node.Content(),
 				})
 			}
 		}
@@ -205,9 +205,9 @@ func (l *LinkEditor) loadChildSpecs() tea.Cmd {
 		specs := make([]Spec, 0, len(linkedNodes))
 		for _, node := range linkedNodes {
 			specs = append(specs, Spec{
-				ID:      node.GetID(),
-				Title:   node.GetTitle(),
-				Content: node.GetContent(),
+				ID:      node.ID(),
+				Title:   node.Title(),
+				Content: node.Content(),
 			})
 		}
 
@@ -226,9 +226,9 @@ func (l *LinkEditor) loadParentSpecs() tea.Cmd {
 		specs := make([]Spec, 0, len(linkedNodes))
 		for _, node := range linkedNodes {
 			specs = append(specs, Spec{
-				ID:      node.GetID(),
-				Title:   node.GetTitle(),
-				Content: node.GetContent(),
+				ID:      node.ID(),
+				Title:   node.Title(),
+				Content: node.Content(),
 			})
 		}
 

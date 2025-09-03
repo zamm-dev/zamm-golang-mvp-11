@@ -8,7 +8,7 @@ type ChildGroup struct {
 
 func (cg *ChildGroup) Contains(node Node) bool {
 	for _, child := range cg.Children {
-		if child.GetID() == node.GetID() {
+		if child.ID() == node.ID() {
 			return true
 		}
 	}

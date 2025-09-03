@@ -36,7 +36,7 @@ func TestCreateChildSpec_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	args := CreateChildSpecArgs{
-		ParentID: parentSpec.GetID(),
+		ParentID: parentSpec.ID(),
 		Title:    "Child Spec",
 		Content:  "Child content",
 	}
@@ -60,7 +60,7 @@ func TestCreateChildSpec_Success(t *testing.T) {
 	err = json.Unmarshal([]byte(textContent.Text), &resultData)
 	require.NoError(t, err, "Failed to unmarshal result JSON")
 
-	assert.Equal(t, parentSpec.GetID(), resultData.ParentID)
+	assert.Equal(t, parentSpec.ID(), resultData.ParentID)
 	assert.Equal(t, "Child Spec", resultData.Title)
 	assert.Equal(t, "Child content", resultData.Content)
 	assert.NotEmpty(t, resultData.ChildID)
@@ -70,17 +70,17 @@ func TestCreateChildSpec_Success(t *testing.T) {
 
 	childSpec, err := specService.GetNode(resultData.ChildID)
 	require.NoError(t, err, "Child spec should exist in storage")
-	assert.Equal(t, "Child Spec", childSpec.GetTitle())
-	assert.Equal(t, "Child content", childSpec.GetContent())
+	assert.Equal(t, "Child Spec", childSpec.Title())
+	assert.Equal(t, "Child content", childSpec.Content())
 
-	children, err := specService.GetChildren(parentSpec.GetID())
+	children, err := specService.GetChildren(parentSpec.ID())
 	require.NoError(t, err)
 	require.Len(t, children, 1)
-	assert.Equal(t, resultData.ChildID, children[0].GetID())
+	assert.Equal(t, resultData.ChildID, children[0].ID())
 
 	childFound := false
 	for _, child := range children {
-		if child.GetID() == resultData.ChildID {
+		if child.ID() == resultData.ChildID {
 			childFound = true
 			break
 		}
@@ -126,7 +126,7 @@ func TestCreateChildSpec_EmptyTitle(t *testing.T) {
 	require.NoError(t, err)
 
 	args := CreateChildSpecArgs{
-		ParentID: parentSpec.GetID(),
+		ParentID: parentSpec.ID(),
 		Title:    "",
 		Content:  "Child content",
 	}

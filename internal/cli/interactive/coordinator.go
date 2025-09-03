@@ -48,10 +48,10 @@ func (c *Coordinator) LoadSpecsCmd() tea.Cmd {
 		var nodeItems []Spec
 		for _, node := range nodes {
 			nodeItems = append(nodeItems, Spec{
-				ID:      node.GetID(),
-				Title:   node.GetTitle(),
-				Content: node.GetContent(),
-				Type:    node.GetType(),
+				ID:      node.ID(),
+				Title:   node.Title(),
+				Content: node.Content(),
+				Type:    node.Type(),
 			})
 		}
 
@@ -149,13 +149,13 @@ func (c *Coordinator) createProjectCmd(title, content, parentSpecID string) tea.
 		}
 
 		if parentSpecID != "" {
-			_, err := c.app.SpecService().AddChildToParent(project.GetID(), parentSpecID, "child")
+			_, err := c.app.SpecService().AddChildToParent(project.ID(), parentSpecID, "child")
 			if err != nil {
 				return OperationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
 			}
 		}
 
-		return NavigateToNodeMsg{nodeID: project.GetID()}
+		return NavigateToNodeMsg{nodeID: project.ID()}
 	}
 }
 
@@ -168,13 +168,13 @@ func (c *Coordinator) createSpecCmd(title, content, parentSpecID string) tea.Cmd
 		}
 
 		if parentSpecID != "" {
-			_, err := c.app.SpecService().AddChildToParent(spec.GetID(), parentSpecID, "child")
+			_, err := c.app.SpecService().AddChildToParent(spec.ID(), parentSpecID, "child")
 			if err != nil {
 				return OperationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
 			}
 		}
 
-		return NavigateToNodeMsg{nodeID: spec.GetID()}
+		return NavigateToNodeMsg{nodeID: spec.ID()}
 	}
 }
 
@@ -187,13 +187,13 @@ func (c *Coordinator) createImplementationCmd(title, content, parentSpecID strin
 		}
 
 		if parentSpecID != "" {
-			_, err := c.app.SpecService().AddChildToParent(impl.GetID(), parentSpecID, "child")
+			_, err := c.app.SpecService().AddChildToParent(impl.ID(), parentSpecID, "child")
 			if err != nil {
 				return OperationCompleteMsg{message: fmt.Sprintf("Error creating parent-child relationship: %v. Press Enter to continue...", err)}
 			}
 		}
 
-		return NavigateToNodeMsg{nodeID: impl.GetID()}
+		return NavigateToNodeMsg{nodeID: impl.ID()}
 	}
 }
 

@@ -54,12 +54,12 @@ func TestRemoveChildFromParent(t *testing.T) {
 	childSpec := createTestSpec("Child Specification", "This is the child spec")
 
 	// Create the specs in storage
-	_, err := service.CreateSpec(parentSpec.GetTitle(), parentSpec.GetContent())
+	_, err := service.CreateSpec(parentSpec.Title(), parentSpec.Content())
 	if err != nil {
 		t.Fatalf("Failed to create parent spec: %v", err)
 	}
 
-	_, err = service.CreateSpec(childSpec.GetTitle(), childSpec.GetContent())
+	_, err = service.CreateSpec(childSpec.Title(), childSpec.Content())
 	if err != nil {
 		t.Fatalf("Failed to create child spec: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestRemoveChildFromParent(t *testing.T) {
 	// Find parent and child by title
 	var parent, child *models.Spec
 	for _, spec := range specs {
-		switch spec.GetTitle() {
+		switch spec.Title() {
 		case "Parent Specification":
 			parent = spec
 		case "Child Specification":
@@ -99,7 +99,7 @@ func TestRemoveChildFromParent(t *testing.T) {
 
 	t.Run("AddChildToParent", func(t *testing.T) {
 		// Add child to parent
-		link, err := service.AddChildToParent(child.GetID(), parent.GetID(), "child")
+		link, err := service.AddChildToParent(child.ID(), parent.ID(), "child")
 		if err != nil {
 			t.Fatalf("Failed to add child to parent: %v", err)
 		}
@@ -109,7 +109,7 @@ func TestRemoveChildFromParent(t *testing.T) {
 		}
 
 		// Verify the relationship exists
-		children, err := service.GetChildren(parent.GetID())
+		children, err := service.GetChildren(parent.ID())
 		if err != nil {
 			t.Fatalf("Failed to get children: %v", err)
 		}
@@ -118,12 +118,12 @@ func TestRemoveChildFromParent(t *testing.T) {
 			t.Fatalf("Expected 1 child, got %d", len(children))
 		}
 
-		if children[0].GetID() != child.GetID() {
-			t.Errorf("Expected child GetID() %s, got %s", child.GetID(), children[0].GetID())
+		if children[0].ID() != child.ID() {
+			t.Errorf("Expected child ID %s, got %s", child.ID(), children[0].ID())
 		}
 
 		// Verify reverse relationship
-		parents, err := service.GetParents(child.GetID())
+		parents, err := service.GetParents(child.ID())
 		if err != nil {
 			t.Fatalf("Failed to get parents: %v", err)
 		}
@@ -132,8 +132,8 @@ func TestRemoveChildFromParent(t *testing.T) {
 			t.Fatalf("Expected 1 parent, got %d", len(parents))
 		}
 
-		if parents[0].GetID() != parent.GetID() {
-			t.Errorf("Expected parent GetID() %s, got %s", parent.GetID(), parents[0].GetID())
+		if parents[0].ID() != parent.ID() {
+			t.Errorf("Expected parent ID %s, got %s", parent.ID(), parents[0].ID())
 		}
 	})
 
@@ -142,13 +142,13 @@ func TestRemoveChildFromParent(t *testing.T) {
 		// Before the fix, this would fail with "spec link not found"
 		// because the service was calling DeleteSpecLinkBySpecs with wrong parameter order
 
-		err := service.RemoveChildFromParent(child.GetID(), parent.GetID())
+		err := service.RemoveChildFromParent(child.ID(), parent.ID())
 		if err != nil {
 			t.Fatalf("Failed to remove child from parent (BUG REPRODUCED): %v", err)
 		}
 
 		// Verify the relationship no longer exists
-		children, err := service.GetChildren(parent.GetID())
+		children, err := service.GetChildren(parent.ID())
 		if err != nil {
 			t.Fatalf("Failed to get children after removal: %v", err)
 		}
@@ -158,7 +158,7 @@ func TestRemoveChildFromParent(t *testing.T) {
 		}
 
 		// Verify reverse relationship is also gone
-		parents, err := service.GetParents(child.GetID())
+		parents, err := service.GetParents(child.ID())
 		if err != nil {
 			t.Fatalf("Failed to get parents after removal: %v", err)
 		}
@@ -170,7 +170,7 @@ func TestRemoveChildFromParent(t *testing.T) {
 
 	t.Run("RemoveChildFromParent_NonExistentRelationship", func(t *testing.T) {
 		// Test removing a relationship that doesn't exist
-		err := service.RemoveChildFromParent(child.GetID(), parent.GetID())
+		err := service.RemoveChildFromParent(child.ID(), parent.ID())
 		if err == nil {
 			t.Error("Expected error when removing non-existent relationship")
 		}
@@ -194,7 +194,7 @@ func TestRemoveChildFromParent_ParameterValidation(t *testing.T) {
 	t.Run("EmptyChildSpecID", func(t *testing.T) {
 		err := service.RemoveChildFromParent("", "some-parent-id")
 		if err == nil {
-			t.Error("Expected error for empty child spec GetID()")
+			t.Error("Expected error for empty child spec ID")
 		}
 
 		zammErr, ok := err.(*models.ZammError)
@@ -209,7 +209,7 @@ func TestRemoveChildFromParent_ParameterValidation(t *testing.T) {
 	t.Run("EmptyParentSpecID", func(t *testing.T) {
 		err := service.RemoveChildFromParent("some-child-id", "")
 		if err == nil {
-			t.Error("Expected error for empty parent spec GetID()")
+			t.Error("Expected error for empty parent spec ID")
 		}
 
 		zammErr, ok := err.(*models.ZammError)
@@ -245,37 +245,37 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 
 	t.Run("BuildHierarchy", func(t *testing.T) {
 		// Add Level1 as child of Root
-		_, err := service.AddChildToParent(level1Spec.GetID(), rootSpec.GetID(), "child")
+		_, err := service.AddChildToParent(level1Spec.ID(), rootSpec.ID(), "child")
 		if err != nil {
 			t.Fatalf("Failed to add level1 to root: %v", err)
 		}
 
 		// Add Level2 as child of Level1
-		_, err = service.AddChildToParent(level2Spec.GetID(), level1Spec.GetID(), "child")
+		_, err = service.AddChildToParent(level2Spec.ID(), level1Spec.ID(), "child")
 		if err != nil {
 			t.Fatalf("Failed to add level2 to level1: %v", err)
 		}
 
 		// Verify Root has Level1 as child
-		children, err := service.GetChildren(rootSpec.GetID())
+		children, err := service.GetChildren(rootSpec.ID())
 		if err != nil {
 			t.Fatalf("Failed to get root children: %v", err)
 		}
-		if len(children) != 1 || children[0].GetID() != level1Spec.GetID() {
+		if len(children) != 1 || children[0].ID() != level1Spec.ID() {
 			t.Error("Root should have Level1 as child")
 		}
 
 		// Verify Level1 has Level2 as child
-		children, err = service.GetChildren(level1Spec.GetID())
+		children, err = service.GetChildren(level1Spec.ID())
 		if err != nil {
 			t.Fatalf("Failed to get level1 children: %v", err)
 		}
-		if len(children) != 1 || children[0].GetID() != level2Spec.GetID() {
+		if len(children) != 1 || children[0].ID() != level2Spec.ID() {
 			t.Error("Level1 should have Level2 as child")
 		}
 
 		// Verify Level2 has no children
-		children, err = service.GetChildren(level2Spec.GetID())
+		children, err = service.GetChildren(level2Spec.ID())
 		if err != nil {
 			t.Fatalf("Failed to get level2 children: %v", err)
 		}
@@ -286,13 +286,13 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 
 	t.Run("RemoveMiddleLevel", func(t *testing.T) {
 		// Remove Level1 from Root (this tests the bug fix)
-		err := service.RemoveChildFromParent(level1Spec.GetID(), rootSpec.GetID())
+		err := service.RemoveChildFromParent(level1Spec.ID(), rootSpec.ID())
 		if err != nil {
 			t.Fatalf("Failed to remove level1 from root: %v", err)
 		}
 
 		// Verify Root no longer has Level1 as child
-		children, err := service.GetChildren(rootSpec.GetID())
+		children, err := service.GetChildren(rootSpec.ID())
 		if err != nil {
 			t.Fatalf("Failed to get root children after removal: %v", err)
 		}
@@ -301,24 +301,24 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 		}
 
 		// Verify Level1 still has Level2 as child (only removed one relationship)
-		children, err = service.GetChildren(level1Spec.GetID())
+		children, err = service.GetChildren(level1Spec.ID())
 		if err != nil {
 			t.Fatalf("Failed to get level1 children after removal: %v", err)
 		}
-		if len(children) != 1 || children[0].GetID() != level2Spec.GetID() {
+		if len(children) != 1 || children[0].ID() != level2Spec.ID() {
 			t.Error("Level1 should still have Level2 as child")
 		}
 	})
 
 	t.Run("RemoveRemainingRelationship", func(t *testing.T) {
 		// Remove Level2 from Level1
-		err := service.RemoveChildFromParent(level2Spec.GetID(), level1Spec.GetID())
+		err := service.RemoveChildFromParent(level2Spec.ID(), level1Spec.ID())
 		if err != nil {
 			t.Fatalf("Failed to remove level2 from level1: %v", err)
 		}
 
 		// Verify Level1 no longer has Level2 as child
-		children, err := service.GetChildren(level1Spec.GetID())
+		children, err := service.GetChildren(level1Spec.ID())
 		if err != nil {
 			t.Fatalf("Failed to get level1 children after removal: %v", err)
 		}
@@ -327,7 +327,7 @@ func TestSpecHierarchyIntegration(t *testing.T) {
 		}
 
 		// Verify Level2 has no parents
-		parents, err := service.GetParents(level2Spec.GetID())
+		parents, err := service.GetParents(level2Spec.ID())
 		if err != nil {
 			t.Fatalf("Failed to get level2 parents after removal: %v", err)
 		}
@@ -353,16 +353,16 @@ func TestAddChildToParent(t *testing.T) {
 	}
 
 	t.Run("ValidAddition", func(t *testing.T) {
-		link, err := service.AddChildToParent(childSpec.GetID(), parentSpec.GetID(), "child")
+		link, err := service.AddChildToParent(childSpec.ID(), parentSpec.ID(), "child")
 		if err != nil {
 			t.Fatalf("Failed to add child to parent: %v", err)
 		}
 
-		if link.FromSpecID != childSpec.GetID() {
-			t.Errorf("Expected FromSpecID to be child %s, got %s", childSpec.GetID(), link.FromSpecID)
+		if link.FromSpecID != childSpec.ID() {
+			t.Errorf("Expected FromSpecID to be child %s, got %s", childSpec.ID(), link.FromSpecID)
 		}
-		if link.ToSpecID != parentSpec.GetID() {
-			t.Errorf("Expected ToSpecID to be parent %s, got %s", parentSpec.GetID(), link.ToSpecID)
+		if link.ToSpecID != parentSpec.ID() {
+			t.Errorf("Expected ToSpecID to be parent %s, got %s", parentSpec.ID(), link.ToSpecID)
 		}
 		if link.LinkLabel != "child" {
 			t.Errorf("Expected LinkLabel 'child', got %s", link.LinkLabel)
@@ -371,7 +371,7 @@ func TestAddChildToParent(t *testing.T) {
 
 	t.Run("PreventSelfLink", func(t *testing.T) {
 		// Try to add spec as child of itself
-		_, err := service.AddChildToParent(parentSpec.GetID(), parentSpec.GetID(), "child")
+		_, err := service.AddChildToParent(parentSpec.ID(), parentSpec.ID(), "child")
 		if err == nil {
 			t.Error("Expected error when linking spec to itself")
 		}
@@ -393,7 +393,7 @@ func TestAddChildToParent(t *testing.T) {
 		}
 
 		// Test custom link type
-		link, err := service.AddChildToParent(customChild.GetID(), parentSpec.GetID(), "implements")
+		link, err := service.AddChildToParent(customChild.ID(), parentSpec.ID(), "implements")
 		if err != nil {
 			t.Fatalf("Failed to add child with custom link type: %v", err)
 		}
@@ -409,7 +409,7 @@ func TestAddChildToParent(t *testing.T) {
 			t.Fatalf("Failed to create empty link type child spec: %v", err)
 		}
 
-		link2, err := service.AddChildToParent(emptyChild.GetID(), parentSpec.GetID(), "")
+		link2, err := service.AddChildToParent(emptyChild.ID(), parentSpec.ID(), "")
 		if err != nil {
 			t.Fatalf("Failed to add child with empty link type: %v", err)
 		}
@@ -442,8 +442,8 @@ func TestInitializeRootSpec(t *testing.T) {
 			t.Fatal("Root spec should not be nil")
 		}
 
-		if rootSpec.GetTitle() != "New Project" {
-			t.Errorf("Expected title 'New Project', got '%s'", rootSpec.GetTitle())
+		if rootSpec.Title() != "New Project" {
+			t.Errorf("Expected title 'New Project', got '%s'", rootSpec.Title())
 		}
 	})
 
@@ -466,8 +466,8 @@ func TestInitializeRootSpec(t *testing.T) {
 			t.Fatalf("Failed to get current root spec: %v", err)
 		}
 
-		if currentRoot.GetID() != originalRoot.GetID() {
-			t.Errorf("Root spec ID changed from %s to %s", originalRoot.GetID(), currentRoot.GetID())
+		if currentRoot.ID() != originalRoot.ID() {
+			t.Errorf("Root spec ID changed from %s to %s", originalRoot.ID(), currentRoot.ID())
 		}
 	})
 
@@ -483,7 +483,7 @@ func TestInitializeRootSpec(t *testing.T) {
 		} else if rootSpec == nil {
 			t.Error("Root spec should not be nil after initialization")
 		} else {
-			t.Logf("Root spec created successfully with ID: %s", rootSpec.GetID())
+			t.Logf("Root spec created successfully with ID: %s", rootSpec.ID())
 		}
 	})
 }

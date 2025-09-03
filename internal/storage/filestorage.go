@@ -88,11 +88,11 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 // Node operations
 // CreateNode creates a new node
 func (fs *FileStorage) CreateNode(node models.Node) error {
-	if node.GetID() == "" {
+	if node.ID() == "" {
 		return fmt.Errorf("node ID cannot be empty")
 	}
 
-	path := fs.GetNodeFilePath(node.GetID())
+	path := fs.GetNodeFilePath(node.ID())
 
 	// Write the node file
 	if err := fs.writeMarkdownFile(path, node); err != nil {
@@ -108,7 +108,7 @@ func (fs *FileStorage) CreateNode(node models.Node) error {
 		relPath = path
 	}
 
-	return fs.UpdateNodeFilePath(node.GetID(), relPath)
+	return fs.UpdateNodeFilePath(node.ID(), relPath)
 }
 
 // GetNode retrieves a node by ID
@@ -125,7 +125,7 @@ func (fs *FileStorage) GetNode(id string) (models.Node, error) {
 	}
 
 	// Based on the type, create the appropriate node
-	switch nodeBase.GetType() {
+	switch nodeBase.Type() {
 	case "specification":
 		var spec models.Spec
 		if err := fs.readMarkdownFile(path, &spec); err != nil {
@@ -151,17 +151,17 @@ func (fs *FileStorage) GetNode(id string) (models.Node, error) {
 
 // UpdateNode updates an existing node
 func (fs *FileStorage) UpdateNode(node models.Node) error {
-	if node.GetID() == "" {
+	if node.ID() == "" {
 		return fmt.Errorf("node ID cannot be empty")
 	}
 
 	// Check if node exists
-	_, err := fs.GetNode(node.GetID())
+	_, err := fs.GetNode(node.ID())
 	if err != nil {
 		return err
 	}
 
-	path := fs.GetNodeFilePath(node.GetID())
+	path := fs.GetNodeFilePath(node.ID())
 	return fs.writeMarkdownFile(path, node)
 }
 
@@ -196,7 +196,7 @@ func (fs *FileStorage) ListNodes() ([]models.Node, error) {
 
 	// Sort by ID for consistent ordering
 	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].GetID() < nodes[j].GetID()
+		return nodes[i].ID() < nodes[j].ID()
 	})
 
 	return nodes, nil
@@ -467,7 +467,7 @@ func (fs *FileStorage) GetOrphanSpecs() ([]*models.Spec, error) {
 	for _, node := range allNodes {
 		// Only include Spec nodes
 		if spec, ok := node.(*models.Spec); ok {
-			if !hasParents[spec.GetID()] {
+			if !hasParents[spec.ID()] {
 				orphans = append(orphans, spec)
 			}
 		}
@@ -756,7 +756,7 @@ func (fs *FileStorage) generateMarkdownStringWithChildren(v interface{}, childre
 	renderer := &markdownChildrenRenderer{
 		sb:                &childrenSection,
 		nodePathRetriever: fs.GetNodeFilePath,
-		originPath:        filepath.Dir(fs.GetNodeFilePath(node.GetID())),
+		originPath:        filepath.Dir(fs.GetNodeFilePath(node.ID())),
 	}
 	children.Render(renderer)
 
@@ -883,11 +883,11 @@ func (fs *FileStorage) writeNodeFileLinks(nodeFiles map[string]string) error {
 }
 
 func (fs *FileStorage) WriteNodeWithChildren(node models.Node, childGrouping models.ChildGroup) error {
-	if node.GetID() == "" {
+	if node.ID() == "" {
 		return fmt.Errorf("node ID cannot be empty")
 	}
 
-	path := fs.GetNodeFilePath(node.GetID())
+	path := fs.GetNodeFilePath(node.ID())
 
 	// Write the node file with children
 	if err := fs.writeMarkdownFileWithChildren(path, node, childGrouping); err != nil {
@@ -901,7 +901,7 @@ func (fs *FileStorage) WriteNodeWithChildren(node models.Node, childGrouping mod
 		relPath = path
 	}
 
-	return fs.UpdateNodeFilePath(node.GetID(), relPath)
+	return fs.UpdateNodeFilePath(node.ID(), relPath)
 }
 
 // UpdateNodeFilePath updates a single node's file path in the CSV
@@ -928,10 +928,10 @@ func (r *markdownChildrenRenderer) RenderGroupStart(nestingLevel int, label stri
 func (r *markdownChildrenRenderer) RenderGroupEnd(nestingLevel int) {}
 
 func (r *markdownChildrenRenderer) RenderNode(nestingLevel int, node models.Node) {
-	childPath := r.nodePathRetriever(node.GetID())
+	childPath := r.nodePathRetriever(node.ID())
 	relNodePath, err := filepath.Rel(r.originPath, childPath)
 	if err != nil {
 		relNodePath = childPath
 	}
-	fmt.Fprintf(r.sb, "%*s- [%s](%s)\n", nestingLevel*2, "", node.GetTitle(), relNodePath)
+	fmt.Fprintf(r.sb, "%*s- [%s](%s)\n", nestingLevel*2, "", node.Title(), relNodePath)
 }

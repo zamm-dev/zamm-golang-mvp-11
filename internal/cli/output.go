@@ -29,12 +29,12 @@ func (a *App) outputSpecTable(specs []*models.Spec) error {
 	_, _ = fmt.Fprintln(w, "ID\tTITLE")
 
 	for _, spec := range specs {
-		title := spec.GetTitle()
+		title := spec.Title()
 		if len(title) > 50 {
 			title = title[:47] + "..."
 		}
 		_, _ = fmt.Fprintf(w, "%s\t%s\n",
-			spec.GetID(),
+			spec.ID(),
 			title,
 		)
 	}
@@ -52,13 +52,13 @@ func (a *App) outputNodeTable(nodes []models.Node) error {
 	_, _ = fmt.Fprintln(w, "ID\tTYPE\tTITLE")
 
 	for _, node := range nodes {
-		title := node.GetTitle()
+		title := node.Title()
 		if len(title) > 50 {
 			title = title[:47] + "..."
 		}
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n",
-			node.GetID(),
-			node.GetType(),
+			node.ID(),
+			node.Type(),
 			title,
 		)
 	}
@@ -67,11 +67,11 @@ func (a *App) outputNodeTable(nodes []models.Node) error {
 }
 
 func (a *App) outputSpecDetails(node models.Node) error {
-	fmt.Printf("ID: %s\n", node.GetID())
-	fmt.Printf("Title: %s\n", node.GetTitle())
-	fmt.Printf("Type: %s\n", node.GetType())
+	fmt.Printf("ID: %s\n", node.ID())
+	fmt.Printf("Title: %s\n", node.Title())
+	fmt.Printf("Type: %s\n", node.Type())
 	fmt.Printf("\nContent:\n%s\n", strings.Repeat("-", 40))
-	fmt.Printf("%s\n", node.GetContent())
+	fmt.Printf("%s\n", node.Content())
 	return nil
 }
 

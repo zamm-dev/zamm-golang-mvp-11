@@ -202,34 +202,34 @@ func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 			return *e, nil
 		case key.Matches(msg, e.keys.Select):
 			// Navigate to the active spec if it's different from current
-			if e.activeSpec.GetID() != e.currentSpec.GetID() {
+			if e.activeSpec.ID() != e.currentSpec.ID() {
 				return *e, e.navigateToChildren(e.activeSpec)
 			}
 			return *e, nil
 		case key.Matches(msg, e.keys.Create):
-			return *e, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: e.activeSpec.GetID()} }
+			return *e, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Edit):
-			return *e, func() tea.Msg { return EditSpecMsg{SpecID: e.activeSpec.GetID()} }
+			return *e, func() tea.Msg { return EditSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.OpenMarkdown):
-			return *e, func() tea.Msg { return OpenMarkdownMsg{SpecID: e.activeSpec.GetID()} }
+			return *e, func() tea.Msg { return OpenMarkdownMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Delete):
-			return *e, func() tea.Msg { return DeleteSpecMsg{SpecID: e.activeSpec.GetID()} }
+			return *e, func() tea.Msg { return DeleteSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Link):
-			return *e, func() tea.Msg { return LinkCommitSpecMsg{SpecID: e.activeSpec.GetID()} }
+			return *e, func() tea.Msg { return LinkCommitSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Remove):
-			return *e, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: e.activeSpec.GetID()} }
+			return *e, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Move):
-			return *e, func() tea.Msg { return MoveSpecMsg{SpecID: e.activeSpec.GetID()} }
+			return *e, func() tea.Msg { return MoveSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Organize):
 			// Check if node has a slug, if not, go to slug editing screen first
 			if e.activeSpec.GetSlug() == nil {
 				// Generate auto-slug from title for editing
-				autoSlug := e.generateAutoSlug(e.activeSpec.GetTitle())
+				autoSlug := e.generateAutoSlug(e.activeSpec.Title())
 				return *e, func() tea.Msg {
-					return EditSlugMsg{SpecID: e.activeSpec.GetID(), OriginalTitle: e.activeSpec.GetTitle(), InitialSlug: autoSlug}
+					return EditSlugMsg{SpecID: e.activeSpec.ID(), OriginalTitle: e.activeSpec.Title(), InitialSlug: autoSlug}
 				}
 			}
-			return *e, func() tea.Msg { return OrganizeSpecMsg{SpecID: e.activeSpec.GetID()} }
+			return *e, func() tea.Msg { return OrganizeSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Back):
 			// If a child is selected, clear selection
 			if e.leftPane.GetSelectedChild() != nil {
@@ -286,11 +286,11 @@ func (e *NodeExplorer) navigateToChildren(node models.Node) tea.Cmd {
 
 func (e *NodeExplorer) navigateBack() tea.Cmd {
 	// Get parent spec
-	parentSpec, err := e.linkService.GetParentNode(e.currentSpec.GetID())
+	parentSpec, err := e.linkService.GetParentNode(e.currentSpec.ID())
 	if err != nil || parentSpec == nil {
 		// No parent found - check if we're already at root
 		rootSpec, err := e.linkService.GetRootNode()
-		if err != nil || rootSpec == nil || rootSpec.GetID() == e.currentSpec.GetID() {
+		if err != nil || rootSpec == nil || rootSpec.ID() == e.currentSpec.ID() {
 			// Already at root or can't get root, stay where we are
 			return nil
 		}
@@ -339,7 +339,7 @@ func (e *NodeExplorer) View() string {
 
 	// Determine right pane content based on whether a child is selected
 	var right string
-	if e.activeSpec.GetID() == e.currentSpec.GetID() {
+	if e.activeSpec.ID() == e.currentSpec.ID() {
 		// No child selected - show instruction message
 		right = "Select a child specification to view its details"
 	} else {
@@ -349,7 +349,7 @@ func (e *NodeExplorer) View() string {
 
 	// Apply styling based on which spec is active
 	var leftStyle, rightStyle lipgloss.Style
-	if e.activeSpec.GetID() == e.currentSpec.GetID() {
+	if e.activeSpec.ID() == e.currentSpec.ID() {
 		// No child selected - left pane is active
 		leftStyle = common.ActiveNodeStyle()
 		rightStyle = lipgloss.NewStyle()

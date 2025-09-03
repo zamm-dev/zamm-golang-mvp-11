@@ -23,29 +23,29 @@ func TestReadProjectNode(t *testing.T) {
 	}
 
 	// Verify all metadata is correctly parsed
-	if project.GetID() != "4c09428a-ce7e-43d0-85da-6f671453c06f" {
-		t.Errorf("Expected ID '4c09428a-ce7e-43d0-85da-6f671453c06f', got '%s'", project.GetID())
+	if project.ID() != "4c09428a-ce7e-43d0-85da-6f671453c06f" {
+		t.Errorf("Expected ID '4c09428a-ce7e-43d0-85da-6f671453c06f', got '%s'", project.ID())
 	}
 
-	if project.GetType() != "project" {
-		t.Errorf("Expected type 'project', got '%s'", project.GetType())
+	if project.Type() != "project" {
+		t.Errorf("Expected type 'project', got '%s'", project.Type())
 	}
 
-	if project.GetTitle() != "Test Project" {
-		t.Errorf("Expected title 'Test Project', got '%s'", project.GetTitle())
+	if project.Title() != "Test Project" {
+		t.Errorf("Expected title 'Test Project', got '%s'", project.Title())
 	}
 
 	expectedContent := "This project is meant to help tests pass"
-	if project.GetContent() != expectedContent {
-		t.Errorf("Expected content '%s', got '%s'", expectedContent, project.GetContent())
+	if project.Content() != expectedContent {
+		t.Errorf("Expected content '%s', got '%s'", expectedContent, project.Content())
 	}
 
 	// Verify that divider lines and child sections are ignored
-	if strings.Contains(project.GetContent(), "---") {
+	if strings.Contains(project.Content(), "---") {
 		t.Error("Content should not contain YAML front matter dividers")
 	}
 
-	if strings.Contains(project.GetContent(), "## Child") {
+	if strings.Contains(project.Content(), "## Child") {
 		t.Error("Content should not contain child specification sections")
 	}
 }
@@ -65,21 +65,21 @@ func TestReadImplementationNode(t *testing.T) {
 	}
 
 	// Verify all metadata is correctly parsed
-	if impl.GetID() != "eb76cdc6-f24c-432a-bfa3-c2ac3257146c" {
-		t.Errorf("Expected ID 'eb76cdc6-f24c-432a-bfa3-c2ac3257146c', got '%s'", impl.GetID())
+	if impl.ID() != "eb76cdc6-f24c-432a-bfa3-c2ac3257146c" {
+		t.Errorf("Expected ID 'eb76cdc6-f24c-432a-bfa3-c2ac3257146c', got '%s'", impl.ID())
 	}
 
-	if impl.GetType() != "implementation" {
-		t.Errorf("Expected type 'implementation', got '%s'", impl.GetType())
+	if impl.Type() != "implementation" {
+		t.Errorf("Expected type 'implementation', got '%s'", impl.Type())
 	}
 
-	if impl.GetTitle() != "Rust Implementation" {
-		t.Errorf("Expected title 'Rust Implementation', got '%s'", impl.GetTitle())
+	if impl.Title() != "Rust Implementation" {
+		t.Errorf("Expected title 'Rust Implementation', got '%s'", impl.Title())
 	}
 
 	expectedContent := "This is an implementation of the project in Rust"
-	if impl.GetContent() != expectedContent {
-		t.Errorf("Expected content '%s', got '%s'", expectedContent, impl.GetContent())
+	if impl.Content() != expectedContent {
+		t.Errorf("Expected content '%s', got '%s'", expectedContent, impl.Content())
 	}
 
 	// Check that branch metadata is correctly parsed
@@ -88,7 +88,7 @@ func TestReadImplementationNode(t *testing.T) {
 	}
 
 	// Verify that divider lines are ignored
-	if strings.Contains(impl.GetContent(), "---") {
+	if strings.Contains(impl.Content(), "---") {
 		t.Error("Content should not contain YAML front matter dividers")
 	}
 }

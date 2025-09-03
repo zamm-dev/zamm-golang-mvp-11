@@ -146,7 +146,7 @@ func (a *App) migrateTitlesToHeadings() error {
 	}
 
 	for _, node := range nodes {
-		nodeID := node.GetID()
+		nodeID := node.ID()
 		// Get the file path for this node using storage's GetNodeFilePath
 		filePath := fileStorage.GetNodeFilePath(nodeID)
 

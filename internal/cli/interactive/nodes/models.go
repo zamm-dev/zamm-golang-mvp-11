@@ -6,12 +6,12 @@ import (
 )
 
 func isImplementationNode(node models.Node) bool {
-	return node.GetType() == "implementation"
+	return node.Type() == "implementation"
 }
 
 func GetOrganizedChildren(ss services.SpecService, node models.Node) (models.ChildGroup, error) {
 	cg := node.GetChildGrouping()
-	allChildren, err := ss.GetChildren(node.GetID())
+	allChildren, err := ss.GetChildren(node.ID())
 	if err != nil {
 		return cg, err
 	}
@@ -19,7 +19,7 @@ func GetOrganizedChildren(ss services.SpecService, node models.Node) (models.Chi
 	cg.AppendUnmatched(allChildren)
 	cg.UngroupedLabel = "Children"
 
-	if node.GetType() == "project" {
+	if node.Type() == "project" {
 		cg.Regroup("Implementations", isImplementationNode)
 	}
 

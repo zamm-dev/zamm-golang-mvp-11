@@ -71,24 +71,29 @@ func (n *NodeBase) UnmarshalJSON(data []byte) error {
 
 // Node interface that all node types must implement
 type Node interface {
-	GetID() string
-	GetTitle() string
-	GetContent() string
-	GetType() string
-	SetType(string)
-	GetSlug() *string
+	ID() string
+
+	Title() string
 	SetTitle(string)
+
+	Content() string
 	SetContent(string)
+
+	Type() string
+	SetType(string)
+
+	GetSlug() *string
 	SetSlug(*string)
+
 	GetChildGrouping() ChildGroup
 	SetChildGrouping(ChildGroup)
 }
 
 // Implement Node interface for NodeBase
-func (n *NodeBase) GetID() string      { return n.id }
-func (n *NodeBase) GetTitle() string   { return n.title }
-func (n *NodeBase) GetContent() string { return n.content }
-func (n *NodeBase) GetType() string    { return n.nodeType }
+func (n *NodeBase) ID() string      { return n.id }
+func (n *NodeBase) Title() string   { return n.title }
+func (n *NodeBase) Content() string { return n.content }
+func (n *NodeBase) Type() string    { return n.nodeType }
 func (n *NodeBase) SetType(nodeType string) {
 	n.nodeType = nodeType
 }
