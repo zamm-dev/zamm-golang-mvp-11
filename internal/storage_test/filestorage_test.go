@@ -15,11 +15,11 @@ type Storage interface {
 	DeleteNode(id string) error
 }
 
-func GenericStorage_TestCreateNode(t *testing.T, storage Storage, node models.Node) {
-	testTitle := "Basic RWD Test Node"
-	testDescription := "This is a test node for basic read, write, and delete operations."
-	testSlug := "basic-rwd-test"
+var testTitle = "Basic RWD Test Node"
+var testDescription = "This is a test node for basic read, write, and delete operations."
+var testSlug = "basic-rwd-test"
 
+func GenericStorage_TestCreateNode(t *testing.T, storage Storage, node models.Node) {
 	node.SetTitle(testTitle)
 	node.SetContent(testDescription)
 	node.SetSlug(testSlug)
@@ -38,12 +38,60 @@ func GenericStorage_TestCreateNode(t *testing.T, storage Storage, node models.No
 	assert.Equal(t, readNode.Slug(), testSlug)
 }
 
+func GenericStorage_TestUpdateNode(t *testing.T, storage Storage, node models.Node) {
+	newTestTitle := "Overwritten Test Node"
+	newTestDescription := "Overwritten update."
+	newTestSlug := "new-rwd-test"
+
+	node.SetTitle(testTitle)
+	node.SetContent(testDescription)
+	node.SetSlug(testSlug)
+
+	// set up new node
+	err := storage.WriteNode(node)
+	assert.NoError(t, err)
+
+	// first, verify that we have old data
+	readNode, err := storage.ReadNode(node.ID())
+	assert.NoError(t, err)
+	assert.Equal(t, readNode.Title(), testTitle)
+	assert.Equal(t, readNode.Content(), testDescription)
+	assert.Equal(t, readNode.Slug(), testSlug)
+
+	// now, update the node
+	node.SetTitle(newTestTitle)
+	node.SetContent(newTestDescription)
+	node.SetSlug(newTestSlug)
+
+	err = storage.WriteNode(node)
+	assert.NoError(t, err)
+
+	// finally, verify that we have new data
+	readNode, err = storage.ReadNode(node.ID())
+	assert.NoError(t, err)
+	assert.Equal(t, readNode.Title(), newTestTitle)
+	assert.Equal(t, readNode.Content(), newTestDescription)
+	assert.Equal(t, readNode.Slug(), newTestSlug)
+}
+
 func TestFileStorage_CreateNode(t *testing.T) {
 	tempDir := t.TempDir()
 	storage := storage.NewFileStorage(tempDir)
 
 	node := models.NewSpec("Test Spec", "This should be overwritten.")
 	GenericStorage_TestCreateNode(t, storage, node)
+
+	// check that actual file exists
+	_, err := os.Stat(storage.GetNodeFilePath(node.ID()))
+	assert.NoError(t, err)
+}
+
+func TestFileStorage_UpdateNode(t *testing.T) {
+	tempDir := t.TempDir()
+	storage := storage.NewFileStorage(tempDir)
+
+	node := models.NewSpec("Test Spec", "This should be overwritten.")
+	GenericStorage_TestUpdateNode(t, storage, node)
 
 	// check that actual file exists
 	_, err := os.Stat(storage.GetNodeFilePath(node.ID()))
