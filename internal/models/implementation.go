@@ -6,8 +6,8 @@ import (
 	"github.com/google/uuid"
 )
 
-type ImplementationJSON struct {
-	NodeBaseJSON
+type implementationJSON struct {
+	nodeBaseJSON
 	RepoURL    *string `json:"repo_url,omitempty"`
 	Branch     *string `json:"branch,omitempty"`
 	FolderPath *string `json:"folder_path,omitempty"`
@@ -34,8 +34,8 @@ func NewImplementation(title, content string) *Implementation {
 }
 
 func (impl *Implementation) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&ImplementationJSON{
-		NodeBaseJSON: impl.asBaseJsonStruct(),
+	return json.Marshal(&implementationJSON{
+		nodeBaseJSON: impl.asBaseJsonStruct(),
 		RepoURL:      impl.RepoURL,
 		Branch:       impl.Branch,
 		FolderPath:   impl.FolderPath,
@@ -45,14 +45,14 @@ func (impl *Implementation) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements custom JSON unmarshaling for Implementation
 func (impl *Implementation) UnmarshalJSON(data []byte) error {
 	// First unmarshal into a temporary struct that has all fields
-	var temp ImplementationJSON
+	var temp implementationJSON
 
 	if err := json.Unmarshal(data, &temp); err != nil {
 		return err
 	}
 
 	// Set the NodeBase fields
-	impl.fromBaseJsonStruct(temp.NodeBaseJSON)
+	impl.fromBaseJsonStruct(temp.nodeBaseJSON)
 
 	// Set the Implementation specific fields
 	impl.RepoURL = temp.RepoURL

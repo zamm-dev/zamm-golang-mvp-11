@@ -15,7 +15,7 @@ const (
 )
 
 // to keep NodeBase fields private https://stackoverflow.com/a/11129633
-type NodeBaseJSON struct {
+type nodeBaseJSON struct {
 	ID            string      `json:"id"`
 	Title         string      `json:"title"`
 	Content       string      `json:"content"`
@@ -34,8 +34,8 @@ type NodeBase struct {
 	childGrouping *ChildGroup
 }
 
-func (n *NodeBase) asBaseJsonStruct() NodeBaseJSON {
-	return NodeBaseJSON{
+func (n *NodeBase) asBaseJsonStruct() nodeBaseJSON {
+	return nodeBaseJSON{
 		ID:            n.id,
 		Title:         n.title,
 		Content:       n.content,
@@ -45,7 +45,7 @@ func (n *NodeBase) asBaseJsonStruct() NodeBaseJSON {
 	}
 }
 
-func (n *NodeBase) fromBaseJsonStruct(jsonStruct NodeBaseJSON) {
+func (n *NodeBase) fromBaseJsonStruct(jsonStruct nodeBaseJSON) {
 	n.id = jsonStruct.ID
 	n.title = jsonStruct.Title
 	n.content = jsonStruct.Content
@@ -59,7 +59,7 @@ func (n *NodeBase) MarshalJSON() ([]byte, error) {
 }
 
 func (n *NodeBase) UnmarshalJSON(data []byte) error {
-	var nodeJSON NodeBaseJSON
+	var nodeJSON nodeBaseJSON
 	if err := json.Unmarshal(data, &nodeJSON); err != nil {
 		return err
 	}
