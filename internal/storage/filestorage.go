@@ -98,30 +98,6 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 }
 
 // Node operations
-// CreateNode creates a new node
-func (fs *FileStorage) CreateNode(node models.Node) error {
-	if node.ID() == "" {
-		return fmt.Errorf("node ID cannot be empty")
-	}
-
-	path := fs.GetNodeFilePath(node.ID())
-
-	// Write the node file
-	if err := fs.writeMarkdownFile(path, node); err != nil {
-		return err
-	}
-
-	// Ensure the node is tracked in node-files.csv
-	// Get relative path from the project root for storage
-	projectRoot := filepath.Dir(fs.baseDir)
-	relPath, err := filepath.Rel(projectRoot, path)
-	if err != nil {
-		// If we can't make it relative, use absolute path
-		relPath = path
-	}
-
-	return fs.UpdateNodeFilePath(node.ID(), relPath)
-}
 
 // GetNode retrieves a node by ID
 func (fs *FileStorage) GetNode(id string) (models.Node, error) {
@@ -221,8 +197,20 @@ func (fs *FileStorage) ReadNode(id string) (models.Node, error) {
 func (fs *FileStorage) WriteNode(node models.Node) error {
 	path, exists := fs.getNodeFilePathIfExists(node.ID())
 	if !exists {
-		return fs.CreateNode(node)
+		path = fs.defaultNodeFilePath(node.ID())
+
+		projectRoot := filepath.Dir(fs.baseDir)
+		relPath, err := filepath.Rel(projectRoot, path)
+		if err != nil {
+			return err
+		}
+
+		err = fs.UpdateNodeFilePath(node.ID(), relPath)
+		if err != nil {
+			return err
+		}
 	}
+
 	return fs.writeMarkdownFile(path, node)
 }
 
@@ -550,13 +538,17 @@ func (fs *FileStorage) getNodeFilePathIfExists(nodeID string) (string, bool) {
 	return "", false
 }
 
+func (fs *FileStorage) defaultNodeFilePath(nodeID string) string {
+	return filepath.Join(fs.baseDir, "nodes", nodeID+".md")
+}
+
 // GetNodeFilePath returns the file path for a node from node-files.csv or default location
 func (fs *FileStorage) GetNodeFilePath(nodeID string) string {
 	path, exists := fs.getNodeFilePathIfExists(nodeID)
 	if exists {
 		return path
 	}
-	return filepath.Join(fs.baseDir, "nodes", nodeID+".md")
+	return fs.defaultNodeFilePath(nodeID)
 }
 
 // getAllSpecCommitLinks reads all spec-commit links from CSV

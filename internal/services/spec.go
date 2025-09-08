@@ -66,7 +66,7 @@ func (s *specService) CreateSpec(title, content string) (*models.Spec, error) {
 
 	spec := models.NewSpec(strings.TrimSpace(title), strings.TrimSpace(content))
 
-	if err := s.storage.CreateNode(spec); err != nil {
+	if err := s.storage.WriteNode(spec); err != nil {
 		return nil, err
 	}
 
@@ -82,7 +82,7 @@ func (s *specService) CreateProject(title, content string) (*models.Project, err
 
 	project := models.NewProject(strings.TrimSpace(title), strings.TrimSpace(content))
 
-	if err := s.storage.CreateNode(project); err != nil {
+	if err := s.storage.WriteNode(project); err != nil {
 		return nil, err
 	}
 
@@ -111,7 +111,7 @@ func (s *specService) CreateImplementation(title, content string, repoURL, branc
 		impl.FolderPath = &v
 	}
 
-	if err := s.storage.CreateNode(impl); err != nil {
+	if err := s.storage.WriteNode(impl); err != nil {
 		return nil, err
 	}
 
