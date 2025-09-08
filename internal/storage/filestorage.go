@@ -137,22 +137,6 @@ func (fs *FileStorage) GetNode(id string) (models.Node, error) {
 	}
 }
 
-// UpdateNode updates an existing node
-func (fs *FileStorage) UpdateNode(node models.Node) error {
-	if node.ID() == "" {
-		return fmt.Errorf("node ID cannot be empty")
-	}
-
-	// Check if node exists
-	_, err := fs.GetNode(node.ID())
-	if err != nil {
-		return err
-	}
-
-	path := fs.GetNodeFilePath(node.ID())
-	return fs.writeMarkdownFile(path, node)
-}
-
 // DeleteNode deletes a node
 func (fs *FileStorage) DeleteNode(id string) error {
 	path := fs.GetNodeFilePath(id)

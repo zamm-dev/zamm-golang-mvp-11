@@ -17,7 +17,7 @@ type AppInterface interface {
 }
 
 type StorageInterface interface {
-	UpdateNode(node models.Node) error
+	WriteNode(node models.Node) error
 }
 
 type ConfigInterface interface {
@@ -128,7 +128,7 @@ func (c *Coordinator) SetSlugAndOrganizeCmd(nodeID, slug string) tea.Cmd {
 		}
 
 		node.SetSlug(slug)
-		if err := c.app.Storage().UpdateNode(node); err != nil {
+		if err := c.app.Storage().WriteNode(node); err != nil {
 			return OperationCompleteMsg{message: fmt.Sprintf("Error updating slug: %v. Press Enter to continue...", err)}
 		}
 
@@ -222,7 +222,7 @@ func (c *Coordinator) updateImplementationCmd(nodeID, title, content string, rep
 // updateProjectCmd returns a command to update an existing project
 func (c *Coordinator) updateProjectCmd(nodeID, title, content string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := c.app.SpecService().UpdateNode(nodeID, title, content)
+		_, err := c.app.SpecService().WriteNode(nodeID, title, content)
 		if err != nil {
 			return OperationCompleteMsg{message: fmt.Sprintf("Error: %v. Press Enter to continue...", err)}
 		}

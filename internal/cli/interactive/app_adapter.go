@@ -49,8 +49,8 @@ type StorageAdapter struct {
 	storage storage.Storage
 }
 
-func (s *StorageAdapter) UpdateNode(node models.Node) error {
-	return s.storage.UpdateNode(node)
+func (s *StorageAdapter) WriteNode(node models.Node) error {
+	return s.storage.WriteNode(node)
 }
 
 type ConfigAdapter struct {

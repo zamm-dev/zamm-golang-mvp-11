@@ -25,7 +25,7 @@ type SpecService interface {
 	GetProject(id string) (*models.Project, error)
 	UpdateSpec(id, title, content string) (*models.Spec, error)
 	UpdateImplementation(id, title, content string, repoURL, branch, folderPath *string) (*models.Implementation, error)
-	UpdateNode(id, title, content string) (models.Node, error)
+	WriteNode(id, title, content string) (models.Node, error)
 	ListNodes() ([]models.Node, error)
 	DeleteSpec(id string) error
 	IsRootNode(node models.Node) bool
@@ -180,7 +180,7 @@ func (s *specService) UpdateSpec(id, title, content string) (*models.Spec, error
 	spec.SetType("specification")
 
 	// Save changes
-	if err := s.storage.UpdateNode(spec); err != nil {
+	if err := s.storage.WriteNode(spec); err != nil {
 		return nil, err
 	}
 
@@ -236,7 +236,7 @@ func (s *specService) UpdateImplementation(id, title, content string, repoURL, b
 	}
 
 	// Save changes
-	if err := s.storage.UpdateNode(impl); err != nil {
+	if err := s.storage.WriteNode(impl); err != nil {
 		return nil, err
 	}
 
@@ -264,8 +264,8 @@ func (s *specService) GetOrganizedChildren(node models.Node) (models.ChildGroup,
 	return cg, nil
 }
 
-// UpdateNode updates an existing node regardless of its type
-func (s *specService) UpdateNode(id, title, content string) (models.Node, error) {
+// WriteNode updates an existing node regardless of its type
+func (s *specService) WriteNode(id, title, content string) (models.Node, error) {
 	if id == "" {
 		return nil, models.NewZammError(models.ErrTypeValidation, "node ID cannot be empty")
 	}
@@ -438,7 +438,7 @@ func (s *specService) InitializeRootSpec() error {
 		rootNode.SetType("project")
 
 		// Update the node in storage
-		if err := s.storage.UpdateNode(rootNode); err != nil {
+		if err := s.storage.WriteNode(rootNode); err != nil {
 			return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to convert root spec to project", err)
 		}
 	}
@@ -539,7 +539,7 @@ func (s *specService) generateMissingSlugs() error {
 		if node.Slug() == "" && !s.IsRootNode(node) {
 			slug := s.sanitizeSlug(node.Title())
 			node.SetSlug(slug)
-			if err := s.storage.UpdateNode(node); err != nil {
+			if err := s.storage.WriteNode(node); err != nil {
 				return fmt.Errorf("failed to update node %s: %w", node.ID(), err)
 			}
 		}
@@ -582,7 +582,7 @@ func (s *specService) generateSlugForSingleNode(node models.Node) error {
 	if node.Slug() == "" && !s.IsRootNode(node) {
 		slug := s.sanitizeSlug(node.Title())
 		node.SetSlug(slug)
-		if err := s.storage.UpdateNode(node); err != nil {
+		if err := s.storage.WriteNode(node); err != nil {
 			return fmt.Errorf("failed to update node %s: %w", node.ID(), err)
 		}
 	}
