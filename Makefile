@@ -29,5 +29,8 @@ lint:
 fmt:
 	go fmt ./...
 
+run-docs:
+	pkgsite
+
 precommit-hooks:
 	lefthook install
