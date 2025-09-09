@@ -643,7 +643,23 @@ func (s *specService) organizeSingleNode(node models.Node, basePath string) erro
 		}
 	}
 
-	return s.moveNodeToPath(node, newPath)
+	// Move the node to its new path
+	if err := s.moveNodeToPath(node, newPath); err != nil {
+		return err
+	}
+
+	// Re-save the node to disk to regenerate its content with correct child links
+	return s.resaveNodeWithChildren(node)
+}
+
+// resaveNodeWithChildren re-saves a node to disk with its children content regenerated
+func (s *specService) resaveNodeWithChildren(node models.Node) error {
+	children, err := s.GetOrganizedChildren(node)
+	if err != nil {
+		return fmt.Errorf("failed to get organized children for node %s: %w", node.ID(), err)
+	}
+
+	return s.storage.WriteNodeWithChildren(node, children)
 }
 
 func (s *specService) moveNodeToPath(node models.Node, newPath string) error {

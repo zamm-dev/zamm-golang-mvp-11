@@ -752,6 +752,10 @@ func (fs *FileStorage) generateChildrenString(v interface{}, children models.Chi
 		return "", fmt.Errorf("invalid node type")
 	}
 
+	if children.IsEmpty() {
+		return "", nil
+	}
+
 	// Append children section
 	var childrenSection strings.Builder
 	childrenSection.WriteString("\n---\n\n")
