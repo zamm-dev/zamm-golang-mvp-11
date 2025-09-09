@@ -730,7 +730,7 @@ func (fs *FileStorage) WriteNodeWithExtraData(node models.Node, extraData string
 			relPath = path
 		}
 
-		err = fs.UpdateNodeFilePath(node.ID(), relPath)
+		err = fs.updateNodeFilePath(node.ID(), relPath)
 		if err != nil {
 			return err
 		}
@@ -876,8 +876,8 @@ func (fs *FileStorage) WriteNodeWithChildren(node models.Node, childGrouping mod
 	return fs.WriteNodeWithExtraData(node, childrenContent)
 }
 
-// UpdateNodeFilePath updates a single node's file path in the CSV
-func (fs *FileStorage) UpdateNodeFilePath(nodeID, newPath string) error {
+// updateNodeFilePath updates a single node's file path in the CSV
+func (fs *FileStorage) updateNodeFilePath(nodeID, newPath string) error {
 	nodeFiles, err := fs.getAllNodeFileLinks()
 	if err != nil {
 		return err
@@ -901,7 +901,7 @@ func (fs *FileStorage) MoveNodeFile(node models.Node, newPath string) error {
 		return fmt.Errorf("failed to move file: %w", err)
 	}
 
-	return fs.UpdateNodeFilePath(node.ID(), newPath)
+	return fs.updateNodeFilePath(node.ID(), newPath)
 }
 
 type markdownChildrenRenderer struct {
