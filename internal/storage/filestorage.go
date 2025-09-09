@@ -33,11 +33,6 @@ func New(baseDir string) (*FileStorage, error) {
 	return fs, nil
 }
 
-// BaseDir returns the base directory path
-func (fs *FileStorage) BaseDir() string {
-	return fs.baseDir
-}
-
 func (fs *FileStorage) nodesDir() string {
 	return filepath.Join(fs.baseDir, "nodes")
 }

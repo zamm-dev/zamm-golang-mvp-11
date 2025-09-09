@@ -6,9 +6,6 @@ import (
 
 // Storage defines the interface for data storage operations
 type Storage interface {
-	// Get base directory
-	BaseDir() string
-
 	// Node operations
 	ReadNode(id string) (models.Node, error)
 	WriteNode(node models.Node) error
