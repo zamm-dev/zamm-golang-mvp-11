@@ -1,4 +1,4 @@
-package storagetest
+package file_storage_test
 
 import (
 	"os"

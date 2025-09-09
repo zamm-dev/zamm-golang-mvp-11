@@ -13,8 +13,8 @@ type Storage interface {
 	BaseDir() string
 
 	// Node operations
-	WriteNode(node models.Node) error
 	ReadNode(id string) (models.Node, error)
+	WriteNode(node models.Node) error
 	WriteNodeWithChildren(node models.Node, childGrouping models.ChildGroup) error
 	DeleteNode(id string) error
 	ListNodes() ([]models.Node, error)
