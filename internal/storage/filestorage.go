@@ -772,15 +772,6 @@ func (fs *FileStorage) generateChildrenString(v interface{}, children models.Chi
 	return childrenSection.String(), nil
 }
 
-// writeMarkdownFileWithChildren writes markdown data with YAML frontmatter and optional child links
-func (fs *FileStorage) writeMarkdownFileWithChildren(path string, v interface{}, children models.ChildGroup) error {
-	childrenContent, err := fs.generateChildrenString(v, children)
-	if err != nil {
-		return err
-	}
-	return fs.WriteNodeWithExtraData(v.(models.Node), childrenContent)
-}
-
 // readJSONFile reads JSON data from a file
 func (fs *FileStorage) readJSONFile(path string, v interface{}) error {
 	data, err := os.ReadFile(path)
@@ -883,25 +874,11 @@ func (fs *FileStorage) writeNodeFileLinks(nodeFiles map[string]string) error {
 }
 
 func (fs *FileStorage) WriteNodeWithChildren(node models.Node, childGrouping models.ChildGroup) error {
-	if node.ID() == "" {
-		return fmt.Errorf("node ID cannot be empty")
-	}
-
-	path := fs.GetNodeFilePath(node.ID())
-
-	// Write the node file with children
-	if err := fs.writeMarkdownFileWithChildren(path, node, childGrouping); err != nil {
+	childrenContent, err := fs.generateChildrenString(node, childGrouping)
+	if err != nil {
 		return err
 	}
-
-	// Ensure the node is tracked in node-files.csv
-	projectRoot := filepath.Dir(fs.baseDir)
-	relPath, err := filepath.Rel(projectRoot, path)
-	if err != nil {
-		relPath = path
-	}
-
-	return fs.UpdateNodeFilePath(node.ID(), relPath)
+	return fs.WriteNodeWithExtraData(node, childrenContent)
 }
 
 // UpdateNodeFilePath updates a single node's file path in the CSV
