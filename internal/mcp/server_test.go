@@ -68,7 +68,7 @@ func TestCreateChildSpec_Success(t *testing.T) {
 	assert.Contains(t, resultData.Message, "Child Spec")
 	assert.Contains(t, resultData.Message, "Parent Spec")
 
-	childSpec, err := specService.GetNode(resultData.ChildID)
+	childSpec, err := specService.ReadNode(resultData.ChildID)
 	require.NoError(t, err, "Child spec should exist in storage")
 	assert.Equal(t, "Child Spec", childSpec.Title())
 	assert.Equal(t, "Child content", childSpec.Content())

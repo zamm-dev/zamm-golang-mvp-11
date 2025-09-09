@@ -122,7 +122,7 @@ func (c *Coordinator) OrganizeNodeCmd(nodeID string) tea.Cmd {
 
 func (c *Coordinator) SetSlugAndOrganizeCmd(nodeID, slug string) tea.Cmd {
 	return func() tea.Msg {
-		node, err := c.app.SpecService().GetNode(nodeID)
+		node, err := c.app.SpecService().ReadNode(nodeID)
 		if err != nil {
 			return OperationCompleteMsg{message: fmt.Sprintf("Error getting node: %v. Press Enter to continue...", err)}
 		}
@@ -250,7 +250,7 @@ func (cs *combinedService) GetChildNodes(specID string) ([]models.Node, error) {
 }
 
 func (cs *combinedService) GetNodeByID(specID string) (models.Node, error) {
-	node, err := cs.specService.GetNode(specID)
+	node, err := cs.specService.ReadNode(specID)
 	if err != nil {
 		return nil, err
 	}

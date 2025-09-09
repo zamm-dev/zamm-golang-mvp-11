@@ -99,8 +99,44 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 
 // Node operations
 
-// GetNode retrieves a node by ID
-func (fs *FileStorage) GetNode(id string) (models.Node, error) {
+// DeleteNode deletes a node
+func (fs *FileStorage) DeleteNode(id string) error {
+	path := fs.GetNodeFilePath(id)
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return models.NewZammError(models.ErrTypeNotFound, "node not found")
+	}
+
+	return os.Remove(path)
+}
+
+// ListNodes returns all nodes
+func (fs *FileStorage) ListNodes() ([]models.Node, error) {
+	nodes := make([]models.Node, 0)
+
+	// Get all nodes from node-files.csv
+	nodeFiles, err := fs.getAllNodeFileLinks()
+	if err != nil {
+		return nil, err
+	}
+
+	for nodeID := range nodeFiles {
+		node, err := fs.ReadNode(nodeID)
+		if err != nil {
+			continue // Skip invalid files
+		}
+		nodes = append(nodes, node)
+	}
+
+	// Sort by ID for consistent ordering
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].ID() < nodes[j].ID()
+	})
+
+	return nodes, nil
+}
+
+func (fs *FileStorage) ReadNode(id string) (models.Node, error) {
 	path := fs.GetNodeFilePath(id)
 
 	// Read file once and parse into a generic map structure
@@ -190,47 +226,6 @@ func (fs *FileStorage) GetNode(id string) (models.Node, error) {
 		}
 		return &nodeBase, nil
 	}
-}
-
-// DeleteNode deletes a node
-func (fs *FileStorage) DeleteNode(id string) error {
-	path := fs.GetNodeFilePath(id)
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return models.NewZammError(models.ErrTypeNotFound, "node not found")
-	}
-
-	return os.Remove(path)
-}
-
-// ListNodes returns all nodes
-func (fs *FileStorage) ListNodes() ([]models.Node, error) {
-	nodes := make([]models.Node, 0)
-
-	// Get all nodes from node-files.csv
-	nodeFiles, err := fs.getAllNodeFileLinks()
-	if err != nil {
-		return nil, err
-	}
-
-	for nodeID := range nodeFiles {
-		node, err := fs.GetNode(nodeID)
-		if err != nil {
-			continue // Skip invalid files
-		}
-		nodes = append(nodes, node)
-	}
-
-	// Sort by ID for consistent ordering
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].ID() < nodes[j].ID()
-	})
-
-	return nodes, nil
-}
-
-func (fs *FileStorage) ReadNode(id string) (models.Node, error) {
-	return fs.GetNode(id)
 }
 
 func (fs *FileStorage) WriteNode(node models.Node) error {
@@ -455,7 +450,7 @@ func (fs *FileStorage) GetLinkedSpecs(specID string, direction models.Direction)
 			targetSpecID = link.FromSpecID
 		}
 
-		node, err := fs.GetNode(targetSpecID)
+		node, err := fs.ReadNode(targetSpecID)
 		if err != nil {
 			continue // Skip if spec not found
 		}
@@ -485,7 +480,7 @@ func (fs *FileStorage) GetLinkedNodes(nodeID string, direction models.Direction)
 			targetNodeID = link.FromSpecID
 		}
 
-		node, err := fs.GetNode(targetNodeID)
+		node, err := fs.ReadNode(targetNodeID)
 		if err != nil {
 			continue // Skip if node not found
 		}

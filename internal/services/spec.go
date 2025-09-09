@@ -21,7 +21,7 @@ type SpecService interface {
 	CreateSpec(title, content string) (*models.Spec, error)
 	CreateProject(title, content string) (*models.Project, error)
 	CreateImplementation(title, content string, repoURL, branch, folderPath *string) (*models.Implementation, error)
-	GetNode(id string) (models.Node, error)
+	ReadNode(id string) (models.Node, error)
 	GetProject(id string) (*models.Project, error)
 	UpdateSpec(id, title, content string) (*models.Spec, error)
 	UpdateImplementation(id, title, content string, repoURL, branch, folderPath *string) (*models.Implementation, error)
@@ -124,7 +124,7 @@ func (s *specService) GetProject(id string) (*models.Project, error) {
 		return nil, models.NewZammError(models.ErrTypeValidation, "project ID cannot be empty")
 	}
 
-	node, err := s.storage.GetNode(id)
+	node, err := s.storage.ReadNode(id)
 	if err != nil {
 		return nil, err
 	}
@@ -137,13 +137,13 @@ func (s *specService) GetProject(id string) (*models.Project, error) {
 	return nil, models.NewZammError(models.ErrTypeValidation, "node is not a project")
 }
 
-// GetNode retrieves a node by ID
-func (s *specService) GetNode(id string) (models.Node, error) {
+// ReadNode retrieves a node by ID
+func (s *specService) ReadNode(id string) (models.Node, error) {
 	if id == "" {
 		return nil, models.NewZammError(models.ErrTypeValidation, "spec ID cannot be empty")
 	}
 
-	node, err := s.storage.GetNode(id)
+	node, err := s.storage.ReadNode(id)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (s *specService) UpdateSpec(id, title, content string) (*models.Spec, error
 	}
 
 	// Get existing spec
-	node, err := s.storage.GetNode(id)
+	node, err := s.storage.ReadNode(id)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func (s *specService) UpdateImplementation(id, title, content string, repoURL, b
 	}
 
 	// Get existing implementation
-	node, err := s.storage.GetNode(id)
+	node, err := s.storage.ReadNode(id)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +276,7 @@ func (s *specService) WriteNode(id, title, content string) (models.Node, error) 
 	}
 
 	// Get existing node
-	node, err := s.storage.GetNode(id)
+	node, err := s.storage.ReadNode(id)
 	if err != nil {
 		return nil, err
 	}
@@ -342,12 +342,12 @@ func (s *specService) AddChildToParent(childSpecID, parentSpecID, label string) 
 	}
 
 	// Verify both nodes exist
-	_, err := s.storage.GetNode(childSpecID)
+	_, err := s.storage.ReadNode(childSpecID)
 	if err != nil {
 		return nil, models.NewZammError(models.ErrTypeValidation, "child node not found")
 	}
 
-	_, err = s.storage.GetNode(parentSpecID)
+	_, err = s.storage.ReadNode(parentSpecID)
 	if err != nil {
 		return nil, models.NewZammError(models.ErrTypeValidation, "parent node not found")
 	}
@@ -426,7 +426,7 @@ func (s *specService) InitializeRootSpec() error {
 	}
 
 	// Root exists, check if it's a Project
-	rootNode, err := s.storage.GetNode(*metadata.RootSpecID)
+	rootNode, err := s.storage.ReadNode(*metadata.RootSpecID)
 	if err != nil {
 		return models.NewZammErrorWithCause(models.ErrTypeStorage, "failed to get root node", err)
 	}
@@ -457,7 +457,7 @@ func (s *specService) GetRootNode() (models.Node, error) {
 		return nil, models.NewZammError(models.ErrTypeNotFound, "root spec ID not set in project metadata")
 	}
 
-	node, err := s.storage.GetNode(*metadata.RootSpecID)
+	node, err := s.storage.ReadNode(*metadata.RootSpecID)
 	if err != nil {
 		return nil, err
 	}
@@ -498,7 +498,7 @@ func (s *specService) validateSpecInput(title, content string) error {
 func (s *specService) OrganizeNodes(nodeID string) error {
 	if nodeID != "" {
 		// Organize specific node only (not its subtree)
-		node, err := s.storage.GetNode(nodeID)
+		node, err := s.storage.ReadNode(nodeID)
 		if err != nil {
 			return fmt.Errorf("failed to get node %s: %w", nodeID, err)
 		}

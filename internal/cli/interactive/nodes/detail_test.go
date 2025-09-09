@@ -25,7 +25,7 @@ func (cs *testCombinedService) GetChildNodes(specID string) ([]models.Node, erro
 }
 
 func (cs *testCombinedService) GetNodeByID(specID string) (models.Node, error) {
-	return cs.specService.GetNode(specID)
+	return cs.specService.ReadNode(specID)
 }
 
 func (cs *testCombinedService) GetParentNode(specID string) (models.Node, error) {
@@ -56,7 +56,7 @@ func TestNodeDetailProjectRender(t *testing.T) {
 	}
 
 	// Get "Test Project" and its data
-	project, err := specService.GetNode("4c09428a-ce7e-43d0-85da-6f671453c06f")
+	project, err := specService.ReadNode("4c09428a-ce7e-43d0-85da-6f671453c06f")
 	if err != nil {
 		t.Fatalf("Failed to get test project: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestNodeDetailSpecificationRender(t *testing.T) {
 	}
 
 	// Get "Hello World Function" spec and its data
-	spec, err := specService.GetNode("201c7092-9367-4a97-837b-98fbbcd7168a")
+	spec, err := specService.ReadNode("201c7092-9367-4a97-837b-98fbbcd7168a")
 	if err != nil {
 		t.Fatalf("Failed to get test spec: %v", err)
 	}

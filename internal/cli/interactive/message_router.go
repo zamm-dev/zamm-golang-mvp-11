@@ -139,7 +139,7 @@ func (r *MessageRouter) handleNavigateToNode(msg NavigateToNodeMsg) tea.Cmd {
 		r.stateManager.ResetInputs()
 	}
 	return func() tea.Msg {
-		node, err := r.coordinator.app.SpecService().GetNode(msg.nodeID)
+		node, err := r.coordinator.app.SpecService().ReadNode(msg.nodeID)
 		if err != nil {
 			return r.coordinator.LoadSpecsCmd()()
 		}
@@ -168,7 +168,7 @@ func (r *MessageRouter) handleEditSpec(msg nodes.EditSpecMsg) tea.Cmd {
 	r.stateManager.ResetInputs()
 	r.stateManager.SetEditingSpecID(msg.SpecID)
 
-	node, err := r.coordinator.app.SpecService().GetNode(msg.SpecID)
+	node, err := r.coordinator.app.SpecService().ReadNode(msg.SpecID)
 	if err != nil {
 		return func() tea.Msg {
 			return OperationCompleteMsg{message: fmt.Sprintf("Error loading node: %v. Press Enter to continue...", err)}
@@ -339,7 +339,7 @@ func (r *MessageRouter) handleNodeEditorImplementationForm(msg common.NodeEditor
 
 	editingSpecID := r.stateManager.GetEditingSpecID()
 	if editingSpecID != "" {
-		node, err := r.coordinator.app.SpecService().GetNode(editingSpecID)
+		node, err := r.coordinator.app.SpecService().ReadNode(editingSpecID)
 		if err != nil {
 			r.stateManager.ShowMessage(fmt.Sprintf("Error fetching implementation details: %v", err))
 			return nil

@@ -40,7 +40,7 @@ func NewServer(specService services.SpecService) *Server {
 func (s *Server) CreateChildSpec(ctx context.Context, ss *mcp.ServerSession, params *mcp.CallToolParamsFor[CreateChildSpecArgs]) (*mcp.CallToolResultFor[CreateChildSpecResult], error) {
 	args := params.Arguments
 
-	parentNode, err := s.specService.GetNode(args.ParentID)
+	parentNode, err := s.specService.ReadNode(args.ParentID)
 	if err != nil {
 		return &mcp.CallToolResultFor[CreateChildSpecResult]{
 			Content: []mcp.Content{
