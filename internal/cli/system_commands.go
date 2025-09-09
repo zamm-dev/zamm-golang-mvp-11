@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zamm-dev/zamm-golang-mvp-11/internal/config"
-	"github.com/zamm-dev/zamm-golang-mvp-11/internal/storage"
-	"gopkg.in/yaml.v3"
 )
 
 // createInitCommand creates the init command
@@ -127,124 +124,7 @@ func (a *App) createMigrateCommand() *cobra.Command {
 
 // migrateTitlesToHeadings migrates all node files to use level 1 headings for titles
 func (a *App) migrateTitlesToHeadings() error {
-	// Cast storage to FileStorage to access getAllNodeFileLinks and GetNodeFilePath
-	fileStorage, ok := a.storage.(*storage.FileStorage)
-	if !ok {
-		return fmt.Errorf("storage is not FileStorage type")
-	}
-
-	// Get all node IDs from both regular storage and custom file paths
-	migratedNodeIDs := make(map[string]bool)
-	migratedCount := 0
-
-	// First, migrate all nodes from regular storage (.zamm/nodes/)
-	nodes, err := a.specService.ListNodes()
-	if err != nil {
-		return fmt.Errorf("failed to list nodes: %w", err)
-	}
-
-	for _, node := range nodes {
-		nodeID := node.ID()
-		// Get the file path for this node using storage's GetNodeFilePath
-		filePath := fileStorage.GetNodeFilePath(nodeID)
-
-		if err := a.migrateNodeFileToHeading(filePath); err != nil {
-			return fmt.Errorf("failed to migrate node %s: %w", nodeID, err)
-		}
-		migratedNodeIDs[nodeID] = true
-		migratedCount++
-	}
-
-	// Second, get all custom file paths from node-files.csv and migrate those too
-	nodeFileLinks, err := fileStorage.GetAllNodeFileLinks()
-	if err == nil { // Don't fail if the CSV doesn't exist or can't be read
-		for nodeID, customPath := range nodeFileLinks {
-			// Skip if we already migrated this node from regular storage
-			if migratedNodeIDs[nodeID] {
-				continue
-			}
-
-			// Build the full path if it's relative
-			var filePath string
-			if filepath.IsAbs(customPath) {
-				filePath = customPath
-			} else {
-				filePath = filepath.Join(filepath.Dir(fileStorage.BaseDir()), customPath)
-			}
-
-			if err := a.migrateNodeFileToHeading(filePath); err != nil {
-				return fmt.Errorf("failed to migrate custom path node %s at %s: %w", nodeID, filePath, err)
-			}
-			migratedCount++
-		}
-	}
-
-	fmt.Printf("Migrated %d node files to use level 1 headings.\n", migratedCount)
-	return nil
-}
-
-// migrateNodeFileToHeading migrates a single node file to use level 1 heading for title
-func (a *App) migrateNodeFileToHeading(filePath string) error {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return err
-	}
-
-	content := string(data)
-
-	// Check if already has frontmatter
-	if !strings.HasPrefix(content, "---\n") {
-		return fmt.Errorf("invalid markdown format: missing frontmatter")
-	}
-
-	parts := strings.SplitN(content[4:], "\n---\n", 2)
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid markdown format: malformed frontmatter")
-	}
-
-	yamlContent := parts[0]
-	markdownContent := strings.TrimSpace(parts[1])
-
-	var frontmatter map[string]interface{}
-	if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
-		return fmt.Errorf("failed to parse YAML frontmatter: %w", err)
-	}
-
-	// Extract title from frontmatter
-	title, hasTitle := frontmatter["title"].(string)
-	if !hasTitle || title == "" {
-		return fmt.Errorf("no title found in frontmatter")
-	}
-
-	// Check if content already starts with level 1 heading
-	if strings.HasPrefix(markdownContent, "# "+title+"\n") {
-		// Already migrated, skip
-		return nil
-	}
-
-	// Remove title from frontmatter
-	delete(frontmatter, "title")
-
-	// Rebuild YAML frontmatter
-	yamlData, err := yaml.Marshal(frontmatter)
-	if err != nil {
-		return fmt.Errorf("failed to marshal YAML frontmatter: %w", err)
-	}
-
-	// Build new content with title as level 1 heading
-	var newContent strings.Builder
-	newContent.WriteString("---\n")
-	newContent.Write(yamlData)
-	newContent.WriteString("---\n\n")
-	newContent.WriteString("# ")
-	newContent.WriteString(title)
-	newContent.WriteString("\n\n")
-	if markdownContent != "" {
-		newContent.WriteString(markdownContent)
-		newContent.WriteString("\n")
-	}
-
-	return os.WriteFile(filePath, []byte(newContent.String()), 0644)
+	return fmt.Errorf("there is currently nothing to migrate")
 }
 
 // createRedirectCommand creates the redirect command
