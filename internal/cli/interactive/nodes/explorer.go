@@ -123,12 +123,12 @@ type NodeExplorer struct {
 	showHelp bool
 }
 
-func NewSpecExplorer(linkService LinkService, specService services.SpecService) NodeExplorer {
+func NewSpecExplorer(linkService LinkService, specService services.SpecService) *NodeExplorer {
 	if linkService == nil {
 		panic("linkService cannot be nil in NewSpecExplorer")
 	}
 
-	explorer := NodeExplorer{
+	explorer := &NodeExplorer{
 		leftPane:    NewNodeDetailView(linkService, specService),
 		rightPane:   NewNodeDetailView(linkService, specService),
 		linkService: linkService,
@@ -170,7 +170,11 @@ func (e *NodeExplorer) Refresh() tea.Cmd {
 	return e.setCurrentNode(e.currentSpec)
 }
 
-func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
+func (e *NodeExplorer) Init() tea.Cmd {
+	return nil
+}
+
+func (e *NodeExplorer) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Assert that specs are never nil
 	if e.currentSpec == nil {
 		panic("currentSpec is nil in SpecExplorer.Update")
@@ -184,7 +188,7 @@ func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 		switch {
 		case key.Matches(msg, e.keys.Help):
 			e.showHelp = !e.showHelp
-			return *e, nil
+			return e, nil
 		case key.Matches(msg, e.keys.Up) || key.Matches(msg, e.keys.Down):
 			// Handle child selection in left pane only
 			if key.Matches(msg, e.keys.Up) {
@@ -201,37 +205,37 @@ func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 			}
 			// Update right pane with new active spec details (don't affect left pane cursor)
 			e.updateRightPaneOnly()
-			return *e, nil
+			return e, nil
 		case key.Matches(msg, e.keys.Select):
 			// Navigate to the active spec if it's different from current
 			if e.activeSpec.ID() != e.currentSpec.ID() {
-				return *e, e.navigateToChildren(e.activeSpec)
+				return e, e.navigateToChildren(e.activeSpec)
 			}
-			return *e, nil
+			return e, nil
 		case key.Matches(msg, e.keys.Create):
-			return *e, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: e.activeSpec.ID()} }
+			return e, func() tea.Msg { return CreateNewSpecMsg{ParentSpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Edit):
-			return *e, func() tea.Msg { return EditSpecMsg{SpecID: e.activeSpec.ID()} }
+			return e, func() tea.Msg { return EditSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.OpenMarkdown):
-			return *e, func() tea.Msg { return OpenMarkdownMsg{SpecID: e.activeSpec.ID()} }
+			return e, func() tea.Msg { return OpenMarkdownMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Delete):
-			return *e, func() tea.Msg { return DeleteSpecMsg{SpecID: e.activeSpec.ID()} }
+			return e, func() tea.Msg { return DeleteSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Link):
-			return *e, func() tea.Msg { return LinkCommitSpecMsg{SpecID: e.activeSpec.ID()} }
+			return e, func() tea.Msg { return LinkCommitSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Remove):
-			return *e, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: e.activeSpec.ID()} }
+			return e, func() tea.Msg { return RemoveLinkSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Move):
-			return *e, func() tea.Msg { return MoveSpecMsg{SpecID: e.activeSpec.ID()} }
+			return e, func() tea.Msg { return MoveSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Organize):
 			// Check if node has a slug, if not, go to slug editing screen first
 			if e.activeSpec.Slug() == "" && !e.specService.IsRootNode(e.activeSpec) {
 				// Generate auto-slug from title for editing
 				autoSlug := e.generateAutoSlug(e.activeSpec.Title())
-				return *e, func() tea.Msg {
+				return e, func() tea.Msg {
 					return EditSlugMsg{SpecID: e.activeSpec.ID(), OriginalTitle: e.activeSpec.Title(), InitialSlug: autoSlug}
 				}
 			}
-			return *e, func() tea.Msg { return OrganizeSpecMsg{SpecID: e.activeSpec.ID()} }
+			return e, func() tea.Msg { return OrganizeSpecMsg{SpecID: e.activeSpec.ID()} }
 		case key.Matches(msg, e.keys.Back):
 			// If a child is selected, clear selection
 			if e.leftPane.GetSelectedChild() != nil {
@@ -239,12 +243,12 @@ func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 				e.activeSpec = e.currentSpec
 				// Update right pane with current spec details (don't affect left pane cursor)
 				e.updateRightPaneOnly()
-				return *e, nil
+				return e, nil
 			}
 			// Otherwise navigate back to parent
-			return *e, e.navigateBack()
+			return e, e.navigateBack()
 		case key.Matches(msg, e.keys.Quit):
-			return *e, func() tea.Msg { return ExitMsg{} }
+			return e, func() tea.Msg { return ExitMsg{} }
 		}
 	}
 	var leftCmd, rightCmd tea.Cmd
@@ -253,13 +257,13 @@ func (e *NodeExplorer) Update(msg tea.Msg) (NodeExplorer, tea.Cmd) {
 	e.leftPane = *leftModel.(*NodeDetailView)
 	e.rightPane = *rightModel.(*NodeDetailView)
 	if leftCmd != nil && rightCmd != nil {
-		return *e, tea.Batch(leftCmd, rightCmd)
+		return e, tea.Batch(leftCmd, rightCmd)
 	} else if leftCmd != nil {
-		return *e, leftCmd
+		return e, leftCmd
 	} else if rightCmd != nil {
-		return *e, rightCmd
+		return e, rightCmd
 	}
-	return *e, nil
+	return e, nil
 }
 
 func (e *NodeExplorer) setCurrentNode(currentNode models.Node) tea.Cmd {

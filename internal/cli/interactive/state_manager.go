@@ -13,7 +13,7 @@ type StateManager struct {
 	selectedSpecID string
 	message        string
 	showMessage    bool
-	specListView   nodes.NodeExplorer
+	specListView   *nodes.NodeExplorer
 
 	terminalWidth  int
 	terminalHeight int
@@ -47,7 +47,7 @@ type StateManager struct {
 	cursor int
 }
 
-func NewStateManager(specListView nodes.NodeExplorer) *StateManager {
+func NewStateManager(specListView *nodes.NodeExplorer) *StateManager {
 	return &StateManager{
 		state:          SpecListView,
 		specListView:   specListView,
@@ -236,7 +236,8 @@ func (s *StateManager) UpdateComponent(msg tea.Msg) tea.Cmd {
 	switch s.state {
 	case SpecListView:
 		var cmd tea.Cmd
-		s.specListView, cmd = s.specListView.Update(msg)
+		updatedModel, cmd := s.specListView.Update(msg)
+		s.specListView = updatedModel.(*nodes.NodeExplorer)
 		return cmd
 	case LinkSelection:
 		if s.linkSelector != nil {
