@@ -633,13 +633,8 @@ func (s *specService) organizeSingleNode(node models.Node, basePath string) erro
 
 	// Handle root node specially
 	if s.IsRootNode(node) {
-		if len(children) > 0 {
-			// Root node with children goes to docs/README.md
-			newPath = filepath.Join(basePath, IndexFile)
-		} else {
-			// Root node without children goes to docs/README.md
-			newPath = filepath.Join(basePath, IndexFile)
-		}
+		// Root node always goes to docs/README.md
+		newPath = filepath.Join(basePath, IndexFile)
 	} else {
 		// Non-root nodes follow the regular logic
 		if len(children) > 0 {
