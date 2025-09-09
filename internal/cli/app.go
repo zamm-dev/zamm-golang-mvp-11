@@ -26,9 +26,6 @@ func NewApp() (*App, error) {
 
 	store, err := storage.New(cfg.Storage.Path)
 	if err != nil {
-		return nil, err
-	}
-	if err != nil {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
