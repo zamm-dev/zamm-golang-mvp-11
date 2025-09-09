@@ -67,7 +67,10 @@ func waitForGoldenOutput(t *testing.T, tm *teatest.TestModel, waitFor []byte, go
 func TestNodeDetailViewInitialRender(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("..", "common", "testdata", ".zamm")
-	storage := storage.NewFileStorage(testDataPath)
+	storage, err := storage.New(testDataPath)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	linkService := services.NewLinkService(storage)
 	specService := services.NewSpecService(storage)
 
@@ -96,7 +99,10 @@ func TestNodeDetailViewInitialRender(t *testing.T) {
 func TestNodeDetailViewScrolling(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("..", "common", "testdata", ".zamm")
-	storage := storage.NewFileStorage(testDataPath)
+	storage, err := storage.New(testDataPath)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	linkService := services.NewLinkService(storage)
 	specService := services.NewSpecService(storage)
 

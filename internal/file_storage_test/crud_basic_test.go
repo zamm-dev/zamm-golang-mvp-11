@@ -214,7 +214,10 @@ func TestFileStorage_NodeOperations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir := t.TempDir()
-			store := storage.NewFileStorage(tempDir)
+			store, err := storage.New(tempDir)
+			if err != nil {
+				t.Fatalf("failed to create file storage: %v", err)
+			}
 
 			t.Run("create", func(t *testing.T) {
 				node := tt.createFn()
@@ -239,7 +242,10 @@ func TestFileStorage_NodeOperations(t *testing.T) {
 
 func TestFileStorage_ProjectNode(t *testing.T) {
 	tempDir := t.TempDir()
-	store := storage.NewFileStorage(tempDir)
+	store, err := storage.New(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 
 	node := models.NewProject("Test Project", "This should be overwritten.")
 	testProjectNode(t, store, node)
@@ -249,7 +255,10 @@ func TestFileStorage_ProjectNode(t *testing.T) {
 
 func TestFileStorage_ImplementationNode(t *testing.T) {
 	tempDir := t.TempDir()
-	store := storage.NewFileStorage(tempDir)
+	store, err := storage.New(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 
 	node := models.NewImplementation("Test Implementation", "This should be overwritten.")
 	testImplementationNode(t, store, node)

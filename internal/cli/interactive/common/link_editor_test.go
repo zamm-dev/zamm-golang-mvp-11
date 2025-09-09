@@ -33,7 +33,10 @@ func requireGoldenAfterWaitFor(t *testing.T, tm *teatest.TestModel, waitFor []by
 func TestLinkEditorInitialRender(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("testdata", ".zamm")
-	storage := storage.NewFileStorage(testDataPath)
+	storage, err := storage.New(testDataPath)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	linkService := services.NewLinkService(storage)
 	specService := services.NewSpecService(storage)
 
@@ -54,7 +57,10 @@ func TestLinkEditorInitialRender(t *testing.T) {
 func TestLinkEditorPressG(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("testdata", ".zamm")
-	storage := storage.NewFileStorage(testDataPath)
+	storage, err := storage.New(testDataPath)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	linkService := services.NewLinkService(storage)
 	specService := services.NewSpecService(storage)
 
@@ -78,7 +84,10 @@ func TestLinkEditorPressG(t *testing.T) {
 func TestLinkEditorSpecSelectionMode(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("testdata", ".zamm")
-	storage := storage.NewFileStorage(testDataPath)
+	storage, err := storage.New(testDataPath)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	linkService := services.NewLinkService(storage)
 	specService := services.NewSpecService(storage)
 
@@ -105,7 +114,10 @@ func TestLinkEditorSpecSelectionMode(t *testing.T) {
 func TestLinkEditorUnlinkGitMode(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("testdata", ".zamm")
-	storage := storage.NewFileStorage(testDataPath)
+	storage, err := storage.New(testDataPath)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	linkService := services.NewLinkService(storage)
 	specService := services.NewSpecService(storage)
 
@@ -132,7 +144,10 @@ func TestLinkEditorUnlinkGitMode(t *testing.T) {
 func TestLinkEditorMoveSearchMode(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("testdata", ".zamm")
-	storage := storage.NewFileStorage(testDataPath)
+	storage, err := storage.New(testDataPath)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	linkService := services.NewLinkService(storage)
 	specService := services.NewSpecService(storage)
 

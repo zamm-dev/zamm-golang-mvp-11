@@ -18,7 +18,10 @@ func TestSpewOutputFormat(t *testing.T) {
 
 	// Create a minimal app for testing
 	cfg := &config.Config{}
-	fileStorage := storage.NewFileStorage("interactive/common/testdata/.zamm")
+	fileStorage, err := storage.New("interactive/common/testdata/.zamm")
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	specService := services.NewSpecService(fileStorage)
 	linkService := services.NewLinkService(fileStorage)
 
@@ -67,7 +70,10 @@ func TestComplexMessageTypeFormatting(t *testing.T) {
 
 	// Create a minimal app for testing
 	cfg := &config.Config{}
-	fileStorage := storage.NewFileStorage("interactive/common/testdata/.zamm")
+	fileStorage, err := storage.New("interactive/common/testdata/.zamm")
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	specService := services.NewSpecService(fileStorage)
 	linkService := services.NewLinkService(fileStorage)
 

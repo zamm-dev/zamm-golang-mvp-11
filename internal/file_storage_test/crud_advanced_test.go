@@ -16,10 +16,13 @@ type AdvancedStorage interface {
 
 func TestFileStorage_CreateNodeWithExtraData(t *testing.T) {
 	tempDir := t.TempDir()
-	storage := storage.NewFileStorage(tempDir)
+	storage, err := storage.New(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 
 	node := models.NewSpec("Test Spec", "This should stay the same.")
-	err := storage.WriteNodeWithExtraData(node, "\n---\n\nExtra data")
+	err = storage.WriteNodeWithExtraData(node, "\n---\n\nExtra data")
 	assert.NoError(t, err)
 
 	// check that regular data is read back in

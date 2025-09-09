@@ -6,9 +6,6 @@ import (
 
 // Storage defines the interface for data storage operations
 type Storage interface {
-	// Initialize storage
-	InitializeStorage() error
-
 	// Get base directory
 	BaseDir() string
 

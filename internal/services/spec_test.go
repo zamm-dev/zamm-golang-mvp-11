@@ -16,10 +16,12 @@ func setupTestService(t *testing.T) (SpecService, func()) {
 	tmpDir := t.TempDir()
 
 	// Create file storage
-	store := storage.NewFileStorage(tmpDir)
-	err := store.InitializeStorage()
+	store, err := storage.New(tmpDir)
 	if err != nil {
-		t.Fatalf("Failed to initialize test storage: %v", err)
+		t.Fatalf("failed to create file storage: %v", err)
+	}
+	if err != nil {
+		t.Fatalf("Failed to create test storage: %v", err)
 	}
 
 	service := NewSpecService(store)

@@ -46,7 +46,10 @@ func (cs *testCombinedService) GetRootNode() (models.Node, error) {
 func TestNodeDetailProjectRender(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("..", "common", "testdata", ".zamm")
-	storage := storage.NewFileStorage(testDataPath)
+	storage, err := storage.New(testDataPath)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	specService := services.NewSpecService(storage)
 	linkService := services.NewLinkService(storage)
 
@@ -80,7 +83,10 @@ func TestNodeDetailProjectRender(t *testing.T) {
 func TestNodeDetailSpecificationRender(t *testing.T) {
 	// Use testdata storage
 	testDataPath := filepath.Join("..", "common", "testdata", ".zamm")
-	storage := storage.NewFileStorage(testDataPath)
+	storage, err := storage.New(testDataPath)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 	linkService := services.NewLinkService(storage)
 	specService := services.NewSpecService(storage)
 

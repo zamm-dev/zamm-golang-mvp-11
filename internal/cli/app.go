@@ -24,7 +24,13 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
-	store := storage.NewFileStorage(cfg.Storage.Path)
+	store, err := storage.New(cfg.Storage.Path)
+	if err != nil {
+		return nil, err
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize storage: %w", err)
+	}
 
 	// Initialize LLM service (can be nil if no API key provided)
 	var llmService services.LLMService
@@ -46,11 +52,6 @@ func (a *App) InitializeZamm() error {
 	// Ensure directories exist
 	if err := config.EnsureDirectories(a.config); err != nil {
 		return fmt.Errorf("failed to ensure directories: %w", err)
-	}
-
-	// Initialize storage
-	if err := a.storage.InitializeStorage(); err != nil {
-		return fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
 	// Initialize root spec

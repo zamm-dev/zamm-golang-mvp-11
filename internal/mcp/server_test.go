@@ -22,7 +22,10 @@ func setupTestStorage(t *testing.T) (storage.Storage, string) {
 	err := os.CopyFS(testDataDir, os.DirFS(srcDir))
 	require.NoError(t, err, "Failed to copy testdata")
 
-	store := storage.NewFileStorage(testDataDir)
+	store, err := storage.New(testDataDir)
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 
 	return store, testDataDir
 }

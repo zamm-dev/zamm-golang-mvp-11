@@ -19,18 +19,18 @@ type FileStorage struct {
 	baseDir string
 }
 
-// NewFileStorage creates a new file-based storage instance
-func NewFileStorage(baseDir string) *FileStorage {
+// New creates a new file-based storage instance
+func New(baseDir string) (*FileStorage, error) {
 	fs := &FileStorage{
 		baseDir: baseDir,
 	}
 
 	if _, err := os.Stat(fs.nodesDir()); errors.Is(err, os.ErrNotExist) {
-		if err := fs.InitializeStorage(); err != nil {
-			return nil
+		if err := fs.initialize(); err != nil {
+			return nil, err
 		}
 	}
-	return fs
+	return fs, nil
 }
 
 // BaseDir returns the base directory path
@@ -42,8 +42,8 @@ func (fs *FileStorage) nodesDir() string {
 	return filepath.Join(fs.baseDir, "nodes")
 }
 
-// InitializeStorage creates the necessary directory structure
-func (fs *FileStorage) InitializeStorage() error {
+// initialize creates the necessary directory structure
+func (fs *FileStorage) initialize() error {
 	dirs := []string{
 		fs.baseDir,
 		fs.nodesDir(),

@@ -10,7 +10,10 @@ import (
 
 func TestGenerateMarkdownStringWithoutChildren(t *testing.T) {
 	testDataPath := filepath.Join("..", "cli", "interactive", "common", "testdata")
-	fs := NewFileStorage(filepath.Join(testDataPath, ".zamm"))
+	fs, err := New(filepath.Join(testDataPath, ".zamm"))
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 
 	node := models.NewSpecWithID("test-spec-id", "Test Specification", "This is a test specification content.")
 
@@ -54,7 +57,10 @@ func TestGenerateMarkdownStringWithoutChildren(t *testing.T) {
 
 func TestGenerateMarkdownStringWithChildren(t *testing.T) {
 	testDataPath := filepath.Join("..", "cli", "interactive", "common", "testdata")
-	fs := NewFileStorage(filepath.Join(testDataPath, ".zamm"))
+	fs, err := New(filepath.Join(testDataPath, ".zamm"))
+	if err != nil {
+		t.Fatalf("failed to create file storage: %v", err)
+	}
 
 	parentNode := models.NewSpecWithID("parent-spec-id", "Parent Specification", "This is the parent specification content.")
 
