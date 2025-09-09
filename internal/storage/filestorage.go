@@ -229,23 +229,7 @@ func (fs *FileStorage) ReadNode(id string) (models.Node, error) {
 }
 
 func (fs *FileStorage) WriteNode(node models.Node) error {
-	path, exists := fs.getNodeFilePathIfExists(node.ID())
-	if !exists {
-		path = fs.defaultNodeFilePath(node.ID())
-
-		projectRoot := filepath.Dir(fs.baseDir)
-		relPath, err := filepath.Rel(projectRoot, path)
-		if err != nil {
-			return err
-		}
-
-		err = fs.UpdateNodeFilePath(node.ID(), relPath)
-		if err != nil {
-			return err
-		}
-	}
-
-	return fs.writeMarkdownFile(path, node)
+	return fs.WriteNodeWithExtraData(node, "")
 }
 
 // SpecCommitLink operations
@@ -786,15 +770,6 @@ func (fs *FileStorage) generateChildrenString(v interface{}, children models.Chi
 	children.Render(renderer)
 
 	return childrenSection.String(), nil
-}
-
-// writeMarkdownFile writes markdown data with YAML frontmatter to a file
-func (fs *FileStorage) writeMarkdownFile(path string, v interface{}) error {
-	content, err := fs.generateMarkdownString(v)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // writeMarkdownFileWithChildren writes markdown data with YAML frontmatter and optional child links
