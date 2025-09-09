@@ -892,6 +892,23 @@ func (fs *FileStorage) UpdateNodeFilePath(nodeID, newPath string) error {
 	return fs.writeNodeFileLinks(nodeFiles)
 }
 
+// MoveNodeFile moves a node's file from its current location to a new path
+func (fs *FileStorage) MoveNodeFile(node models.Node, newPath string) error {
+	currentPath := fs.GetNodeFilePath(node.ID())
+
+	fullNewPath := filepath.Join(filepath.Dir(fs.baseDir), newPath)
+
+	if err := os.MkdirAll(filepath.Dir(fullNewPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := os.Rename(currentPath, fullNewPath); err != nil {
+		return fmt.Errorf("failed to move file: %w", err)
+	}
+
+	return fs.UpdateNodeFilePath(node.ID(), newPath)
+}
+
 type markdownChildrenRenderer struct {
 	sb                *strings.Builder
 	nodePathRetriever func(nodeID string) string

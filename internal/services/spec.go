@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -653,19 +652,7 @@ func (s *specService) moveNodeToPath(node models.Node, newPath string) error {
 		return fmt.Errorf("storage is not FileStorage type")
 	}
 
-	currentPath := fileStorage.GetNodeFilePath(node.ID())
-
-	fullNewPath := filepath.Join(filepath.Dir(fileStorage.BaseDir()), newPath)
-
-	if err := os.MkdirAll(filepath.Dir(fullNewPath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	if err := os.Rename(currentPath, fullNewPath); err != nil {
-		return fmt.Errorf("failed to move file: %w", err)
-	}
-
-	return fileStorage.UpdateNodeFilePath(node.ID(), newPath)
+	return fileStorage.MoveNodeFile(node, newPath)
 }
 
 func (s *specService) IsRootNode(node models.Node) bool {
