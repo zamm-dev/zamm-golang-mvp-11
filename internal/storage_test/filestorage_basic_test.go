@@ -99,12 +99,70 @@ func GenericStorage_TestDeleteNode(t *testing.T, storage Storage, node models.No
 	assert.Error(t, err)
 }
 
+func GenericStorage_TestReadWriteProject(t *testing.T, storage Storage, node *models.Project) {
+	// test generic node operations on project node
+	GenericStorage_TestCreateNode(t, storage, node)
+
+	// test project-specific fields
+	readNode, err := storage.ReadNode(node.ID())
+	assert.NoError(t, err)
+	assert.Equal(t, readNode.Type(), "project")
+	_, ok := readNode.(*models.Project)
+	assert.True(t, ok)
+}
+
+func GenericStorage_TestReadWriteImplementation(t *testing.T, storage Storage, node *models.Implementation) {
+	repoUrl := "http://github.com/example/repo"
+	branch := "main"
+	folderPath := "/path/to/project"
+	node.RepoURL = &repoUrl
+	node.Branch = &branch
+	node.FolderPath = &folderPath
+
+	// test generic node operations on implementation node
+	GenericStorage_TestCreateNode(t, storage, node)
+
+	// test implementation-specific fields
+	readNode, err := storage.ReadNode(node.ID())
+	assert.NoError(t, err)
+	assert.Equal(t, readNode.Type(), "implementation")
+	readImpl, ok := readNode.(*models.Implementation)
+	assert.True(t, ok)
+	assert.Equal(t, *readImpl.RepoURL, repoUrl)
+	assert.Equal(t, *readImpl.Branch, branch)
+	assert.Equal(t, *readImpl.FolderPath, folderPath)
+}
+
 func TestFileStorage_CreateNode(t *testing.T) {
 	tempDir := t.TempDir()
 	storage := storage.NewFileStorage(tempDir)
 
 	node := models.NewSpec("Test Spec", "This should be overwritten.")
 	GenericStorage_TestCreateNode(t, storage, node)
+
+	// check that actual file exists
+	_, err := os.Stat(storage.GetNodeFilePath(node.ID()))
+	assert.NoError(t, err)
+}
+
+func TestFileStorage_ReadWriteProjectNode(t *testing.T) {
+	tempDir := t.TempDir()
+	storage := storage.NewFileStorage(tempDir)
+
+	node := models.NewProject("Test Project", "This should be overwritten.")
+	GenericStorage_TestReadWriteProject(t, storage, node)
+
+	// check that actual file exists
+	_, err := os.Stat(storage.GetNodeFilePath(node.ID()))
+	assert.NoError(t, err)
+}
+
+func TestFileStorage_ReadWriteImplementationNode(t *testing.T) {
+	tempDir := t.TempDir()
+	storage := storage.NewFileStorage(tempDir)
+
+	node := models.NewImplementation("Test Implementation", "This should be overwritten.")
+	GenericStorage_TestReadWriteImplementation(t, storage, node)
 
 	// check that actual file exists
 	_, err := os.Stat(storage.GetNodeFilePath(node.ID()))

@@ -103,36 +103,91 @@ func (fs *FileStorage) createEmptyFile(path, filename string) error {
 func (fs *FileStorage) GetNode(id string) (models.Node, error) {
 	path := fs.GetNodeFilePath(id)
 
-	// First read as NodeBase to determine the type
-	var nodeBase models.NodeBase
-	if err := fs.readMarkdownFile(path, &nodeBase); err != nil {
+	// Read file once and parse into a generic map structure
+	data, err := os.ReadFile(path)
+	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, models.NewZammError(models.ErrTypeNotFound, "node not found")
 		}
 		return nil, err
 	}
 
+	content := string(data)
+
+	if !strings.HasPrefix(content, "---\n") {
+		return nil, fmt.Errorf("invalid markdown format: missing frontmatter")
+	}
+
+	parts := strings.SplitN(content[4:], "\n---\n", 2)
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("invalid markdown format: malformed frontmatter")
+	}
+
+	yamlContent := parts[0]
+	markdownContent := strings.TrimSpace(parts[1])
+
+	// Remove content after the last horizontal divider (child links section)
+	if lastDividerIndex := strings.LastIndex(markdownContent, "\n---\n"); lastDividerIndex != -1 {
+		markdownContent = strings.TrimSpace(markdownContent[:lastDividerIndex])
+	}
+
+	var frontmatter map[string]interface{}
+	if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML frontmatter: %w", err)
+	}
+
+	// Extract title from level 1 heading if present
+	if strings.HasPrefix(markdownContent, "# ") {
+		lines := strings.SplitN(markdownContent, "\n", 2)
+		title := strings.TrimPrefix(lines[0], "# ")
+		frontmatter["title"] = title
+
+		// Remove title heading from content
+		if len(lines) > 1 {
+			markdownContent = strings.TrimSpace(lines[1])
+		} else {
+			markdownContent = ""
+		}
+	}
+
+	frontmatter["content"] = markdownContent
+
+	// Get the type to determine which struct to unmarshal into
+	nodeType, ok := frontmatter["type"].(string)
+	if !ok {
+		nodeType = ""
+	}
+
+	jsonData, err := json.Marshal(frontmatter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal frontmatter: %w", err)
+	}
+
 	// Based on the type, create the appropriate node
-	switch nodeBase.Type() {
+	switch nodeType {
 	case "specification":
 		var spec models.Spec
-		if err := fs.readMarkdownFile(path, &spec); err != nil {
+		if err := json.Unmarshal(jsonData, &spec); err != nil {
 			return nil, err
 		}
 		return &spec, nil
 	case "project":
 		var project models.Project
-		if err := fs.readMarkdownFile(path, &project); err != nil {
+		if err := json.Unmarshal(jsonData, &project); err != nil {
 			return nil, err
 		}
 		return &project, nil
 	case "implementation":
 		var implementation models.Implementation
-		if err := fs.readMarkdownFile(path, &implementation); err != nil {
+		if err := json.Unmarshal(jsonData, &implementation); err != nil {
 			return nil, err
 		}
 		return &implementation, nil
 	default:
+		var nodeBase models.NodeBase
+		if err := json.Unmarshal(jsonData, &nodeBase); err != nil {
+			return nil, err
+		}
 		return &nodeBase, nil
 	}
 }
@@ -634,61 +689,6 @@ func (fs *FileStorage) writeSpecSpecLinks(links []*models.SpecSpecLink) error {
 }
 
 // File I/O helpers
-
-// readMarkdownFile reads markdown data with YAML frontmatter from a file
-func (fs *FileStorage) readMarkdownFile(path string, v interface{}) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	content := string(data)
-
-	if !strings.HasPrefix(content, "---\n") {
-		return fmt.Errorf("invalid markdown format: missing frontmatter")
-	}
-
-	parts := strings.SplitN(content[4:], "\n---\n", 2)
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid markdown format: malformed frontmatter")
-	}
-
-	yamlContent := parts[0]
-	markdownContent := strings.TrimSpace(parts[1])
-
-	// Remove content after the last horizontal divider (child links section)
-	if lastDividerIndex := strings.LastIndex(markdownContent, "\n---\n"); lastDividerIndex != -1 {
-		markdownContent = strings.TrimSpace(markdownContent[:lastDividerIndex])
-	}
-
-	var frontmatter map[string]interface{}
-	if err := yaml.Unmarshal([]byte(yamlContent), &frontmatter); err != nil {
-		return fmt.Errorf("failed to parse YAML frontmatter: %w", err)
-	}
-
-	// Extract title from level 1 heading if present
-	if strings.HasPrefix(markdownContent, "# ") {
-		lines := strings.SplitN(markdownContent, "\n", 2)
-		title := strings.TrimPrefix(lines[0], "# ")
-		frontmatter["title"] = title
-
-		// Remove title heading from content
-		if len(lines) > 1 {
-			markdownContent = strings.TrimSpace(lines[1])
-		} else {
-			markdownContent = ""
-		}
-	}
-
-	frontmatter["content"] = markdownContent
-
-	jsonData, err := json.Marshal(frontmatter)
-	if err != nil {
-		return fmt.Errorf("failed to marshal frontmatter: %w", err)
-	}
-
-	return json.Unmarshal(jsonData, v)
-}
 
 // generateMarkdownString generates markdown content with YAML frontmatter
 func (fs *FileStorage) generateMarkdownString(v interface{}) (string, error) {
