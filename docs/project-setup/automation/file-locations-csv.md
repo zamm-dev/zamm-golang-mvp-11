@@ -1,0 +1,9 @@
+---
+id: a9bdd6a2-f66e-4e8d-bc5f-8432b38f140b
+slug: file-locations-csv
+type: specification
+---
+
+# Always grab file locations using `node-files.csv`
+
+This is possible by using `fs.GetNodeFilePath`

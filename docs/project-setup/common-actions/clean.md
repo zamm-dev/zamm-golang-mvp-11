@@ -1,0 +1,13 @@
+---
+id: 959f6d69-87a1-4723-b966-f8c7440b51fb
+slug: clean
+type: specification
+---
+
+# Clean
+
+When we clean the project, we want to delete all of the following things:
+
+- Compiled binaries
+- Test coverage reports
+- Test caches

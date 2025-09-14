@@ -1,0 +1,9 @@
+---
+id: 845504b7-eb55-4207-af8f-a27ba79a5906
+slug: spec-list-full-ids
+type: specification
+---
+
+# The spec list command should show full IDs
+
+This allows for copy-pasting IDs in the terminal

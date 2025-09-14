@@ -1,0 +1,9 @@
+---
+id: eab3ab38-61a5-4ccb-806c-a9e94b8233c4
+slug: compile-after-coding
+type: specification
+---
+
+# Compile after coding
+
+The AI agent should always compile via the `make` command after it believes it's completed a coding task.

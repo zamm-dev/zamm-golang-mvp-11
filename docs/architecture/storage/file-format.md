@@ -1,0 +1,20 @@
+---
+id: a7e6b4b0-3b24-49ec-9528-02655430c7a7
+slug: file-format
+type: specification
+---
+
+# Node file format
+
+Each node will be stored as a Markdown file with:
+
+- The node title as the level 1 heading
+- The node description as the Markdown content
+- All other node metadata in the frontmatter
+
+If that node has any children, we should also append a horizontal divider line and then a list of links to each of its child specs within the repo. When reading node data from its Markdown file, we should ignore the last divider line and all content after it.
+
+If there are no children, this extra divider should be omitted.
+
+> [!NOTE]
+> The links to the child markdown files should be paths relative to the current file, not the project root. Making it relative to project root (e.g. by prepending `/` in front of the path) will cause links to break on GitHub Pages.

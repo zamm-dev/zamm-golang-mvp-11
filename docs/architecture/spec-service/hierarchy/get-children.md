@@ -1,0 +1,11 @@
+---
+id: 35fa9a2e-3eed-476d-96c6-e336c4194321
+slug: get-children
+type: specification
+---
+
+# `GetChildren`
+
+This function should retrieve the children of a node.
+
+(Historically, this also retrieved top-level nodes. With the addition of a root node, the function has become a lot simpler.)

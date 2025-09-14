@@ -1,0 +1,9 @@
+---
+id: 6151a218-703f-4647-b645-80d5bea5999a
+slug: testing
+type: specification
+---
+
+# Testing
+
+The MCP server should be fully tested with checks for 1) verbatim string output and 2) correct edits applied to a copied version of the testdata data repo

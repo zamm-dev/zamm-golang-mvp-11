@@ -1,0 +1,9 @@
+---
+id: 78137198-f761-4612-b7af-5b80cb85672f
+slug: verbosity
+type: specification
+---
+
+# Test running command should not have verbose output by default
+
+Otherwise, it's hard to tell exactly which tests are failing

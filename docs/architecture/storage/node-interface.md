@@ -1,0 +1,9 @@
+---
+id: d277df26-4b7c-4e9e-a503-971d50f59c1d
+slug: node-interface
+type: specification
+---
+
+# Generic node operations should operate on base `Node` interface
+
+CRUD and list functions in the interface should use `Node`

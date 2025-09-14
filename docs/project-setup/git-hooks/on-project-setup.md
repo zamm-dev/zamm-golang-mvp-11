@@ -1,0 +1,9 @@
+---
+id: d6535e4f-96d6-4c78-af75-8f5f7e3e5117
+slug: on-project-setup
+type: specification
+---
+
+# On project setup
+
+Run `lefthook install` to install the Git hooks

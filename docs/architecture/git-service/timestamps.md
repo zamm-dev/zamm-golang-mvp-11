@@ -1,0 +1,9 @@
+---
+id: 0da8b730-7795-465c-8540-bf6f794dfdf8
+slug: timestamps
+type: specification
+---
+
+# Avoid storing timestamps
+
+Since the specs are being tracked by Git, do not store our own timestamps in the project

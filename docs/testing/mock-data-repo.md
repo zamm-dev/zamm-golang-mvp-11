@@ -1,0 +1,9 @@
+---
+id: 53cf01df-9c0b-4652-82a5-0404df54ccb8
+slug: mock-data-repo
+type: specification
+---
+
+# There should be a mock data repo for tests
+
+This would allow us to test by only mocking the data, instead of needing to mock the data layer logic as well

@@ -1,0 +1,12 @@
+---
+id: 4354cf18-c0b3-42a1-ab48-2079a6914f59
+slug: node-files-csv
+type: specification
+---
+
+# `node-files.csv`
+
+Because node documentation files can live anywhere in the project directory, we keep track of their current location with this CSV file. All node read operations should consult this file first for the location of the actual node documentation Markdown file.
+
+> [!IMPORTANT]
+> To maintain clear Git diffs, the contents of this file should be sorted before writing.

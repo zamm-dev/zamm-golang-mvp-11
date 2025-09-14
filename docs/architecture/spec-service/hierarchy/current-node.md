@@ -1,0 +1,9 @@
+---
+id: 90915905-b627-4fa9-a7f5-f294047bd57f
+slug: current-node
+type: specification
+---
+
+# Spec list view should show only the current node
+
+The default "root" node would be the project. We only show top-level specs of the project by default.
